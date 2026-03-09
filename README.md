@@ -78,8 +78,8 @@ Mamla.AI is a comprehensive legal technology platform designed to bring legal se
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/adalatai.git
-   cd adalatai
+   git clone https://github.com/neveonai-sys/mamlaAI.git
+   cd mamlaAI
    ```
 
 2. **Set up backend**
@@ -132,7 +132,7 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 
 # Database
 MONGODB_URI=mongodb://localhost:27017/
-MONGODB_NAME=adalatai
+MONGODB_NAME=legaldb
 
 # Supabase
 SUPABASE_URL=your-supabase-url
@@ -160,7 +160,7 @@ API paths and auth are documented in **docs/04-api-reference.md**; the list ther
 ## Project Structure
 
 ```
-adalatai/
+mamlaAI/
 ├── Legalv1/                  # Django backend
 │   ├── users/               # User management
 │   ├── ai_draft/            # AI document generation
@@ -251,7 +251,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-For support or queries, please contact [Your Email] or open an issue in the repository.
+For support or queries, please contact neveon.ai@gmail.com or open an issue in the repository.
 
 ---
 
