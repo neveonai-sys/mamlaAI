@@ -1,0 +1,44 @@
+version: '3'
+
+services:
+  django-backend:
+    build:
+      context: ./Legalv1
+      dockerfile: Dockerfile
+    container_name: django-backend
+    # command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ../draftdocs:/app/draftdocs:rw
+    ports:
+      - "8000:8000"
+    command: python manage.py runserver 0.0.0.0:8000
+
+  react-frontend:
+    build:
+      context: ./frontend_webpack
+      dockerfile: Dockerfile
+    container_name: react-frontend
+    volumes:
+      - ./frontend_webpack:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=http://localhost:8000
+
+  
+volumes:
+  app:
+    # external: true
+
+  # redis:
+  #     image: redis
+  #     container_name: redis
+  #     ports:
+  #       - "6379:6379"
+
+  # mongodb:
+  #   image: mongo
+  #   container_name: mongodb
+  #   ports:
+  #     - "27017:27017"

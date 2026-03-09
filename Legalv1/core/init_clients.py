@@ -1,0 +1,202 @@
+from typing import Optional
+from django.apps import apps
+from core.apps import CoreConfig
+from supabase import Client as SupabaseClient
+from pymongo import MongoClient, IndexModel
+from pymongo.errors import ConnectionFailure
+from opensearchpy import OpenSearch, RequestsHttpConnection
+from django.core.cache import caches
+import logging
+import os
+from django.conf import settings
+logger = logging.getLogger('django')
+
+class DatabaseClients:
+    _instance = None
+    _mongo_client = None
+    _opensearch_client = None
+    _redis_cache = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(DatabaseClients, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized:
+            return
+            
+        self._initialized = True
+        self._mongo_client = None
+        self._opensearch_client = None
+        self._redis_cache = None
+
+    def init_clients(self):
+        """Initialize all database clients with connection pooling"""
+        self._init_mongo_client()
+        self._init_redis_cache()
+
+    def _init_mongo_client(self):
+        """Initialize MongoDB client with connection pooling"""
+        try:
+            mongo_uri = settings.MONGO_URI #os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+            self._mongo_client = MongoClient(
+                mongo_uri,
+                maxPoolSize=100,  # Maximum number of connections in the pool
+                minPoolSize=10,   # Minimum number of connections to maintain
+                maxIdleTimeMS=30000,  # Close idle connections after 30s
+                connectTimeoutMS=10000,  # Fail fast if can't connect
+                socketTimeoutMS=30000,    # Wait 30s for query responses
+                serverSelectionTimeoutMS=5000,  # Timeout for server selection
+                retryWrites=True,
+                retryReads=True
+            )
+            # Test the connection
+            self._mongo_client.admin.command('ping')
+            logger.info("MongoDB connection established successfully")
+        except ConnectionFailure as e:
+            logger.error(f"MongoDB connection failed: {e}")
+            raise
+
+    def _init_redis_cache(self):
+        """Initialize Redis cache client"""
+        try:
+            self._redis_cache = caches['default']
+            # Test the connection
+            self._redis_cache.set('connection_test', 'success', timeout=5)
+            if self._redis_cache.get('connection_test') != 'success':
+                raise ConnectionError("Redis cache test failed")
+            logger.info("Redis cache connection established successfully")
+        except Exception as e:
+            logger.error(f"Redis cache connection failed: {e}")
+            # Fall back to local memory cache if Redis is not available
+            self._redis_cache = caches['local']
+            logger.warning("Falling back to local memory cache")
+
+    @property
+    def mongo(self) -> MongoClient:
+        if not self._mongo_client:
+            self._init_mongo_client()
+        return self._mongo_client
+
+    @property
+    def cache(self):
+        if not self._redis_cache:
+            self._init_redis_cache()
+        return self._redis_cache
+
+# Initialize the singleton instance
+db_clients = DatabaseClients()
+
+def get_supabase_client() -> SupabaseClient:
+    """Get Supabase client with connection pooling"""
+    core_config: CoreConfig = apps.get_app_config('core')
+    return core_config.supabase
+
+def get_mongo_client() -> MongoClient:
+    """Get MongoDB client with connection pooling"""
+    return db_clients.mongo
+
+def ensure_indexes():
+    """Create necessary database indexes"""
+    try:
+        db = db_clients.mongo['legaldb']
+        
+        # List of supported languages
+        SUPPORTED_LANGUAGES = {
+            'English': 'en',
+            'Hindi': 'hi',
+            'Bengali': 'bn',
+            'Telugu': 'te',
+            'Marathi': 'mr',
+            'Tamil': 'ta',
+            'Urdu': 'ur',
+            'Gujarati': 'gu',
+            'Kannada': 'kn',
+            'Malayalam': 'ml',
+            'Odia': 'or',
+            'Punjabi': 'pa',
+            'Assamese': 'as'
+        }
+
+        # def normalize_language(lang):
+        #     """Convert language name to ISO code and handle case variations"""
+        #     lang = lang.lower()
+        #     for full_name, iso_code in SUPPORTED_LANGUAGES.items():
+        #         if lang == full_name.lower() or lang == iso_code.lower():
+        #             return iso_code
+        #     return 'en'  # Default to English if language not found
+
+        # User details indexes
+        user_details = db.user_details
+        existing_user_indexes = user_details.index_information()
+        if "user_id" not in existing_user_indexes:
+            user_details.create_index([("user_id", 1)])
+        if "email" not in existing_user_indexes:
+            user_details.create_index([("email", 1)])
+        if "phone" not in existing_user_indexes:
+            user_details.create_index([("phone", 1)])
+        if "created_at" not in existing_user_indexes:
+            user_details.create_index([("created_at", -1)])
+        
+        # Draft content indexes
+        draft_content = db.draft_content_data
+        existing_draft_indexes = draft_content.index_information()
+        if "draft_type" not in existing_draft_indexes:
+            draft_content.create_index([("draft_type", 1), ("filename", 1)])
+        
+        # Update existing documents with unsupported language values
+        # for lang in SUPPORTED_LANGUAGES.values():
+        #     draft_content.update_many(
+        #         {"language": {"$in": [lang, lang.upper(), lang.lower()]}},
+        #         {"$set": {"language": lang}}
+        #     )
+        
+        # if "keywords_text_index" not in existing_draft_indexes:
+        #     # Create text index with language support
+        #     draft_content.create_index([
+        #         ("keywords", "text")
+        #     ], name="keywords_text_index", default_language="en")
+        
+        if "created_at" not in existing_draft_indexes:
+            draft_content.create_index([("created_at", -1)])
+        
+        # AI drafts indexes
+        aidrafts = db.aidrafts_complete_data
+        existing_aidrafts_indexes = aidrafts.index_information()
+        
+        # Update existing documents with unsupported language values
+        # for lang in SUPPORTED_LANGUAGES.values():
+        #     aidrafts.update_many(
+        #         {"language": {"$in": [lang, lang.upper(), lang.lower()]}},
+        #         {"$set": {"language": lang}}
+        #     )
+        
+        if "user_id" not in existing_aidrafts_indexes:
+            aidrafts.create_index([("user_id", 1)])
+        if "session_id" not in existing_aidrafts_indexes:
+            aidrafts.create_index([("session_id", 1)])
+        if "created_at" not in existing_aidrafts_indexes:
+            aidrafts.create_index([("created_at", -1)])
+        
+        if "draft_name_text_index" not in existing_aidrafts_indexes:
+            # Create text index with language support
+            aidrafts.create_index([
+                ("draft_name", "text")
+            ], name="draft_name_text_index")
+        
+        logger.info("Database indexes created/verified successfully")
+    except Exception as e:
+        logger.error(f"Error creating database indexes: {e}")
+        logger.error(f"Error details: {str(e)}")
+        raise
+
+# Initialize clients when module is imported
+try:
+    db_clients.init_clients()
+    # ensure_indexes()
+except Exception as e:
+    logger.error(f"Failed to initialize database clients: {e}", exc_info=True)
+    logger.error(f"Error details: {str(e)}")
+    raise

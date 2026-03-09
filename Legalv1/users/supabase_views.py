@@ -1,0 +1,649 @@
+import json
+import logging
+import datetime
+import traceback
+from user_agents import parse
+from django.middleware import csrf
+from django.http import JsonResponse
+from django_ratelimit.decorators import ratelimit
+from supabase_required import supabase_required
+from users.routes.session_manager import SessionManager
+# from supabase_required import supabase_required
+from rest_framework.decorators import api_view
+from users.supabase_admin import admin_update_password
+from users.routes.usermetadata import Handleusermetadata
+from core.email_templates import EmailTemplates
+
+logger = logging.getLogger('django')
+
+
+@api_view(['GET'])
+@supabase_required
+def check_auth(request):
+    """
+    Verify JWT access token and return authentication status with user and session details.
+    """
+    try:
+        supabase_user = request.supabase_user
+        # logger.info(f"Checking authentication for user_id: -------->>>>> {supabase_user}")
+        user_id = supabase_user.get("user_id")
+        # obj = Handleusermetadata()
+        # user = obj.check_user_exists(user_id)
+        if user_id:
+            session_manager = SessionManager()
+            sessions = session_manager.get_sessions(user_id)
+            current_token = request.COOKIES.get('access_token')
+            session_info = []
+            for session in sessions:
+                try:
+                    login_time = session.get('login_time')
+                    last_activity = session.get('last_activity')
+                    if not login_time or not last_activity:
+                        logger.warning(f"Session missing 'created_at' or 'last_activity': {session}")
+                        continue  # Skip sessions without necessary fields
+
+                    is_current = session['access_token'] == current_token
+
+                    session_info.append({
+                        'session_id': session['session_id'],
+                        'ip_address': session['ip_address'],
+                        'location': session['location'],
+                        'device_type': session['device_type'],
+                        'login_time': login_time.strftime('%Y-%m-%d %H:%M:%S'),
+                        'last_activity': last_activity.strftime('%Y-%m-%d %H:%M:%S'),
+                        'is_current': is_current
+                    })
+                except AttributeError as attr_err:
+                    logger.error(f"AttributeError while processing session: {traceback.format_exc()}")
+                    continue  # Skip this session and proceed with others
+                except Exception as e:
+                    logger.error(f"Unexpected error while processing session: {traceback.format_exc()}")
+                    continue  # Skip this session and proceed with others
+
+            return JsonResponse({
+                'isAuthenticated': True,
+                'firstname': supabase_user.get('fname'),
+                'lastname': supabase_user.get('lname'),
+                'email_id': supabase_user.get('email'),
+                'user_type': supabase_user.get('user_type'),
+                'sessions': session_info
+            })
+        raise
+    except Exception as err:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error message': str(err)}, status=500)
+
+@api_view(['POST'])
+@ratelimit(key='user', rate='5/m', block=True)
+def onboarding_new_user(request):
+    """
+    POST /api/onboard
+    Body: { "username": "...", "user_type": "Lawyer", "supabase_id": "...", ...}
+    Called after supabase signUp from front-end to store domain data in your local DB.
+    """
+    try:
+        req_body = json.loads(request.body.decode("utf-8"))
+        logger.info(f"onboarding_new_user ------->>>> {req_body}")
+        phone_number = req_body.get('phonenumber')
+        fname = req_body.get('fname') or req_body.get('firstname')
+        lname = req_body.get('lname') or req_body.get('lastname')
+        email = req_body.get('email')
+        password = req_body.get('password')
+        user_type = req_body.get("user_type")
+        barcode_id = req_body.get('barcode_id', '')
+        case_ids = req_body.get('case_ids', [])
+        if isinstance(case_ids, str):
+            case_ids = case_ids.split(',')
+
+        state = req_body.get('state', '')
+        district = req_body.get('district', '')
+        courts = req_body.get('courts', [])
+        if isinstance(courts, str):
+            courts = [courts]
+
+        whatsapp_opt_in = req_body.get('whatsappOptIn', False)
+        agreed_tnc = req_body.get('agreedTnC', False)
+        obj = Handleusermetadata()
+        chk = obj.create_newuser_and_insert_metadata(phone_number=phone_number, fname=fname, lname=lname, email=email, password=password, user_type=user_type, whatsappOptIn=whatsapp_opt_in, agreedTnC=agreed_tnc, user_status="A", barcode_id=barcode_id, case_ids=case_ids, state=state, district=district, courts=courts)
+        if chk:
+            return JsonResponse({"message": "Onboarded successfully."}, status=200)
+        return JsonResponse({"message": "Onboarding Failed."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+@api_view(['POST'])
+def supabase_login(request):
+    """
+    POST /supabase/login/
+    {
+      "username_or_email": "...",
+      "password": "..."
+    }
+    Returns {
+      "access_token": "...",
+      "refresh_token": "...",
+      "user": {... user info ...}
+    }
+    """
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        email = data.get("email")
+        password = data.get("password")
+
+        device_type_os = data.get('device_type')
+
+        obj = Handleusermetadata()
+        result = obj.sign_in_supabase(email, password)
+        # logger.info(f"supabase_login ------>>>> {result}")
+        if not result:
+            return JsonResponse({"error": "Invalid credentials/User Not Found"}, status=401)
+
+        access_token = result.get("access_token")
+        refresh_token = result.get("refresh_token")
+        fname = result.get("fname")
+        lname = result.get("lname")
+        user_id = result.get("user_id")
+        user_type = result.get("user_type")
+        email_id = result.get("email_id")
+
+        # Manage sessions
+        session_manager = SessionManager()
+
+        # Capture IP address and User-Agent
+        ip_address = session_manager.get_client_ip(request)
+        user_agent_string = request.META.get('HTTP_USER_AGENT', '')
+        user_agent = parse(user_agent_string)
+        device_type = f"{session_manager.get_device_type(user_agent)}-{device_type_os}"
+
+        # Get location from IP address (using a geo-IP service)
+        location = session_manager.get_location_from_ip(ip_address) or 'N/A'
+        
+        # Invalidate existing sessions if you want only one active session per user
+        # session_manager.invalidate_sessions(user_id)
+
+        # Create new session with encrypted IP and location
+        #user_id, access_token, refresh_token, ip_address, location, device_type
+        session_manager.create_session(user_id, access_token, refresh_token, ip_address, location, device_type)
+
+        logger.info(f"User logged in: {fname}, Device: {device_type}, IP: {ip_address}, Location: {location}")
+
+        response = JsonResponse({
+            'redirect': 'home',
+            'email': email_id,
+            'firstname': fname,
+            'lastname': lname,
+            'user_type': user_type,
+        })
+
+        # Set the access token in an HttpOnly, Secure cookie
+        response.set_cookie(
+            key='access_token',
+            value=access_token,
+            httponly=True,
+            secure=True,  # Ensure HTTPS is used in production
+            samesite='Lax',
+            max_age=86400  # 7 day in seconds
+        )
+
+        # Set the refresh token in an HttpOnly, Secure cookie
+        response.set_cookie(
+            key='refresh_token',
+            value=refresh_token,
+            httponly=True,
+            secure=True,  # Ensure HTTPS is used in production
+            samesite='Lax',
+            max_age=604800  # 7 days in seconds
+        )
+
+        # Set CSRF token
+        csrf_token = csrf.get_token(request)
+        response.set_cookie('csrftoken', csrf_token, httponly=False, secure=True, samesite='Lax')
+        # logger.info(f" resposne ------------ for ----------- login ----- ======= >>> {response}")
+        return response
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=401)
+
+@api_view(['POST'])
+def reset_password(request):
+    """
+    POST 
+    Body: { "new_password": """
+    data = json.loads(request.body.decode("utf-8"))
+    # logger.info(f"reset_password ==>>>> data === {data}")
+    new_password = data.get("new_password")
+    recovery_access_token = data.get("recovery_access_token") 
+    obj = Handleusermetadata()
+    # chk = obj.reset_password(passwd, recovery_access_token)
+    if not recovery_access_token or not new_password:
+            return JsonResponse({"message": "Missing fields"}, status=400)
+
+    # 1) Decode & verify the token
+    payload = obj.decode_supabase_jwt(recovery_access_token)
+    user_id = payload.get("sub")
+    if not user_id:
+        return JsonResponse({"message": "Invalid token payload (no sub)"}, status=400)
+
+    # 2) Update the password as an admin
+    result = admin_update_password(user_id, new_password)
+    # 'result' should contain info about the updated user or an error
+
+    if result.user:  # check if user object is returned
+        return JsonResponse({"success": True}, status=200)
+    else:
+        # Possibly check result.error, etc.
+        return JsonResponse({
+            "success": False,
+            "message": "Failed to update user password"
+        }, status=400)
+
+@api_view(['POST'])
+def send_reset_password_link(request):
+    data = json.loads(request.body.decode("utf-8"))
+    logger.info(f"send_reset_password_link ==>>>> data === {data}")
+    email_id = data.get("email_id")
+    obj = Handleusermetadata()
+    chk = obj.generate_password_reset_link(email_id)
+    if chk:
+        return JsonResponse({"success": True}, status=200)
+    return JsonResponse({"message": "Error resetting password."}, status=400)
+
+
+@api_view(['POST'])
+@supabase_required
+def sign_out_supabase(request):
+    """
+    BODY: { "scope": "local"} [default: global], all session of the user will be deleted
+    """
+    try:
+        access_token = request.COOKIES.get('access_token')
+
+        data = json.loads(request.body.decode("utf-8"))
+        scope = data.get("scope", "global")
+        obj = Handleusermetadata()
+        obj.sign_out_supabase(scope)
+        
+        if not access_token:
+            return JsonResponse({'error_message': 'Access token is missing.'}, status=400)
+        
+        session_manager = SessionManager()
+        session_manager.invalidate_session(access_token)
+        
+        response = JsonResponse({"message": "Successfully logged out."})
+        response.delete_cookie('access_token')
+        response.delete_cookie('refresh_token')
+        response.delete_cookie('csrftoken')
+        return JsonResponse({"message": "Logged out successfully."}, status=200)
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"error": "Error in signout handling"}, status=400)
+
+
+@api_view(['POST'])
+@supabase_required
+def invalidate_session(request):
+    """
+    Invalidate a specific session by session_id.
+    """
+    try:
+        supa_user = request.supabase_user
+        user_id = supa_user.get('user_id')
+        session_id = request.data.get('session_id')
+        if not session_id:
+            return JsonResponse({'error_message': 'Session ID is required.'}, status=400)
+        
+        session_manager = SessionManager()
+        res = session_manager.invalidate_session_by_session_id(session_id, user_id)
+        
+        if 'error' not in res:
+            return JsonResponse(res, status=200)
+        else:
+            return JsonResponse(res, status=400)
+    except Exception as e:
+        logger.error(f"Error invalidating session: {traceback.format_exc()}")
+        return JsonResponse({'error_message': 'An unexpected error occurred.'}, status=500)
+
+
+@api_view(['POST'])
+def check_username(request):
+    """
+    POST /api/auth/check-username
+    Body: { "username": "msaha6" }
+    Checks if there's a user in supabase.auth.users with user_metadata.username=msaha6
+    Returns { found: true/false, email: "...", phone: "..." } if you want to reveal that
+    """
+    try:
+        body = json.loads(request.body.decode("utf-8"))
+        username = body.get("username")
+        if not username:
+            return JsonResponse({"found": False, "error": "No username provided"}, status=400)
+
+        ## not created yet
+        obj = Handleusermetadata()
+        user_obj = obj.find_user_by_username(username)
+        logger.info(f"User found by username: {user_obj}")
+        if not user_obj:
+            return JsonResponse({"found": False}, status=200)
+
+        # Optionally, return the user's email or phone if you want front-end to handle OTP
+        # For example:
+        user_email = user_obj.get("email", "")
+        user_phone = user_obj.get("phone", "")
+        return JsonResponse({"found": True, "email": user_email, "phone": user_phone}, status=200)
+    except Exception as err:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"found": False}, status=500)
+
+    
+@supabase_required
+def get_profile(request):
+    """
+    GET /api/users/get-profile
+    Must pass Bearer <access_token>. 
+    We link supabase_user by user_metadata.username or supabase_id to domain data.
+    """
+    from users.models import user_collection
+    supa_user = request.supabase_user
+    user_meta = supa_user.get("user_metadata", {})
+    username = user_meta.get("username", "")
+    doc = user_collection.find_one({"username": username}) or {}
+    return JsonResponse({
+        "username": username,
+        "email": supa_user.get("email", ""),
+        "user_type": doc.get("user_type", "Client")
+        # etc.
+    }, status=200)
+
+
+@api_view(['POST'])
+def profile_update_of_client_onboarded_by_lawyer(request):
+    """
+    The main signup endpoint (no OTP).
+    If 'token' is present, treat it as a prefilled signup.
+    Otherwise standard signup.
+    """
+    try:
+        req_body = request.data
+        token = req_body.get('token')
+        phone_number = req_body.get('phonenumber')
+        fname = req_body.get('fname') or req_body.get('firstname')
+        lname = req_body.get('lname') or req_body.get('lastname')
+        email = req_body.get('email')
+        user_type = req_body.get('user_type')
+        password = req_body.get('password')
+        case_ids = req_body.get('case_ids', [])
+        if isinstance(case_ids, str):
+            case_ids = case_ids.split(',')
+
+        whatsapp_opt_in = req_body.get('whatsappOptIn')
+        agreed_tnc = req_body.get('agreedTnC')
+
+        obj = Handleusermetadata()
+
+        # If it's token-based (prefilled) signup
+        # if token:
+        user_id = obj.verify_signup_token(token)
+        if not user_id:
+            return JsonResponse({'status': 'fail', 'message': 'Invalid or expired signup token.'}, status=400)
+
+        existing_user = obj.check_user_exists("user_id", user_id)
+        if not existing_user:
+            return JsonResponse({'status': 'fail', 'message': 'User not found.'}, status=404)
+
+        if not password:
+            return JsonResponse({'status': 'fail', 'message': 'Password is required.'}, status=400)
+        
+        chk = obj.create_newuser_and_insert_metadata(phone_number=phone_number, fname=fname, lname=lname, email=email, password=password, user_type=user_type, whatsappOptIn=whatsapp_opt_in, agreedTnC=agreed_tnc, user_id=user_id, user_status="A", prefilled=True)
+
+        if chk:
+            return JsonResponse({"message": "Your signup is completed successfully, please verify from email link and whatsapp."}, status=200)
+        else:
+            raise Exception("Error in signup")
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'status': 'fail', 'message': "error in signup"}, status=500)
+
+
+@api_view(['POST'])
+def get_prefilled_data(request):
+    """
+    Endpoint to fetch prefilled data based on signup token.
+    """
+    try:
+        req_body = request.data
+        token = req_body.get('token')
+
+        if not token:
+            return JsonResponse({'message': 'Token is required.'}, status=400)
+        obj = Handleusermetadata()
+        user_id = obj.verify_signup_token(token)
+        if not user_id:
+            return JsonResponse({'message': 'Invalid or expired token.'}, status=400)
+        
+        user = obj.check_user_exists("user_id", user_id)
+        if not user:
+            return JsonResponse({'message': 'User not found.'}, status=404)
+        
+        prefilled_data = {
+            "fname": user.get('fname'),
+            "lname": user.get('lname'),
+            "phonenumber": user.get('phone_number'),
+            "email": user.get('email_id'),
+            "user_type": user.get('user_type'),
+        }
+
+        return JsonResponse(prefilled_data, status=200)
+    except Exception as err:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'message': str(err)}, status=500)
+
+
+@api_view(['POST'])
+def check_existing_user(request):
+    """
+    Endpoint to check if a user exists based on phone number or email.
+    """
+    try:
+        req_body = request.data
+        phone_number = req_body.get('phonenumber')
+        email = req_body.get('email')
+        logger.info(f"check_existing_user ====>>>>> {req_body}")
+        if not (phone_number or email):
+            return JsonResponse({'message': 'Phone number and email are required.'}, status=400)
+
+        obj = Handleusermetadata()
+        #check_user_exists(self, key, val)
+        if phone_number:
+            user = obj.check_user_exists("phone", phone_number)
+        else:
+            user = obj.check_user_exists("email", email)
+        logger.info(f"check_existing_user ==   USER   ]]][[[[[ ==>>>>> {user}")
+        if user:
+            return JsonResponse({'exists': True}, status=200)
+        else:
+            return JsonResponse({'exists': False}, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@supabase_required
+def onboard_existing_client(request):
+    """
+    Endpoint to onboard an existing client by updating their details.
+    """
+    try:
+        supa_user = request.supabase_user
+        user_id = supa_user.get('user_id')
+        req_body = request.data
+        logger.info(f"onboard_existing_client ====>>>>> {req_body}")
+        client_phone_number = req_body.get('phonenumber')
+        client_email = req_body.get('email')
+        case_id = req_body.get('case_id')  # Optional
+
+        if not (client_phone_number or client_email):
+            return JsonResponse({'message': 'Phone number and email are required.'}, status=400)
+
+        obj = Handleusermetadata()
+        if client_phone_number:
+            client_user = obj.check_user_exists("phone", client_phone_number)
+        else:
+            client_user = obj.check_user_exists("email", client_email)
+
+        if not client_user:
+            return JsonResponse({'message': 'User does not exist.'}, status=404)
+            
+        client_user_id = client_user.get('user_id')
+        if case_id:
+            chk_client_entry_for_lawyer = obj.update_caseid_and_clientid(user_id, client_user_id, case_id)
+            chk_lawyer_entry_for_client = obj.update_caseid_and_lawyerid(client_user_id, user_id, case_id)
+        else:
+            chk_client_entry_for_lawyer = obj.update_caseid_and_clientid(user_id, client_user_id)
+            chk_lawyer_entry_for_client = obj.update_caseid_and_lawyerid(client_user_id, user_id)
+
+        return JsonResponse({'message': 'User onboarded successfully.'}, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=500)
+    
+
+@api_view(['POST'])
+@supabase_required  # Ensure only authenticated users can onboard clients
+def onboard_new_client(request):
+    """
+    Endpoint for Lawyers to onboard Clients.
+    """
+    try:
+        # Verify that the user is a Lawyer
+        supa_user = request.supabase_user
+        user_id = supa_user.get('user_id')
+        obj = Handleusermetadata()
+        user = obj.check_user_exists("user_id", user_id)
+        logger.info(f"onboard_new_client  == user ==>>>>> {user}")
+        if not user or user.get('user_type') != 'Lawyer':
+            return JsonResponse({'message': 'Unauthorized.'}, status=403)
+        
+        req_body = request.data
+        fname = req_body.get('fname')
+        lname = req_body.get('lname','')
+        phonenumber = req_body.get('phonenumber')
+        email = req_body.get('email','')
+        case_id = req_body.get('case_id', [])
+
+        # Basic validation
+        if not all([fname, phonenumber]):
+            return JsonResponse({'message': 'All required fields must be filled.'}, status=400)
+        
+        # Check if client already exists
+        existing_client = obj.check_user_exists("phone", phonenumber)
+        if existing_client:
+            return JsonResponse({'message': 'Client with this Email/PhoneNumber already exists.'}, status=400)
+        
+        signup_link = obj.create_client_by_lawyer(creator_id=user_id,fname=fname,lname=lname,user_type='Client',phonenumber=phonenumber,email=email,case_id=case_id)
+
+        return JsonResponse({'message': 'Client onboarded successfully.', 'signup_link': signup_link}, status=201)
+    
+    except Exception as err:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'message': "Error creating User"}, status=500)
+
+
+@api_view(['GET'])
+@supabase_required
+def filter_cases_clients_with_details(request):
+    """
+    GET API to filter case and client IDs based on userId and include client details.
+    
+    Query Parameters:
+        - userId: The ID of the user to filter data for.
+    
+    Returns:
+        JSON response with three sections:
+            1. caseIds_without_client
+            2. clientIds_without_case (with Fname, Lname, phone_number)
+            3. case_client_map (caseId mapped to client details)
+    """
+    supa_user = request.supabase_user
+    user_id = supa_user.get('user_id')
+    obj = Handleusermetadata()
+    cases_without_client, clients_without_case, case_client_map_with_details = obj.retrieve_clients_and_cases_for_lawyer(user_id)
+    
+    # Prepare the response
+    response = {
+        'caseIds_without_client': cases_without_client,
+        'clientIds_without_case': clients_without_case,
+        'case_client_map': case_client_map_with_details
+    }
+    
+    return JsonResponse(response)
+
+@api_view(['POST'])
+@supabase_required
+def submit_feedback(request):
+    """
+    Accepts POST requests with JSON payload containing:
+    {
+      "overallFeedback": <string>,
+      "overallRating": <number>,
+      "components": [
+         { "componentName": <string>, "feedback": <string>, "rating": <number> },
+         ...
+      ]
+    }
+    """
+    try:
+        supa_user = request.supabase_user
+        user_id = supa_user.get('user_id')
+        user_inputs = json.loads(request.body.decode('utf-8'))
+        
+        obj = Handleusermetadata()
+        chk = obj.get_feedback(user_id, user_inputs)
+        if chk:
+            return JsonResponse({"message": "Feedback submitted successfully"})
+        raise Exception("Feedback submission Fail")
+    except Exception as e:
+        logger.error("Error while inserting feedback:", e)
+        return JsonResponse({"message":"Invalid data format or server error."}, status=500)
+
+
+@api_view(['POST'])
+@supabase_required
+def add_case_client(request):
+    """
+    POST { case_id: '...', client_id: '...' }
+    Updates the lawyer<->client mapping in Mongo.
+    """
+    data = json.loads(request.body)
+    case_id   = data.get('case_id')
+    client_id = data.get('client_id')
+
+    logger.info(f"add_case_client ---> {data}")
+    # if not case_id or not client_id:
+    #     return JsonResponse({'error': 'case_id and client_id required'}, status=400)
+
+    supa_user  = request.supabase_user
+    lawyer_id  = supa_user.get('user_id')
+    obj = Handleusermetadata()
+
+    ok1 = obj.update_caseid_and_clientid(lawyer_id, client_id, case_id)
+    ok2 = obj.update_caseid_and_lawyerid(client_id, lawyer_id, case_id)
+
+    if ok1 and ok2:
+        return JsonResponse({'message': 'Client added to case successfully'})
+    else:
+        logger.error(f"Failed to add client {client_id} to case {case_id} for lawyer {lawyer_id}")
+        return JsonResponse({'error': 'Failed to update mapping'}, status=500)
+
+
+# @api_view(['GET'])
+# def list_feedback(request):
+#     """
+#     Returns a list of all feedback documents in JSON format.
+#     For demonstration or admin usage.
+#     """
+#     from users.models import feedback_collection
+#     feedback_list = list(feedback_collection.find({}))
+#     # Convert ObjectId to string
+#     for fb in feedback_list:
+#         fb['_id'] = str(fb['_id'])
+
+#     return JsonResponse(feedback_list, safe=False)

@@ -1,0 +1,22 @@
+/* Calendar.module.css */
+.event {
+    padding: 2px;
+    border-radius: 4px;
+    color: #fff !important;
+  }
+  
+.eventCaseDate {
+  background-color: #ffb74d !important;
+  border-color: #ffb74d !important;
+}
+
+.eventClientAppointment {
+  background-color: #4db6ac !important;
+  border-color: #4db6ac !important;
+}
+
+.eventCourtOfficerAppointment {
+  background-color: #9575cd !important;
+  border-color: #9575cd !important;
+}
+  

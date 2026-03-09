@@ -1,0 +1,57 @@
+---
+description: Read project docs before changing code so Cursor uses documented structure instead of reading every file
+alwaysApply: true
+---
+
+# Docs-first rule — Mamla.AI
+
+## Step 1 — Always start here (zero codebase reading required)
+
+Open **`docs/00-agent-quickref.md`** first. It is a single page containing:
+- Exact file paths for every backend app, view, URL config, and frontend component
+- MongoDB collection names
+- API URL prefixes
+- Auth rules and key conventions
+- Environment variables
+- Route table
+
+This one file replaces scanning 50+ source files. Read it, find where to go, open only that file.
+
+## Step 2 — Open the relevant detail doc only if you need more depth
+
+| Task | Detail doc |
+|------|-----------|
+| Backend (Django, APIs, auth, DB, Celery) | `docs/02-backend-legalv1.md` |
+| API endpoints and auth requirements | `docs/04-api-reference.md` |
+| eCourts scraper/API (court data) | `docs/06-ecourts-scraper.md` |
+| Frontend (React, routes, Redux, Axios) | `docs/03-frontend-webpack.md` |
+| Architecture overview | `docs/01-architecture-overview.md` |
+| What changed / what to do next | `docs/05-changelog-and-improvements.md` |
+
+## Step 3 — Make the change
+
+Use the exact paths from the docs. Do not guess file locations.
+
+## Step 4 — Update the docs (mandatory)
+
+After every change, update the relevant doc(s) in the same commit/response:
+
+| Change made | Update this |
+|-------------|------------|
+| New or changed API endpoint | `docs/04-api-reference.md` + URL table in `docs/02-backend-legalv1.md` |
+| New Django app | `docs/02-backend-legalv1.md` app table + `docs/01-architecture-overview.md` repo layout + `docs/00-agent-quickref.md` prefix table |
+| New frontend route or component | `docs/03-frontend-webpack.md` route table + `docs/00-agent-quickref.md` routes table |
+| New env var | `docs/02-backend-legalv1.md` env section + `docs/00-agent-quickref.md` env table |
+| Auth flow change | `docs/02-backend-legalv1.md` auth section + `docs/03-frontend-webpack.md` auth flow |
+| eCourts change | `docs/06-ecourts-scraper.md` |
+| Completed feature / bug fix | `docs/05-changelog-and-improvements.md` §2 "What Was Done" table |
+| Architecture refactor | `docs/01-architecture-overview.md` + `docs/05-changelog-and-improvements.md` |
+| Any path in quickref is wrong | `docs/00-agent-quickref.md` immediately |
+
+## Hard constraints (never violate)
+
+- ❌ Do NOT scan the codebase to find where something lives — use docs/00-agent-quickref.md.
+- ❌ Do NOT add a second auth system — Supabase only (`@supabase_required` decorator).
+- ❌ Do NOT use Django ORM models — apps use raw MongoDB via `core.init_clients.get_mongo_client()`.
+- ❌ Do NOT hardcode `mamla.ai` or `127.0.0.1:8000` — use `FRONTEND_URL` env (backend) and `AxiosInstance` (frontend).
+- ❌ Do NOT leave docs stale — update in the same response as the code change.

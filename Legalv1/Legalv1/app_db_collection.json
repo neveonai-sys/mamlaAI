@@ -1,0 +1,159 @@
+{
+  "USER1": 
+    {
+        "fname": "",
+        "lname" : "",
+        "email": "user@example.com",
+        "type": "Lawyer/Client",
+        "barcode_id": "",
+        "meetings":[
+            {
+                "CASE1_startdatetime":
+                    {
+                        "title": "",
+                        "party_b_email": "party_b_email",
+                        "meetingtype": "meetingtype",
+                        "meeting link": "meet_link",
+                        "date_time_from": "start_datetime",
+                        "date_time_to": "end_datetime",
+                        "status": "Y",
+                        "task_type": "task_type",
+                        "send_remainder": "send_reminder"
+                    },
+                "CASE2_startdatetime":
+                    {
+                        "title": "",
+                        "party_b_email": "party_b_email",
+                        "meetingtype": "meetingtype",
+                        "meeting link": "meet_link",
+                        "date_time_from": "start_datetime",
+                        "date_time_to": "end_datetime",
+                        "status": "Y",
+                        "task_type": "task_type",
+                        "send_remainder": "send_reminder"
+                    }
+
+            }
+        ],
+        "case_ids": [ 
+            {
+            "CASE1": 
+                    {
+                        "last_hearing" : "DD-MM-YYYY", 
+                        "court_name" : " ",
+                        "documents": [
+                            {
+                            "document_id": "DOCID1",
+                            "document_name": "Document1",
+                            "document_data": ""
+                            },
+                            {
+                            "document_id": "DOCID2",
+                            "document_name": "Document2",
+                            "document_data": ""
+                            }
+                        ],
+                        "case_staus":""
+                    },
+            "CASE2":
+                    {
+                        "last_hearing" : "DD-MM-YYYY", 
+                        "court_name" : " ",
+                        "documents": [
+                            {
+                            "document_id": "DOCID1",
+                            "document_name": "Document1",
+                            "document_data": ""
+                            },
+                            {
+                            "document_id": "DOCID2",
+                            "document_name": "Document2",
+                            "document_data": ""
+                            }
+                        ],
+                        "case_staus":""
+                    }
+            }
+        ], 
+        "user_status" : "Active/Non-Active"
+    },
+    "USER2": 
+    {
+        "fname": "",
+        "lname" : "",
+        "email": "user@example.com",
+        "type": "Lawyer/Client",
+        "barcode_id": "",
+        "meetings":[
+            {
+                "CASE1_startdatetime":
+                        {
+                            "title": "",
+                        "party_b_email": "party_b_email",
+                        "meetingtype": "meetingtype",
+                        "meeting link": "meet_link",
+                        "date_time_from": "start_datetime",
+                        "date_time_to": "end_datetime",
+                        "status": "Y",
+                        "task_type": "task_type",
+                        "send_remainder": "send_reminder"
+                        },
+                "CASE2_startdatetime":
+                        {
+                            "title": "",
+                        "party_b_email": "party_b_email",
+                        "meetingtype": "meetingtype",
+                        "meeting link": "meet_link",
+                        "date_time_from": "start_datetime",
+                        "date_time_to": "end_datetime",
+                        "status": "Y",
+                        "task_type": "task_type",
+                        "send_remainder": "send_reminder"
+                        }
+
+            }
+        ], 
+        "case_ids": [ 
+            {
+            "CASE1": 
+                    {
+                        "last_hearing" : "DD-MM-YYYY", 
+                        "court_name" : " ",
+                        "documents": [
+                            {
+                            "document_id": "DOCID1",
+                            "document_name": "Document1",
+                            "document_data": ""
+                            },
+                            {
+                            "document_id": "DOCID2",
+                            "document_name": "Document2",
+                            "document_data": ""
+                            }
+                        ],
+                        "case_staus":""
+                    },
+            "CASE2":
+                    {
+                        "last_hearing" : "DD-MM-YYYY", 
+                        "court_name" : " ",
+                        "documents": [
+                            {
+                            "document_id": "DOCID1",
+                            "document_name": "Document1",
+                            "document_data": ""
+                            },
+                            {
+                            "document_id": "DOCID2",
+                            "document_name": "Document2",
+                            "document_data": ""
+                            }
+                        ],
+                        "case_staus":""
+                    }
+            }
+        ], 
+        "user_status" : "Active/Non-Active"
+    }
+
+}

@@ -1,0 +1,258 @@
+# 04 — API Reference
+
+Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/api/`). Auth is **Supabase**: send a valid Supabase access token via cookie `access_token` or header `Authorization: Bearer <token>` unless the endpoint is marked **No auth**.
+
+---
+
+## Health
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/health/` | No auth | Returns `{"status": "ok", "service": "legalv1"}`. For load balancers/monitoring. |
+
+---
+
+## Users (`/api/users/`)
+
+**Module:** `users/views.py` (legacy) and `users/supabase_views.py` (Supabase-protected).  
+**URL config:** `Legalv1/users/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `signup-user/` | No auth | Main signup (Mongo). Token-based or standard; email verification link. |
+| GET | `check-auth/` | **Supabase** | Returns user + sessions. Used by frontend for auth check and session list. |
+| POST | `invalidate-session/` | **Supabase** | Body: `{ "session_id": "..." }`. Invalidates that session. |
+| POST | `get-prefilled-data/` | No auth | Body: `{ "token": "..." }`. Returns prefilled signup data for token. |
+| POST | `onboard-client/` | **Supabase** | Lawyer onboard new client (creates signup link). |
+| POST | `check-existing-user/` | **Supabase** | Body: phone/email. Returns whether user exists. |
+| POST | `onboard-existing-client/` | **Supabase** | Link existing user as client to lawyer/case. |
+| GET | `filter_with_details/` | **Supabase** | Returns cases/clients with details for current user. |
+| GET | `get-courts/` | No auth | Query: `state`, `district`. Returns courts list. |
+| GET | `get-districts/` | No auth | Query: `state`. Returns districts. |
+| GET | `get-states/` | No auth | Returns states list. |
+| POST | `verify-barcode/` | No auth | Body: `barcode_id`. Validates lawyer barcode. |
+| GET | `verify-email/` | No auth | Query: `token`. Marks email verified, redirects to frontend login. |
+| POST | `submit-feedback/` | **Supabase** | Submits user feedback (Mongo). |
+| GET | `auth/check-username` | **Supabase** | Check username availability. |
+| POST | `onboard/` | No auth | New user onboarding (Supabase). |
+| GET | `get-profile` | **Supabase** | Get current user profile. |
+| POST | `login-user/` | No auth | **Supabase login.** Returns user info; frontend stores token. |
+| POST | `send-reset-password-link/` | No auth | Sends password reset email (Supabase). |
+| POST | `reset-user-password/` | No auth | Supabase password reset (token in body/link). |
+| POST | `sign-out-user/` | **Supabase** | Sign out (scope e.g. local). Frontend logout. |
+| POST | `signup-onboarded-client/` | **Supabase** | Profile update for client onboarded by lawyer. |
+| POST | `add_case_client` | **Supabase** | Add case–client relationship. |
+
+---
+
+## AI Drafts (`/api/aidrafts/`)
+
+**Module:** `ai_draft/views.py`. Protected by `@supabase_required` (except test).  
+**URL config:** `Legalv1/ai_draft/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `get-draft-count/` | Supabase | Total drafts count. |
+| POST | `start_session` | Supabase | Start drafting session. |
+| POST | `set_location` | Supabase | Set draft location. |
+| POST | `update_section` | Supabase | Update a section. |
+| POST | `download_draft` | Supabase | Download draft (e.g. PDF). |
+| GET | `get_draft_sections` | Supabase | All sections. |
+| GET | `get_draft_single_section` | Supabase | Single section. |
+| POST | `delete_section` | Supabase | Delete section. |
+| POST | `suggest_section` | Supabase | AI suggestion for section. |
+| POST | `add_section` | Supabase | Add section. |
+| POST | `revert_to_original` | Supabase | Revert section. |
+| POST | `update_section_order` | Supabase | Reorder sections. |
+| GET | `get_section_history` | Supabase | Section edit history. |
+| POST | `save_draft` | Supabase | Save draft. |
+| GET | `get_user_saved_drafts` | Supabase | User's saved drafts. |
+| GET | `get_user_saved_drafts_v2` | Supabase | Saved drafts v2. |
+| POST | `load_saved_draft` | Supabase | Load saved draft. |
+| POST | `delete_saved_draft` | Supabase | Delete saved draft. |
+| POST | `upload_template` | Supabase | Upload template. |
+| POST | `start_session_for_casedocument` | Supabase | Start session from case document. |
+| GET | `download_template` | Supabase | Default template. |
+| GET | `get_draft_for` | Supabase | Draft by session ID. |
+| GET | `get_supported_languages` | Supabase | Supported languages. |
+| GET | `test/hello/` | No auth | Test. |
+| POST | `test/create/` | No auth | Create test draft. |
+| POST | `test/update/` | No auth | Update test section. |
+| GET | `test/download/` | No auth | Download test draft. |
+| GET | `test/status/<uuid:session_id>/` | No auth | Test draft status. |
+| GET | `test/sections/<str:session_id>/` | No auth | Test draft sections. |
+
+---
+
+## Create Drafts (`/api/drafts/`)
+
+**Module:** `create_drafts/views.py`. All `@supabase_required`.  
+**URL config:** `Legalv1/create_drafts/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `get-all-drafts/` | Supabase | All draft types. |
+| GET | `draft-items` | Supabase | Drafts by type. |
+| GET | `draft-fields/` | Supabase | Required fields from doc. |
+| POST | `submit-draft/` | Supabase | Create final draft, send PDF. |
+| GET | `get-saved-drafts/` | Supabase | Saved drafts. |
+| POST | `load-saved-draft/` | Supabase | Load saved draft. |
+| POST | `auto-save/` | Supabase | Auto-save. |
+| GET | `get-template/` | Supabase | PDF template. |
+| POST | `get-updated-template/` | Supabase | Template with suggestions. |
+
+---
+
+## Calendar (`/api/calendar/`)
+
+**Module:** `calendar_management/views.py`. All `@supabase_required`.  
+**URL config:** `Legalv1/calendar_management/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `add-event/` | Supabase | Create event. |
+| GET | `get-all-events` | Supabase | All events. |
+| POST | `delete-event/` | Supabase | Delete event. |
+| POST | `update-event/` | Supabase | Update event. |
+
+---
+
+## Google Calendar (root include)
+
+**Base path:** `/` (from `calendersetup.urls`).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `api/v1/calendar/init/` | — | Google Calendar OAuth init. |
+| GET | `api/v1/calendar/redirect/` | — | OAuth redirect. |
+| GET | `api/v1/calendar/events/` | — | Google Calendar events. |
+
+---
+
+## Utilities (`/api/utils/`)
+
+**Module:** `utilities/views.py`.  
+**URL config:** `Legalv1/utilities/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `send-simple-mail/` | — | Send simple email. |
+| POST | `send-email/` | — | Send email (used by frontend Send Email and Celery). |
+| GET | `state-district-court/` | — | State/district/court list. |
+
+---
+
+## Search (`/api/search/`)
+
+**Module:** `search_facility/views.py`.  
+**URL config:** `Legalv1/search_facility/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `index-documents/` | — | Index documents. |
+| GET | `search-by-index` | — | Search. |
+| GET | `fetch-content/` | — | Content by draft type and filename. |
+
+---
+
+## WhatsApp Webhook (`/api/webhook/`)
+
+**Module:** `whatsapp_module/views.py`. No Supabase; verification via Meta.  
+**URL config:** `Legalv1/whatsapp_module/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `verify/` | No auth | Meta webhook verification. |
+| POST | `` | No auth | Webhook handler. |
+
+---
+
+## Today's Updates (`/api/todaysupdates/`)
+
+**Module:** `todaysupdates/views.py`. All `@supabase_required`.  
+**URL config:** `Legalv1/todaysupdates/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `get-subscriptions/` | Supabase | Subscriptions. |
+| POST | `subscribe-court/` | Supabase | Subscribe to court. |
+| POST | `unsubscribe-court/` | Supabase | Unsubscribe. |
+| GET | `fetch-updates/` | Supabase | Fetch updates. |
+| GET | `get-paralegal-subscriptions/` | Supabase | Paralegal subscriptions. |
+| POST | `paralegal-subscribe-court/` | Supabase | Paralegal subscribe. |
+| POST | `paralegal-unsubscribe-court/` | Supabase | Paralegal unsubscribe. |
+| GET | `fetch-paralegal-updates/` | Supabase | Paralegal fetch updates. |
+
+---
+
+## TalkDoc (`/api/talkdoc/`)
+
+**Module:** `talkdoc/views.py`. All `@supabase_required`.  
+**URL config:** `Legalv1/talkdoc/urls.py`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `docs/upload` | Supabase | Upload document. |
+| GET | `docs` | Supabase | List documents. |
+| POST | `sessions` | Supabase | Create session. |
+| GET | `sessions/list` | Supabase | List sessions. |
+| GET | `sessions/<session_id>/messages` | Supabase | Get messages. |
+| POST | `sessions/<session_id>/message` | Supabase | Send message. |
+| POST | `sessions/<session_id>/docs` | Supabase | Modify session docs. |
+| DELETE | `sessions/<session_id>` | Supabase | Delete session. |
+| POST | `rename_session/<session_id>` | Supabase | Rename session. |
+
+---
+
+## eCourts (`/api/ecourts/`)
+
+**Currently active module:** `ecourts_api/views.py` (direct partner API). All `@supabase_required`.  
+**Scraper module (disabled):** `ecourts_scraper/views.py` (browser automation, CAPTCHA issues).  
+**URL config:** `Legalv1/ecourts_api/urls.py`.  
+**Detail doc:** See **06-ecourts-scraper.md** for both modules.
+
+### Active: Direct API (`ecourts_api`)
+
+All responses are **synchronous** (no 202/job polling). Data returned immediately from partner API or MongoDB cache.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `case/<cnr>/` | Supabase | Case detail by CNR. Returns 200 with transformed case data. |
+| POST | `case/<cnr>/refresh/` | Supabase | Queue fresh scrape upstream. Returns 202. |
+| GET | `case/<cnr>/orders/` | Supabase | Orders list from cached case data. |
+| GET | `case/<cnr>/orders/<idx>/download/` | Supabase | Streams PDF binary from partner API. Browser triggers file download. |
+| POST | `search/` | Supabase | Case search. Body: `search_type` (advocate/party/litigant/judge/general), `query`, `page`, `page_size`, optional filters (`court_codes`, `case_statuses`, `case_types`, `filing_date_from/to`). |
+| GET | `defaults/<section>/` | Supabase | Pre-populated landing-page results. `section` = `cases` \| `lawyers` \| `litigants`. Populated by Celery Beat daily/weekly. Response: `{ status, refreshed_at, data }`. Returns `{ status: "empty" }` until first run. |
+| GET | `causelist/` | Supabase | Cause list search. Params: `q`, `date`, `state`, `districtCode`, `courtComplexCode`, `advocate`, `litigant`, `judge`, `limit`, `offset`. |
+| GET | `causelist/dates/` | Supabase | Available dates. Params: `state`, `districtCode`, etc. FREE. |
+| GET | `court-structure/` | Supabase | Top-level: states + high courts. FREE. |
+| GET | `court-structure/states/` | Supabase | All states. FREE. |
+| GET | `court-structure/states/<s>/districts/` | Supabase | Districts. FREE. |
+| GET | `court-structure/states/<s>/districts/<d>/complexes/` | Supabase | Court complexes. FREE. |
+| GET | `court-structure/states/<s>/districts/<d>/complexes/<c>/courts/` | Supabase | Courts in complex. FREE. |
+| GET | `court-structure/high-courts/` | Supabase | High courts from constants. |
+| GET | `jobs/<job_id>/` | Supabase | Stub (returns 404 — no async jobs in direct API mode). |
+
+**Search body example:**
+```json
+{
+  "search_type": "advocate",
+  "query": "Sharma",
+  "page": 1,
+  "page_size": 20,
+  "case_statuses": ["PENDING"],
+  "court_codes": ["DLHC01"]
+}
+```
+
+**Search response:** `data.case_list` (array), `data.total`, `data.page`, `data.page_size`, `data.total_pages`, `data.has_next_page`, `data.facets`.
+
+---
+
+## Request/Response Conventions
+
+- **Content-Type:** JSON where applicable (`application/json`). Multipart for file uploads (e.g. send-email, uploads).
+- **Errors:** Backend often returns `JsonResponse` with `message` or `error` key and appropriate 4xx/5xx status. Frontend Axios interceptor handles 401/403 (redirect) and logs 5xx.
+- **Auth:** Supabase token in cookie `access_token` or header `Authorization: Bearer <token>`. `withCredentials: true` when using cookies.
+
+For architectural context and where each app lives, see **02-backend-legalv1.md** and **03-frontend-webpack.md**.
