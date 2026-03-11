@@ -3,6 +3,13 @@ from ai_draft import views, test_views
 
 # Authenticated endpoints (protected by auth middleware)
 authenticated_urlpatterns = [
+    # ── New REST-compatible endpoints (mamlaAI frontend) ──
+    path('list/', views.list_drafts),
+    path('initial_request/', views.initiate_drafting_session),
+    path('section_edit/', views.section_edit),
+    path('refine_section/', views.refine_section),
+    path('export/', views.export_draft),
+    # ── Legacy endpoints ──
     path('get-draft-count/', views.get_total_drafts),
     path('start_session', views.initiate_drafting_session),
     path('set_location', views.set_location),

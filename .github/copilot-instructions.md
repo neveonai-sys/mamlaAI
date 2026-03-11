@@ -30,8 +30,21 @@ The `docs/` folder is the **single source of truth** for where things live, how 
 1. Read `docs/00-agent-quickref.md` (< 5 seconds, saves 200+ lines of codebase scanning).
 2. Read the specific doc for your task area (backend / frontend / API / eCourts).
 3. Use the doc to navigate directly to the exact file(s). Read *only* those files.
-4. Make the change.
-5. **Update the docs** (see Rule 3).
+4. For any non-trivial change, compare at least 2 plausible approaches, choose one deliberately, and state the reasoning before implementation.
+5. Make the change.
+6. Validate the change end-to-end: check editor errors, run the relevant build/check command, and re-open the affected flow to verify behavior.
+7. If confidence is still below roughly 90%, iterate once more on the weakest gap instead of stopping at the first pass.
+8. **Update the docs** (see Rule 3).
+
+### Review Loop For Substantial Changes
+
+For any feature, parity pass, or bug cluster affecting user workflow:
+
+1. Re-audit the active flow and restate the requirements.
+2. Compare UX/architecture options before coding.
+3. Fix backend, frontend, and state/DB flow together where needed instead of applying surface patches in one layer only.
+4. Verify with editor diagnostics plus the relevant runtime/build checks.
+5. Re-check the original requirements for remaining loopholes before closing the task.
 
 ---
 

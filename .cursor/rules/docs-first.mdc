@@ -32,6 +32,9 @@ This one file replaces scanning 50+ source files. Read it, find where to go, ope
 
 Use the exact paths from the docs. Do not guess file locations.
 
+Before substantial changes, compare at least 2 reasonable approaches, choose one deliberately, then implement.
+After coding, validate the result end-to-end with editor diagnostics and the relevant build/check command. If confidence is still below roughly 90%, do one more targeted pass before closing the task.
+
 ## Step 4 — Update the docs (mandatory)
 
 After every change, update the relevant doc(s) in the same commit/response:

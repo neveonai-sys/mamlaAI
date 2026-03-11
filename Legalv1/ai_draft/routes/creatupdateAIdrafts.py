@@ -93,7 +93,7 @@ class CreateupdatefetchAIdrafts:
     def auto_save_initial_draft(self, session_id, draft_name, draft_sections):
         """
         Pushes a first “Untitled …” saved_draft inside the session.
-        Returns draft_id.
+        Returns draft metadata.
         """
         now = datetime.datetime.now(datetime.timezone.utc)
         draft_id = str(ObjectId())
@@ -107,7 +107,11 @@ class CreateupdatefetchAIdrafts:
             }},
              '$set':  {'last_updated_on': now}}
         )
-        return draft_id
+        return {
+            'draft_id': draft_id,
+            'saved_at': now,
+            'last_updated_on': now,
+        }
 
 
     # def update_location_for_draft_creation(self, session_id, state, district):
@@ -559,13 +563,19 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                         '$set': {
                             'saved_drafts.$.draft_name': draft_name,
                             'saved_drafts.$.sections': draft_sections,
-                            'saved_drafts.$.saved_at': time_now
+                            'saved_drafts.$.saved_at': time_now,
+                            'last_updated_on': time_now,
                         }
                     }
                 )
                 if result.modified_count > 0:
                     logger.info(f"[save_semi_filled_drafts] Updated existing saved draft: {draft_id}")
-                    return {'mssg': True}
+                    return {
+                        'mssg': True,
+                        'draft_id': draft_id,
+                        'saved_at': time_now,
+                        'last_updated_on': time_now,
+                    }
 
                 # If no match found, we proceed to create new 
                 # or you can return an error if you'd prefer.
@@ -580,10 +590,18 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
             }
             self.get_mongo_client_db().update_one(
                 {'_id': session_object_id, 'user_id': self.user_id},
-                {'$push': {'saved_drafts': saved_draft}}
+                {
+                    '$push': {'saved_drafts': saved_draft},
+                    '$set': {'last_updated_on': time_now},
+                }
             )
             logger.info(f"[save_semi_filled_drafts] Created new saved draft: {new_draft_id}")
-            return {'mssg': True}
+            return {
+                'mssg': True,
+                'draft_id': new_draft_id,
+                'saved_at': time_now,
+                'last_updated_on': time_now,
+            }
 
         except Exception as e:
             logger.error(f"[save_semi_filled_drafts] Exception: {traceback.format_exc()}")

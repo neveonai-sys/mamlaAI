@@ -1,0 +1,144 @@
+import React, { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, clearUser } from './features/userSlice';
+import apiClient from './services/api';
+import AppShell from './components/layout/AppShell';
+import ProtectedRoute from './components/layout/ProtectedRoute';
+
+// ─── Lazy-loaded screens ─────────────────────────────────────────────────────
+const LandingPage        = lazy(() => import('./components/landing/LandingPage'));
+const Login              = lazy(() => import('./components/auth/Login'));
+const Signup             = lazy(() => import('./components/auth/Signup'));
+const ResetPassword      = lazy(() => import('./components/auth/ResetPassword'));
+
+// Protected app screens
+const Dashboard          = lazy(() => import('./components/dashboard/Dashboard'));
+const CommandCenter      = lazy(() => import('./components/dashboard/CommandCenter'));
+const DraftingWorkspace  = lazy(() => import('./components/drafting/DraftingWorkspace'));
+const DocumentWorkspace  = lazy(() => import('./components/documents/DocumentWorkspace'));
+const CalendarPage       = lazy(() => import('./components/calendar/CalendarPage'));
+const CourtUpdates       = lazy(() => import('./components/courts/CourtUpdates'));
+const ClientOnboarding   = lazy(() => import('./components/clients/ClientOnboarding'));
+const Sessions           = lazy(() => import('./components/sessions/Sessions'));
+const Feedback           = lazy(() => import('./components/feedback/Feedback'));
+
+// eCourts sub-routes
+const EcourtsHome        = lazy(() => import('./components/ecourts/EcourtsHome'));
+const CaseSearch         = lazy(() => import('./components/ecourts/CaseSearch'));
+const CaseDetail         = lazy(() => import('./components/ecourts/CaseDetail'));
+const LawyerSearch       = lazy(() => import('./components/ecourts/LawyerSearch'));
+const LitigantSearch     = lazy(() => import('./components/ecourts/LitigantSearch'));
+const CauseListBrowser   = lazy(() => import('./components/ecourts/CauseListBrowser'));
+
+// ─── Public routes that skip auth check ─────────────────────────────────────
+const PUBLIC_ROUTES = ['/', '/login', '/signup', '/reset-password'];
+
+function GlobalSpinner() {
+  return (
+    <div className="flex items-center justify-center h-screen bg-background-light">
+      <span className="material-symbols-outlined animate-spin text-primary text-4xl">
+        progress_activity
+      </span>
+    </div>
+  );
+}
+
+export default function AppContent() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useSelector((s) => s.user);
+
+  // ─── Supabase password-reset deep-link handler ───────────────────────────
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery')) {
+      navigate('/reset-password' + hash, { replace: true });
+    }
+  }, [navigate]);
+
+  // ─── Auth probe on mount ──────────────────────────────────────────────────
+  useEffect(() => {
+    const isPublic = PUBLIC_ROUTES.some(
+      (r) => location.pathname === r || location.pathname.startsWith(r + '#'),
+    );
+    if (isPublic) {
+      if (isAuthenticated === null) dispatch(clearUser());
+      return;
+    }
+
+    // If we already have a Redux session skip
+    if (isAuthenticated === true) return;
+
+    // Check auth via cookie (HttpOnly cookie auto-sent with withCredentials:true)
+    apiClient
+      .get('users/check-auth/')
+      .then((res) => {
+        if (res.data?.isAuthenticated) {
+          dispatch(setUser({
+            firstname: res.data.firstname,
+            lastname: res.data.lastname,
+            email: res.data.email_id,
+            user_type: res.data.user_type,
+            sessions: res.data.sessions,
+          }));
+        } else {
+          dispatch(clearUser());
+        }
+      })
+      .catch(() => {
+        dispatch(clearUser());
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  return (
+    <Suspense fallback={<GlobalSpinner />}>
+      <Routes>
+        {/* ── Public ──────────────────────────────────────────────────── */}
+        <Route path="/"               element={<LandingPage />} />
+        <Route path="/login"          element={<Login />} />
+        <Route path="/signup"         element={<Signup />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* ── Protected app shell ─────────────────────────────────────── */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppShell />}>
+            <Route path="/dashboard"       element={<Dashboard />} />
+            <Route path="/command-center"  element={<CommandCenter />} />
+            <Route path="/drafting"        element={<DraftingWorkspace />} />
+            <Route path="/drafting/:id"    element={<DraftingWorkspace />} />
+            <Route path="/documents"       element={<DocumentWorkspace />} />
+            <Route path="/documents/:id"   element={<DocumentWorkspace />} />
+            <Route path="/calendar"        element={<CalendarPage />} />
+            <Route path="/court-updates"   element={<CourtUpdates />} />
+            <Route path="/clients"         element={<ClientOnboarding />} />
+            <Route path="/sessions"        element={<Sessions />} />
+            <Route path="/feedback"        element={<Feedback />} />
+
+            {/* eCourts nested */}
+            <Route path="/ecourts"              element={<EcourtsHome />} />
+            <Route path="/ecourts/case-search"  element={<CaseSearch />} />
+            <Route path="/ecourts/case/:cnr"    element={<CaseDetail />} />
+            <Route path="/ecourts/lawyers"      element={<LawyerSearch />} />
+            <Route path="/ecourts/litigants"    element={<LitigantSearch />} />
+            <Route path="/ecourts/cause-list"   element={<CauseListBrowser />} />
+          </Route>
+        </Route>
+
+        {/* ── Fallbacks ────────────────────────────────────────────────── */}
+        <Route path="/not-authorized" element={
+          <div className="flex flex-col items-center justify-center h-screen gap-4">
+            <span className="material-symbols-outlined text-primary text-6xl">lock</span>
+            <h1 className="text-2xl font-semibold text-ink">Access Denied</h1>
+            <button className="btn-primary" onClick={() => navigate('/dashboard')}>
+              Go to Dashboard
+            </button>
+          </div>
+        } />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
+  );
+}

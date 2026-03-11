@@ -17,16 +17,18 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
-from core.views import health, schema_view, swagger_ui_view
+from core.views import health, schema_view, swagger_ui_view, dashboard_home
 
 urlpatterns = [
     path('api/health/', health),
+    path('api/dashboard/home/', dashboard_home),
     path('api/schema/', schema_view, name='schema'),
     path('api/schema/swagger-ui/', swagger_ui_view, name='swagger-ui'),
     path('api/users/', include('users.urls')),
     path('', include('calendersetup.urls')),
     path('api/drafts/', include('create_drafts.urls')),
     path('api/aidrafts/', include('ai_draft.urls')),
+    path('api/aidraft/', include('ai_draft.urls')),   # alias without 's'
     path('api/calendar/', include('calendar_management.urls')),
     path('api/utils/', include('utilities.urls')),
     path('api/search/', include('search_facility.urls')),

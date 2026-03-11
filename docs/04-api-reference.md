@@ -114,6 +114,12 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | GET | `get-all-events` | Supabase | All events. |
 | POST | `delete-event/` | Supabase | Delete event. |
 | POST | `update-event/` | Supabase | Update event. |
+| GET | `events/` | Supabase | REST list endpoint used by the new MamlaAI calendar. Query: `start_date`, `end_date`, `page_size`, optional `search`, optional `upcoming`. |
+| POST | `events/` | Supabase | REST create endpoint used by the new MamlaAI calendar. Persists all legacy event fields, creates recurring per-day instances when applicable, and sends creator/participant notifications. |
+| PUT | `events/<event_id>/` | Supabase | REST update endpoint. Infers changed fields when the frontend does not send `updatedFields`, reuses the legacy recurring-aware service layer, and supports `only once`, `this and following`, and `entire series` semantics. |
+| DELETE | `events/<event_id>/` | Supabase | REST delete endpoint. Infers recurring/title/party metadata from the stored event when omitted and routes through the legacy delete service. |
+| POST | `conflicts/check/` | Supabase | Returns overlap analysis, reasons, next available slot, and alternate assignee recommendations for a proposed event payload. |
+| POST | `conflicts/resolve/` | Supabase | Prepares a conflict resolution strategy (`reschedule`, `reassign`, `override`) and returns a patched event payload plus status/summary. |
 
 ---
 
@@ -194,11 +200,19 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 |--------|------|------|-------------|
 | POST | `docs/upload` | Supabase | Upload document. |
 | GET | `docs` | Supabase | List documents. |
+| GET | `documents/` | Supabase | REST-style document list for the rebuilt frontend. Supports optional `caseid` and `clientid` filters, and matches search against original, display, and stored filenames. |
+| DELETE | `documents/<doc_id>/` | Supabase | Delete an uploaded TalkDoc document and remove it from any remaining non-deleted chat sessions owned by the caller. |
+| GET | `documents/<doc_id>/file/` | Supabase | Stream the uploaded document back to its owner for inline preview or download (`?download=1`). |
 | POST | `sessions` | Supabase | Create session. |
 | GET | `sessions/list` | Supabase | List sessions. |
+| GET | `sessions/` | Supabase | REST-style session list for the rebuilt frontend. |
+| GET | `session_messages/?session_id=<id>` | Supabase | REST-style message list for the rebuilt frontend. |
+| POST | `upload/` | Supabase | REST-style multipart upload endpoint used by the rebuilt frontend. Supports PDF, DOCX, TXT, CSV, XLSX, and image uploads used for OCR-style extraction. Uploaded records preserve the original filename and also generate a timestamped display/stored name for clearer chat citations and document lists. |
+| POST | `create_session/` | Supabase | REST-style session creation endpoint. Accepts `doc_ids`, optional `matter`, optional `title`. |
+| POST | `query/` | Supabase | REST-style chat query endpoint. Accepts `session_id` and `query`. Retrieval is scoped to the session's stored `doc_ids` and `matter`. |
 | GET | `sessions/<session_id>/messages` | Supabase | Get messages. |
 | POST | `sessions/<session_id>/message` | Supabase | Send message. |
-| POST | `sessions/<session_id>/docs` | Supabase | Modify session docs. |
+| POST | `sessions/<session_id>/docs` | Supabase | Modify session docs. Adds are allowed and are used for live uploads into an active chat; removals are rejected after the session has started exchanging messages. |
 | DELETE | `sessions/<session_id>` | Supabase | Delete session. |
 | POST | `rename_session/<session_id>` | Supabase | Rename session. |
 
@@ -256,3 +270,11 @@ All responses are **synchronous** (no 202/job polling). Data returned immediatel
 - **Auth:** Supabase token in cookie `access_token` or header `Authorization: Bearer <token>`. `withCredentials: true` when using cookies.
 
 For architectural context and where each app lives, see **02-backend-legalv1.md** and **03-frontend-webpack.md**.
+
+---
+
+## Dashboard Aggregation
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/dashboard/home/` | Supabase | Aggregated home metrics: `pending_drafts` (int), `upcoming_events` (int, next 30 days), `upcoming_events_list` (array of upcoming events: `[{id, title, start, event_type}]` sorted by start), `recent_drafts` (array of 5: session_id / draft_name / status / created_at), `recent_updates` (array of 5: court / update / time). Implemented in `core/views.py`. |

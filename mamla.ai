@@ -1,8 +1,19 @@
 server {
-    server_name mamla.ai www.mamla.ai;
+    listen 443 ssl;
+    server_name www.mamla.ai;
+    ssl_certificate /etc/letsencrypt/live/mamla.ai/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mamla.ai/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    return 301 https://mamla.ai$request_uri;
+}
+
+server {
+    server_name mamla.ai;
+    client_max_body_size 100M;
 
     # Root directory for static files
-    root /home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero/frontend_webpack/dist;
+    root /home/pronoys/products/sessioned_AiAdalat/mamlaAI_ground_zero/frontend/dist;
     index index.html;
 
     # =========================
@@ -64,6 +75,8 @@ server {
     location /api/ {
         proxy_pass http://127.0.0.1:8000;
         proxy_http_version 1.1;
+        client_max_body_size 100M;
+        proxy_request_buffering off;
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -75,6 +88,7 @@ server {
         # Timeouts for long AI processing
         proxy_connect_timeout 300;
         proxy_send_timeout 300;
+        proxy_read_timeout 300;
 
     }
 
@@ -104,6 +118,12 @@ server {
 # HTTP to HTTPS redirect
 server {
     listen 80;
-    server_name mamla.ai www.mamla.ai;
-    return 301 https://$host$request_uri;
+    server_name www.mamla.ai;
+    return 301 https://mamla.ai$request_uri;
+}
+
+server {
+    listen 80;
+    server_name mamla.ai;
+    return 301 https://mamla.ai$request_uri;
 }

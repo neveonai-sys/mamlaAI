@@ -199,6 +199,7 @@ WSGI_APPLICATION = 'Legalv1.wsgi.application'
 
 # settings.py
 now_date_str = datetime.strftime(datetime.now().date(),'%d-%m-%Y')
+DJANGO_LOG_LEVEL = os.getenv('DJANGO_LOG_LEVEL', 'INFO' if DEBUG else 'WARNING')
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -224,18 +225,23 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['file'],  # Only file logging in production (console slows down)
-            'level': 'WARNING',  # Only log warnings and errors (reduces I/O)
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
             'propagate': False,
         },
         'django.request': {
-            'handlers': ['file'],
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
             'level': 'ERROR',  # Only log request errors (4xx, 5xx)
             'propagate': False,
         },
         'django.server': {
-            'handlers': ['file'],
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
             'level': 'ERROR',  # Only log server errors
+            'propagate': False,
+        },
+        'celery': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
             'propagate': False,
         },
     },

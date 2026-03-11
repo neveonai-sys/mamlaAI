@@ -152,6 +152,26 @@ To view or modify this task, please log in to your {cls.COMPANY_NAME} dashboard.
 
 {cls.get_footer()}"""
         return subject, body
+
+    @classmethod
+    def event_created_participant(cls, title, start_datetime, end_datetime, meet_link=None):
+        """Participant notification when they are added to a meeting"""
+        subject = "You've Been Added to a Meeting"
+
+        meeting_info = f"\nMeeting Link: {meet_link}" if meet_link else ""
+
+        body = f"""Dear Sir/Madam,
+
+You have been added as a participant to the meeting \"{title}\" on {cls.COMPANY_NAME}.
+
+Meeting Details:
+• Start: {start_datetime}
+• End: {end_datetime}{meeting_info}
+
+Please review your schedule and join or attend the meeting at the scheduled time.
+
+{cls.get_footer()}"""
+        return subject, body
     
     @classmethod
     def event_updated_entire_series(cls, fname, lname, title, updated_fields):
@@ -167,6 +187,22 @@ Updated Information:
 Changes have been applied to all events in this series.
 
 To view the updated schedule, please log in to your {cls.COMPANY_NAME} dashboard.
+
+{cls.get_footer()}"""
+        return subject, body
+
+    @classmethod
+    def event_updated_following(cls, fname, lname, title, updated_fields):
+        """Current and following events updated notification"""
+        subject = "Meeting Series Updated From Selected Occurrence"
+        body = f"""Dear Sir/Madam,
+
+Your recurring meeting \"{title}\" has been updated from the selected occurrence onward.
+
+Updated Information:
+{updated_fields}
+
+Earlier occurrences remain unchanged. To review the revised schedule, please log in to your {cls.COMPANY_NAME} dashboard.
 
 {cls.get_footer()}"""
         return subject, body
@@ -186,6 +222,23 @@ To view the updated details, please log in to your {cls.COMPANY_NAME} dashboard.
 
 {cls.get_footer()}"""
         return subject, body
+
+    @classmethod
+    def event_updated_participant(cls, title, updated_fields, scope_label='single event'):
+        """Participant notification when a meeting is updated"""
+        subject = "Meeting Update Notification"
+        body = f"""Dear Sir/Madam,
+
+The meeting \"{title}\" has been updated on {cls.COMPANY_NAME}.
+
+Scope: {scope_label}
+Updated Information:
+{updated_fields}
+
+Please review the latest details in your calendar.
+
+{cls.get_footer()}"""
+        return subject, body
     
     @classmethod
     def event_deleted_series(cls, fname, lname, title):
@@ -201,6 +254,19 @@ If this was done in error, please create a new meeting series or contact our sup
 
 {cls.get_footer()}"""
         return subject, body
+
+    @classmethod
+    def event_deleted_following(cls, fname, lname, title):
+        """Current and following events deleted notification"""
+        subject = "Future Meetings Cancelled"
+        body = f"""Dear Sir/Madam,
+
+The recurring meeting \"{title}\" has been cancelled from the selected occurrence onward.
+
+Earlier completed or retained occurrences remain unchanged. All affected participants have been notified.
+
+{cls.get_footer()}"""
+        return subject, body
     
     @classmethod
     def event_deleted_single(cls, fname, lname, title):
@@ -213,6 +279,21 @@ Your meeting "{title}" has been cancelled.
 This event has been removed from your calendar. If there were other participants, they have been notified of this cancellation.
 
 If this was done in error, please reschedule the meeting or contact our support team.
+
+{cls.get_footer()}"""
+        return subject, body
+
+    @classmethod
+    def event_deleted_participant(cls, title, scope_label='single event'):
+        """Participant notification when a meeting is cancelled"""
+        subject = "Meeting Cancellation Notice"
+        body = f"""Dear Sir/Madam,
+
+The meeting \"{title}\" has been cancelled on {cls.COMPANY_NAME}.
+
+Scope: {scope_label}
+
+Please update your schedule accordingly.
 
 {cls.get_footer()}"""
         return subject, body

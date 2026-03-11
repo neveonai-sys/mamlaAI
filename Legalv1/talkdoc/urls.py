@@ -2,6 +2,16 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # REST-compatible aliases (used by new frontend)
+    path('documents/', views.documents_list),
+    path('documents/<str:doc_id>/', views.delete_document),
+    path('documents/<str:doc_id>/file/', views.document_file),
+    path('sessions/', views.sessions_list_v2),
+    path('session_messages/', views.session_messages_v2),
+    path('upload/', views.upload_file),
+    path('create_session/', views.create_session_v2),
+    path('query/', views.query_v2),
+
     # Documents
     path('docs/upload', views.upload_doc, name='rag_upload_doc'),
     path('docs', views.list_docs, name='rag_list_docs'),

@@ -98,7 +98,7 @@ Mamla.AI is a comprehensive legal technology platform designed to bring legal se
 
 3. **Set up frontend**
    ```bash
-   cd frontend_webpack
+   cd ../mamlaAI_ground_zero/frontend
    npm install
    cp .env.example .env.local
    # Edit .env.local with your frontend configuration
@@ -115,7 +115,7 @@ Mamla.AI is a comprehensive legal technology platform designed to bring legal se
    # Backend (in project root)
    python manage.py runserver
 
-   # Frontend (in frontend_webpack directory)
+   # Frontend (in mamlaAI_ground_zero/frontend directory)
    npm start
    ```
 
@@ -169,13 +169,15 @@ mamlaAI/
 │   ├── search_facility/      # Search functionality
 │   └── whatsapp_module/      # WhatsApp integration
 │
-├── frontend_webpack/         # React frontend
+├── frontend_webpack/         # Legacy React frontend
 │   ├── public/              # Static files
 │   └── src/
 │       ├── components/      # Reusable UI components
 │       ├── pages/           # Page components
 │       ├── store/           # Redux store
 │       └── services/        # API services
+│
+├── mamlaAI_ground_zero/frontend/  # Active React frontend served by Nginx
 │
 ├── advocate_list/            # Lawyer directory
 ├── draftdocs/               # Document templates
@@ -207,7 +209,7 @@ python manage.py test
 
 ### Frontend Tests
 ```bash
-cd frontend_webpack
+cd ../mamlaAI_ground_zero/frontend
 npm test
 ```
 

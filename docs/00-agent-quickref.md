@@ -28,7 +28,7 @@
 | Django settings (env, CORS, DB, Celery) | `Legalv1/Legalv1/settings.py` |
 | Auth decorator (`@supabase_required`) | `Legalv1/supabase_required.py` |
 | Mongo + Supabase client singletons | `Legalv1/core/init_clients.py` |
-| **Centralised LLM client** | `Legalv1/core/llm_client.py` — `chat_complete()` |
+| **Centralised LLM client** | `Legalv1/core/llm_client.py` — `chat_complete()` and `vision_complete()` |
 | Health check view | `Legalv1/core/views.py` |
 | Standard error helper | `Legalv1/core/response_utils.py` |
 | Celery app + queue config | `Legalv1/Legalv1/celery.py` (or `Legalv1/celery.py`) |
@@ -39,6 +39,7 @@
 | AI Drafts views + URLs | `Legalv1/ai_draft/views.py` · `Legalv1/ai_draft/urls.py` |
 | Create Drafts views + URLs | `Legalv1/create_drafts/views.py` · `Legalv1/create_drafts/urls.py` |
 | Calendar views + URLs | `Legalv1/calendar_management/views.py` · `Legalv1/calendar_management/urls.py` |
+| Calendar recurring regression script | `Legalv1/scripts/calendar_recurring_regression.py` |
 | Utilities (email, state/district/court) | `Legalv1/utilities/views.py` · `Legalv1/utilities/urls.py` |
 | TalkDoc (RAG) views + URLs | `Legalv1/talkdoc/views.py` · `Legalv1/talkdoc/urls.py` |
 | eCourts API (ACTIVE) views + URLs | `Legalv1/ecourts_api/views.py` · `Legalv1/ecourts_api/urls.py` |
@@ -119,6 +120,33 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | Webpack dev config (proxy /api) | `frontend_webpack/webpack.dev.js` |
 | Package.json | `frontend_webpack/package.json` |
 | Deprecated / unused components | `frontend_webpack/src/components/unused/` — not in any route |
+
+---
+
+## New UI (mamlaAI_ground_zero) — exact file paths
+
+> Tailwind CSS v3 rebuild. Backend API base: `mamlaAI_ground_zero/frontend/src/services/api.js` (`apiClient`).
+
+| What | Exact path |
+|------|-----------|
+| API client (apiClient, withCredentials) | `mamlaAI_ground_zero/frontend/src/services/api.js` |
+| Redux store | `mamlaAI_ground_zero/frontend/src/store.js` |
+| User slice | `mamlaAI_ground_zero/frontend/src/features/userSlice.js` |
+| Chat docs slice | `mamlaAI_ground_zero/frontend/src/features/chatDocsSlice.js` |
+| App entry / Router | `mamlaAI_ground_zero/frontend/src/index.js` |
+| All routes | `mamlaAI_ground_zero/frontend/src/AppContent.js` |
+| **Dashboard** (agenda uses `upcoming_events_list`) | `mamlaAI_ground_zero/frontend/src/components/dashboard/Dashboard.jsx` |
+| **Command Center** (quick actions, live events) | `mamlaAI_ground_zero/frontend/src/components/dashboard/CommandCenter.jsx` |
+| **Drafting Workspace** (new draft, load draft, load template, save/revert, section history, location refresh) | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` |
+| **Calendar Page** (advanced legal calendar shell, FullCalendar, conflict workflow, case/client-aware intake, multi-day linked-series UX) | `mamlaAI_ground_zero/frontend/src/components/calendar/CalendarPage.jsx` |
+| **Court Updates** (subscription management + filter tabs) | `mamlaAI_ground_zero/frontend/src/components/courts/CourtUpdates.jsx` |
+| **Document Workspace** (TalkDoc / RAG chat, two-window flow: setup library for upload/delete/load chats, case/client-aware document filters, timestamped document labels, focused viewer+chat work window, live uploads into active chats, image preview, API-backed case/client suggestions with case→client autofill/filtering, session-scoped docs) | `mamlaAI_ground_zero/frontend/src/components/documents/DocumentWorkspace.jsx` |
+| **Case Detail** (hearings, null-safe date rendering) | `mamlaAI_ground_zero/frontend/src/components/cases/CaseDetail.jsx` |
+| **Client Onboarding** | `mamlaAI_ground_zero/frontend/src/components/clients/ClientOnboarding.jsx` |
+| Webpack dev config (proxy /api) | `mamlaAI_ground_zero/frontend/webpack.dev.js` |
+| Webpack prod config | `mamlaAI_ground_zero/frontend/webpack.prod.js` |
+| Tailwind config | `mamlaAI_ground_zero/frontend/tailwind.config.js` |
+| Build output (static files) | `mamlaAI_ground_zero/frontend/dist/` |
 
 ---
 

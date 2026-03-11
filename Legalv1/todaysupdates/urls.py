@@ -3,6 +3,7 @@ from django.urls import path
 from todaysupdates import views
 
 urlpatterns = [
+    path('updates/', views.updates_list),  # REST alias for new frontend
     path('get-subscriptions/', views.get_subscriptions),
     path('subscribe-court/', views.subscribe_court),
     path('unsubscribe-court/', views.unsubscribe_court),

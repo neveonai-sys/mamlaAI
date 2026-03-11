@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#b45e08",
+                        "background-light": "#f8f7f5",
+                        "background-dark": "#221910",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e1da; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #3d2e21; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased overflow-hidden h-screen flex flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between h-16 px-6 border-b border-primary/10 bg-white dark:bg-background-dark/50 backdrop-blur-md z-30">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-xl">balance</span>
+</div>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold tracking-tight">Mamla.AI</h2>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-primary text-sm font-semibold border-b-2 border-primary pb-5 mt-5" href="#">Workspace</a>
+<a class="text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-primary transition-colors" href="#">Case Library</a>
+<a class="text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-primary transition-colors" href="#">Analytics</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative w-64 group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full bg-slate-100 dark:bg-primary/5 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary/50 transition-all" placeholder="Global case search..." type="text"/>
+</div>
+<button class="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-primary/10 rounded-lg">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Professional headshot of a legal associate" src="https://lh3.googleusercontent.com/aida-public/AB6AXuApxsEojoYBUSpcj5-Ow3PMAu9F8Adrgztdz6VGJRwspefIoOO-FANbDqsFt2jgn12pc4VdlPbmNBVo1KKrx9AHOtB3czumHlSCZ1eL-TJvwIh4O6wjedHuFd9HGhqEy5Ku8JF2mh8XBxLXslBt8trwP8dijYPIkedbO1ILf_2zeZcnzj2hst9O9ZRyVSzCa_BJioSiyO6j7JP3CSeSP9pRQVFksbxWcT-pIEbY35XZ69g3QC3xa-P5XMc9y_8aIU0Y45OVh7aCpQ"/>
+</div>
+</div>
+</header>
+<!-- Main Workspace Layout -->
+<main class="flex-1 flex overflow-hidden">
+<!-- Left Pane: Case Library -->
+<aside class="w-72 border-r border-primary/10 bg-slate-50 dark:bg-background-dark/30 flex flex-col">
+<div class="p-4 border-b border-primary/10">
+<div class="flex items-center justify-between mb-4">
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-widest text-primary font-bold">Active Matter</span>
+<h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">#402 Smith v. Jones</h3>
+</div>
+<button class="text-primary hover:bg-primary/10 p-1 rounded">
+<span class="material-symbols-outlined text-xl">unfold_more</span>
+</button>
+</div>
+<button class="w-full bg-primary text-white py-2 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-all">
+<span class="material-symbols-outlined text-sm">upload_file</span>
+                    Upload Documents
+                </button>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar">
+<div class="p-4">
+<div class="flex items-center justify-between mb-3">
+<span class="text-xs font-semibold text-slate-400 uppercase tracking-tighter">Folders</span>
+<span class="material-symbols-outlined text-xs text-slate-400 cursor-pointer">add</span>
+</div>
+<div class="space-y-1">
+<div class="flex items-center gap-3 p-2 rounded-lg bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-sm">folder_open</span>
+<span class="text-sm font-medium">Pleadings</span>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-sm">folder</span>
+<span class="text-sm font-medium">Evidence</span>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-sm">folder</span>
+<span class="text-sm font-medium">Transcripts</span>
+</div>
+</div>
+<div class="mt-8 mb-3 flex items-center justify-between">
+<span class="text-xs font-semibold text-slate-400 uppercase tracking-tighter">Documents (12)</span>
+</div>
+<div class="space-y-2">
+<div class="group p-3 rounded-xl border border-primary/20 bg-white dark:bg-background-dark/60 shadow-sm cursor-pointer border-l-4 border-l-primary">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-bold uppercase">Indexed</span>
+<span class="material-symbols-outlined text-xs text-slate-300">more_vert</span>
+</div>
+<p class="text-sm font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">complaint_final.pdf</p>
+<p class="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px]">calendar_today</span> Oct 24, 2023
+                            </p>
+</div>
+<div class="p-3 rounded-xl border border-transparent hover:border-primary/10 transition-all cursor-pointer">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase">Analyzing...</span>
+</div>
+<p class="text-sm font-medium text-slate-600 dark:text-slate-400 line-clamp-1">exhibit_a_contracts.pdf</p>
+<p class="text-[11px] text-slate-400 mt-1">2.4 MB</p>
+</div>
+<div class="p-3 rounded-xl border border-transparent hover:border-primary/10 transition-all cursor-pointer grayscale opacity-70">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">Queued</span>
+</div>
+<p class="text-sm font-medium text-slate-600 dark:text-slate-400 line-clamp-1">deposition_notes_v2.docx</p>
+<p class="text-[11px] text-slate-400 mt-1">84 KB</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Center Pane: Document Viewer -->
+<section class="flex-1 flex flex-col bg-slate-100 dark:bg-background-dark/20 overflow-hidden relative">
+<div class="h-14 border-b border-primary/10 bg-white/80 dark:bg-background-dark/50 backdrop-blur px-4 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-primary/10 rounded">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400">zoom_out</span>
+</button>
+<span class="text-sm font-medium text-slate-600 dark:text-slate-400">100%</span>
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-primary/10 rounded">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400">zoom_in</span>
+</button>
+<div class="h-4 w-[1px] bg-slate-300 dark:bg-slate-700 mx-2"></div>
+<div class="flex items-center gap-2">
+<input class="w-10 h-8 bg-slate-200 dark:bg-primary/5 border-none rounded text-center text-sm font-bold" type="text" value="1"/>
+<span class="text-sm text-slate-400">of 142</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex items-center gap-1 px-3 py-1.5 text-xs font-bold border border-primary/20 hover:bg-primary/10 rounded-lg text-primary transition-all">
+<span class="material-symbols-outlined text-sm">history_edu</span>
+                        Summarize
+                    </button>
+<button class="flex items-center gap-1 px-3 py-1.5 text-xs font-bold border border-primary/20 hover:bg-primary/10 rounded-lg text-primary transition-all">
+<span class="material-symbols-outlined text-sm">event_repeat</span>
+                        Extract Key Dates
+                    </button>
+<button class="flex items-center gap-1 px-3 py-1.5 text-xs font-bold border border-primary/20 hover:bg-primary/10 rounded-lg text-primary transition-all">
+<span class="material-symbols-outlined text-sm">segment</span>
+                        Find Conflicts
+                    </button>
+</div>
+</div>
+<!-- PDF Simulation -->
+<div class="flex-1 overflow-y-auto p-8 custom-scrollbar flex flex-col items-center">
+<div class="w-full max-w-[800px] bg-white dark:bg-slate-900 shadow-2xl rounded p-16 min-h-[1100px] mb-8 relative">
+<div class="absolute top-0 left-0 w-full h-1 bg-primary/20"></div>
+<div class="text-center mb-12">
+<h1 class="text-2xl font-serif text-slate-900 dark:text-slate-100 mb-2 uppercase tracking-tight">Superior Court of California</h1>
+<p class="text-sm text-slate-500 font-medium">County of San Francisco</p>
+</div>
+<div class="grid grid-cols-2 gap-8 mb-12 text-sm font-medium border-y border-slate-100 dark:border-slate-800 py-6">
+<div>
+<p class="text-slate-400 mb-1">Plaintiff</p>
+<p class="text-slate-900 dark:text-slate-100">ROBERT SMITH,</p>
+</div>
+<div class="text-right">
+<p class="text-slate-400 mb-1">Case No.</p>
+<p class="text-slate-900 dark:text-slate-100">CGC-23-402911</p>
+</div>
+<div>
+<p class="text-slate-400 mb-1">Defendant</p>
+<p class="text-slate-900 dark:text-slate-100">MARIA JONES,</p>
+</div>
+<div class="text-right">
+<p class="text-slate-400 mb-1">Dept.</p>
+<p class="text-slate-900 dark:text-slate-100">302</p>
+</div>
+</div>
+<div class="space-y-6 leading-relaxed text-slate-800 dark:text-slate-200 text-base">
+<p class="indent-8 font-display">
+                            1. Plaintiff Robert Smith brings this action for breach of contract and professional negligence against Defendant Maria Jones, an individual, and DOES 1 through 50. 
+                        </p>
+<p class="indent-8 font-display bg-primary/10 relative rounded p-2 -mx-2">
+                            2. On or about <span class="font-bold border-b border-primary/50">January 15, 2023</span>, Plaintiff and Defendant entered into a written agreement for legal services. Pursuant to the terms of the agreement, Defendant was to provide representation in connection with a commercial real estate transaction located at 455 Market Street, San Francisco.
+                            <span class="absolute right-2 top-2 px-1.5 py-0.5 rounded bg-primary text-white text-[10px] font-bold">Citation A.1</span>
+</p>
+<p class="indent-8 font-display">
+                            3. Defendant failed to conduct reasonable due diligence regarding the zoning restrictions of the property, which resulted in a loss of approximately $450,000 for the Plaintiff when the purchase agreement could not be fulfilled.
+                        </p>
+<p class="indent-8 font-display">
+                            4. Venue is proper in this court because the contract was entered into in San Francisco County and the professional services were to be rendered in this jurisdiction.
+                        </p>
+<p class="indent-8 font-display">
+                            5. At all relevant times, Defendant was a licensed attorney in the State of California, operating under the Bar No. 129381.
+                        </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Pane: AI Chat Interface -->
+<aside class="w-96 border-l border-primary/10 bg-white dark:bg-background-dark/40 flex flex-col z-10">
+<div class="p-4 border-b border-primary/10">
+<div class="flex items-center gap-2 mb-4 bg-slate-100 dark:bg-primary/5 p-1 rounded-lg">
+<button class="flex-1 text-xs font-bold py-1.5 px-2 rounded-md bg-white dark:bg-primary/20 text-primary shadow-sm transition-all">Current Doc</button>
+<button class="flex-1 text-xs font-bold py-1.5 px-2 rounded-md text-slate-500 hover:text-primary transition-all">Whole Case</button>
+</div>
+<h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">auto_awesome</span>
+                    Mamla Legal Assistant
+                </h3>
+</div>
+<div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-6">
+<!-- AI Message -->
+<div class="space-y-3">
+<div class="flex items-start gap-3">
+<div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary mt-1">
+<span class="material-symbols-outlined text-sm">robot_2</span>
+</div>
+<div class="flex-1 bg-slate-50 dark:bg-primary/5 p-4 rounded-2xl rounded-tl-none border border-primary/5">
+<p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                                Based on the complaint, the core of the dispute involves a failure in due diligence regarding zoning for a property on Market Street.
+                            </p>
+<div class="mt-4 pt-4 border-t border-primary/10">
+<p class="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Verifiable Citations</p>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between p-2 bg-white dark:bg-background-dark rounded border border-primary/10 hover:border-primary/40 cursor-pointer transition-all">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">link</span>
+<span class="text-[11px] font-medium text-slate-600 dark:text-slate-400">Page 1, Paragraph 2</span>
+</div>
+<span class="text-[10px] bg-primary/10 text-primary px-1.5 rounded">Jump</span>
+</div>
+<div class="flex items-center justify-between p-2 bg-white dark:bg-background-dark rounded border border-primary/10 hover:border-primary/40 cursor-pointer transition-all">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">link</span>
+<span class="text-[11px] font-medium text-slate-600 dark:text-slate-400">Exhibits, Page 12</span>
+</div>
+<span class="text-[10px] bg-primary/10 text-primary px-1.5 rounded">Jump</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex justify-end">
+<div class="bg-primary text-white p-3 rounded-2xl rounded-tr-none max-w-[85%]">
+<p class="text-sm">What was the exact date the contract was signed?</p>
+</div>
+</div>
+<!-- AI Typing Indicator -->
+<div class="flex items-center gap-2 text-slate-400">
+<div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm animate-pulse">pending</span>
+</div>
+<span class="text-xs italic">Analyzing document context...</span>
+</div>
+</div>
+<div class="p-4 border-t border-primary/10 bg-slate-50/50 dark:bg-background-dark/20">
+<div class="relative">
+<textarea class="w-full bg-white dark:bg-background-dark/80 border border-primary/10 rounded-xl p-4 text-sm focus:ring-1 focus:ring-primary focus:border-primary transition-all resize-none shadow-sm" placeholder="Ask a question about this case..." rows="3"></textarea>
+<div class="absolute right-3 bottom-3 flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<button class="bg-primary text-white p-2 rounded-lg hover:bg-primary/90 transition-all shadow-md flex items-center justify-center">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-center gap-4">
+<span class="text-[10px] text-slate-400 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">security</span> Encryption Active
+                    </span>
+<span class="text-[10px] text-slate-400 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">verified</span> GPT-4o Legal Context
+                    </span>
+</div>
+</div>
+</aside>
+</main>
+<!-- Overlay Toolbar (Bottom Right) -->
+<div class="fixed bottom-6 right-[26rem] flex flex-col gap-3">
+<button class="w-12 h-12 rounded-full bg-primary text-white shadow-xl flex items-center justify-center hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">add_comment</span>
+</button>
+<button class="w-12 h-12 rounded-full bg-white dark:bg-background-dark text-slate-600 dark:text-slate-300 shadow-xl border border-primary/10 flex items-center justify-center hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">print</span>
+</button>
+</div>
+</body></html>

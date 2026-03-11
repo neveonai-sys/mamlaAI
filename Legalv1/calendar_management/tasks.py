@@ -18,15 +18,31 @@ def get_mongo_client_db():
     db = mongo['legaldb']
     return db
 
+
+def _clean_email_list(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        raw_items = value
+    else:
+        raw_items = str(value).split(',')
+    cleaned = []
+    for item in raw_items:
+        email = str(item).strip()
+        if email and email not in cleaned:
+            cleaned.append(email)
+    return cleaned
+
 @shared_task
 def send_email_celery( to_email, subj, body, cc_emails=None, file_name=None, attach_files=None):
     try:
-        if cc_emails:
+        cc_list = _clean_email_list(cc_emails)
+        if cc_list:
             payload = {
             "to_emails": to_email,
             "subject": subj,
             "body": body,
-            "cc_emails": cc_emails
+            "cc_emails": ','.join(cc_list)
             }
         else:
             payload = {
@@ -64,7 +80,7 @@ def execute_query(data_dict, qry_type):
                 for skey in data_dict.get('series_keys'):
                     if skey != data_dict.get('key'):
                         bulk_operations.append(pymongo.UpdateOne(
-                            {"user_id": partyBEmail, f"meetings.{skey}.series_key": data_dict.get('key')},
+                            {"email": partyBEmail, f"meetings.{skey}.series_key": data_dict.get('key')},
                             {"$pull": {f"meetings.{skey}.series_key": data_dict.get('key')}}
                         ))
 

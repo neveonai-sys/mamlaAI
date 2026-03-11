@@ -198,3 +198,38 @@ def chat_complete(
         **kwargs,
     )
     return response.choices[0].message.content
+
+
+def vision_complete(
+    prompt: str,
+    image_data_url: str,
+    app_scenario: Optional[str] = None,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    temperature: float = 0.1,
+    max_tokens: int = 2048,
+    **kwargs,
+) -> str:
+    """Call the multimodal LLM path with a single inline image data URL.
+
+    The model resolution logic is shared with ``chat_complete()`` so existing
+    OpenAI/OpenRouter configuration continues to drive provider and model choice.
+    """
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": image_data_url}},
+            ],
+        }
+    ]
+    return chat_complete(
+        messages=messages,
+        app_scenario=app_scenario,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        **kwargs,
+    )

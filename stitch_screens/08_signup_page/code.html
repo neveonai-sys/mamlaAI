@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign Up | Mamla.AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#b45e08",
+                        "background-light": "#f8f7f5",
+                        "background-dark": "#221910",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<div class="flex-1 flex flex-col lg:flex-row">
+<!-- Left Side: Branding and Visuals -->
+<div class="hidden lg:flex lg:w-1/2 bg-primary/10 dark:bg-primary/5 items-center justify-center p-12 relative overflow-hidden">
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="absolute top-[-10%] left-[-10%] w-72 h-72 bg-primary rounded-full blur-3xl"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary rounded-full blur-3xl"></div>
+</div>
+<div class="max-w-xl relative z-10">
+<div class="flex items-center gap-2 mb-12">
+<span class="material-symbols-outlined text-primary text-4xl">gavel</span>
+<span class="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Mamla.AI</span>
+</div>
+<h1 class="text-5xl font-black leading-tight mb-6 text-slate-900 dark:text-slate-100">
+                    Empower Your Legal Practice with Intelligence.
+                </h1>
+<p class="text-lg text-slate-600 dark:text-slate-400 mb-10 leading-relaxed">
+                    Join thousands of legal professionals who are streamlining their workflow, automating document analysis, and focusing more on winning cases with our advanced AI suite.
+                </p>
+<div class="grid grid-cols-1 gap-6">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-primary">verified_user</span>
+</div>
+<div>
+<h3 class="font-bold">Enterprise-Grade Security</h3>
+<p class="text-sm text-slate-500">Your client data is encrypted and handled with the highest standards of confidentiality.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-primary">auto_awesome</span>
+</div>
+<div>
+<h3 class="font-bold">AI Document Summarization</h3>
+<p class="text-sm text-slate-500">Extract key insights from hundreds of pages in seconds, not hours.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side: Signup Form -->
+<div class="flex-1 flex items-center justify-center p-6 sm:p-12 lg:p-24 bg-white dark:bg-background-dark">
+<div class="w-full max-w-md">
+<div class="lg:hidden flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-primary text-3xl">gavel</span>
+<span class="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">Mamla.AI</span>
+</div>
+<div class="mb-10">
+<h2 class="text-3xl font-bold mb-2">Create your account</h2>
+<p class="text-slate-500 dark:text-slate-400">Start your 14-day free trial today. No credit card required.</p>
+</div>
+<form class="space-y-5">
+<!-- Full Name -->
+<div>
+<label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300" for="full-name">Full Name</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">person</span>
+<input class="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all" id="full-name" placeholder="Jane Doe" type="text"/>
+</div>
+</div>
+<!-- Email -->
+<div>
+<label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300" for="email">Professional Email</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">mail</span>
+<input class="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all" id="email" placeholder="jane@lawfirm.com" type="email"/>
+</div>
+</div>
+<!-- Organization -->
+<div>
+<label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300" for="org">Law Firm / Organization Name</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">corporate_fare</span>
+<input class="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all" id="org" placeholder="Doe &amp; Associates" type="text"/>
+</div>
+</div>
+<!-- Password -->
+<div>
+<label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300" for="password">Secure Password</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
+<input class="w-full pl-10 pr-12 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all" id="password" placeholder="••••••••" type="password"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" type="button">
+<span class="material-symbols-outlined text-xl">visibility</span>
+</button>
+</div>
+<p class="mt-2 text-xs text-slate-500">At least 8 characters, including a number and a symbol.</p>
+</div>
+<!-- Terms -->
+<div class="flex items-start gap-3 py-2">
+<input class="mt-1 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer" id="terms" type="checkbox"/>
+<label class="text-sm text-slate-600 dark:text-slate-400" for="terms">
+                            I agree to the <a class="text-primary hover:underline font-medium" href="#">Terms of Service</a> and <a class="text-primary hover:underline font-medium" href="#">Privacy Policy</a>.
+                        </label>
+</div>
+<!-- Submit Button -->
+<button class="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2" type="submit">
+                        Create Account
+                        <span class="material-symbols-outlined text-xl">arrow_forward</span>
+</button>
+<!-- Divider -->
+<div class="relative py-4">
+<div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200 dark:border-slate-700"></div></div>
+<div class="relative flex justify-center text-xs uppercase"><span class="bg-white dark:bg-background-dark px-2 text-slate-500">Or sign up with</span></div>
+</div>
+<!-- Social Signup -->
+<div class="grid grid-cols-1 gap-3">
+<button class="flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" type="button">
+<img alt="Google" class="w-5 h-5" data-alt="Google company logo icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBU1D9Dr7P55SePXmYikDUDUsGizrpCScEyiUeYXuTzEW1B7LUVTH3rLQqjq1O5jwAKggupEkczydeaoG3-k7s7JLinebSrweCqq5qyFXXQBRQwbfT8s7VLORlgRt95KOEc20s4wxht5z6BBUTyAso6EDyRWD_GJ9CG62FMYIlsRp3aB5kWfRaPBI_Ha_4wj8O-NpOBri7LRMf-m9Ff0k6YIymIL832l3h7HM6IC2P1V920BE37k9GwQeI4zXdfF7oAGUwQS8xYSg"/>
+<span class="text-sm font-semibold">Continue with Google</span>
+</button>
+</div>
+<!-- Sign In Link -->
+<p class="text-center text-sm text-slate-600 dark:text-slate-400 mt-8">
+                        Already have an account? 
+                        <a class="text-primary font-bold hover:underline" href="#">Sign in instead</a>
+</p>
+</form>
+</div>
+</div>
+</div>
+<!-- Footer for basic links -->
+<footer class="p-6 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-background-dark">
+<div class="text-xs text-slate-500">
+            © 2024 Mamla.AI. All rights reserved.
+        </div>
+<div class="flex gap-6 text-xs text-slate-500">
+<a class="hover:text-primary transition-colors" href="#">Help Center</a>
+<a class="hover:text-primary transition-colors" href="#">Contact Sales</a>
+<a class="hover:text-primary transition-colors" href="#">Cookie Policy</a>
+</div>
+</footer>
+</body></html>

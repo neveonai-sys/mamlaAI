@@ -62,7 +62,7 @@ All user-facing API base path is effectively **`/api/`** (e.g. full path `https:
 | **users** | Auth (Supabase), profile, onboarding, signup (Mongo), courts/states/districts, feedback | MongoDB: user_details, sessions (legacy), feedback, signup_tokens, etc. |
 | **ai_draft** | AI drafting sessions, sections, save/load, PDF, templates | MongoDB: aidrafts_complete_data |
 | **create_drafts** | Template-based drafts, submit, auto-save, PDF | MongoDB: draft_content_data, user_draft_data; local files under draftdocs |
-| **calendar_management** | Events CRUD | MongoDB (user_details.meetings, etc.) |
+| **calendar_management** | Events CRUD plus REST aliases and conflict APIs. The service layer stores recurring chains as per-day meeting entries, supports `only once`, `this and following`, and `entire series` operations, syncs participant copies into linked user records, and now sends creator/participant emails as separate deliveries instead of CC-style batching. | MongoDB (user_details.meetings, etc.) |
 | **calendersetup** | Google Calendar OAuth (init, redirect, events) | N/A |
 | **utilities** | Send email, state/district/court list | MongoDB: state_district_court_data |
 | **search_facility** | Index documents, search, fetch content | OpenSearch + MongoDB |
@@ -98,7 +98,7 @@ User-related **URLs** are in `Legalv1/users/urls.py`; each path points to either
 
 ### LLM Settings
 
-All LLM calls are centralised in **`Legalv1/core/llm_client.py`** (`chat_complete()`). Do **not** instantiate OpenAI clients directly in app views/tasks.
+All LLM calls are centralised in **`Legalv1/core/llm_client.py`** (`chat_complete()` for text, `vision_complete()` for multimodal image inputs). Do **not** instantiate OpenAI clients directly in app views/tasks.
 
 | Env var | Purpose | Default |
 |---------|---------|--------|
@@ -146,3 +146,20 @@ All LLM calls are centralised in **`Legalv1/core/llm_client.py`** (`chat_complet
 - **Session manager (legacy MongoDB sessions):** `users/routes/session_manager.py` (still used by some flows; Supabase is the source of truth for auth).
 
 For a full list of endpoints and which require auth, see **04-api-reference.md**.
+
+### TalkDoc Notes
+
+- `talkdoc/views.py` now sanitizes document-processing errors before returning them to the frontend. Internal failure detail stays in Mongo (`error_detail`) and logs, while API responses expose only user-safe summaries.
+- `GET /api/talkdoc/documents/<doc_id>/file/` streams the original uploaded file back to the authenticated owner for inline preview or download.
+- `DELETE /api/talkdoc/documents/<doc_id>/` removes an uploaded TalkDoc file for its owner and strips that document id out of any surviving non-deleted chat sessions.
+- Session reads and deletes in TalkDoc now enforce ownership checks consistently across both legacy and REST-style endpoints.
+- `create_session` and `create_session_v2` default new titles to a timestamped label instead of generic `Chat Session` / `General Chat`, and they preserve optional `matter` context (`caseid`, `clientid`).
+- TalkDoc retrieval is now session-scoped: the active session's stored `doc_ids` are the only document ids used during RAG retrieval. Per-turn document overrides are not used in `query_v2`.
+- `modify_session_docs` allows adding more documents to an existing session, but once the session has started exchanging messages it rejects document removal so earlier context cannot silently disappear from the conversation history.
+- `talkdoc/tasks.py` now extracts tables from PDF and DOCX uploads, formats CSV and XLSX uploads into indexable table text, rasterizes scanned PDF pages through `pypdfium2` when a page has no text layer, and uses the shared OpenAI/OpenRouter multimodal path for OCR-style extraction from image uploads and scanned-page images when plain server-side parsing is not available.
+- The rebuilt TalkDoc frontend now supports uploading additional documents after a chat has already started; those new files are automatically attached to the active session through `POST /api/talkdoc/sessions/<session_id>/docs`.
+- The rebuilt TalkDoc setup screen now uses `users/filter_with_details/` semantically: choosing a case filters linked clients and auto-fills the client field when the backend mapping resolves to a single client.
+- TalkDoc uploads now store a timestamped display name alongside the original filename, and document records keep denormalized `case_ids` / `client_ids` metadata derived from the upload `matter` payload so document filtering and chat citations stay distinguishable across sessions.
+- Production TalkDoc uploads depend on the Nginx proxy allowing larger multipart bodies; the checked-in `nginx_mamla.ai_optimized.conf` now raises `client_max_body_size` for `/api/` traffic to support larger post-chat uploads.
+- The tracked live site file is `mamla.ai`, which should be copied to `/etc/nginx/sites-available/mamla.ai` (or merged there directly). Nginx will not read repo copies automatically; after updating the server file, validate with `nginx -t` and reload with `systemctl reload nginx`.
+- Existing TalkDoc documents can be backfilled with `python scripts/backfill_talkdoc_document_metadata.py` from `Legalv1/`. That script populates `name_display`, `case_ids`, `client_ids`, `primary_case_id`, and `primary_client_id` for older `rag_documents` rows.

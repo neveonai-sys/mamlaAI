@@ -2,6 +2,11 @@ from django.urls import path
 from users import views, supabase_views
 
 urlpatterns = [
+    # REST-compatible client endpoints (new frontend)
+    path('clients/', supabase_views.list_clients),
+    path('clients/<str:client_id>/', supabase_views.update_client_detail),
+    path('invite_client/', supabase_views.invite_client_handler),
+
     path('signup-user/', views.signup_user),
     path('check-auth/', supabase_views.check_auth),
     path('invalidate-session/', supabase_views.invalidate_session),

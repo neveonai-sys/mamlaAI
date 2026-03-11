@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#b45e08",
+                        "background-light": "#f8f7f5",
+                        "background-dark": "#221910",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>Mamla.AI - Create Legal Event</title>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+<!-- Background Calendar View Overlay (Simplified) -->
+<div class="fixed inset-0 z-0 opacity-40 pointer-events-none p-8 flex flex-col gap-6">
+<header class="flex items-center justify-between border-b border-primary/10 pb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl">gavel</span>
+<h1 class="text-xl font-bold">Mamla.AI</h1>
+</div>
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/20"></div>
+</div>
+</header>
+<div class="grid grid-cols-7 gap-4 h-full">
+<div class="border border-primary/10 rounded-lg p-4 bg-white/50">Mon</div>
+<div class="border border-primary/10 rounded-lg p-4 bg-white/50">Tue</div>
+<div class="border border-primary/10 rounded-lg p-4 bg-white/50">Wed</div>
+<div class="border border-primary/10 rounded-lg p-4 bg-white/50">Thu</div>
+<div class="border border-primary/10 rounded-lg p-4 bg-white/50">Fri</div>
+<div class="border border-primary/10 rounded-lg p-4 bg-white/50 text-slate-400">Sat</div>
+<div class="border border-primary/10 rounded-lg p-4 bg-white/50 text-slate-400">Sun</div>
+</div>
+</div>
+<!-- Modal Backdrop -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+<!-- Modal Container -->
+<div class="relative w-full max-w-2xl bg-white dark:bg-[#2a2118] rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+<!-- Header -->
+<div class="flex items-center justify-between px-8 py-6 border-b border-primary/10">
+<div class="flex flex-col">
+<h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Create New Legal Event</h2>
+<p class="text-sm text-primary/70">Schedule hearings, consultations, or deadlines</p>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-2xl">close</span>
+</button>
+</div>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+<!-- Event Title -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Event Title</label>
+<input class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-background-dark/50 focus:border-primary focus:ring-primary h-12 px-4 transition-all" placeholder="e.g., Preliminary Hearing - Smith vs. Jones" type="text"/>
+</div>
+<!-- Case/Matter Association & Event Type -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Associate with Case</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-3 text-slate-400">search</span>
+<select class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-background-dark/50 focus:border-primary focus:ring-primary h-12 pl-10 pr-4 appearance-none">
+<option>Search matter file...</option>
+<option>2024-CV-082: Smith vs. Jones</option>
+<option>2023-TX-115: Anderson Estate</option>
+</select>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Event Type</label>
+<select class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-background-dark/50 focus:border-primary focus:ring-primary h-12 px-4 appearance-none">
+<option value="hearing">Court Hearing</option>
+<option value="consultation">Client Consultation</option>
+<option value="deadline">Filing Deadline</option>
+<option value="deposition">Deposition</option>
+</select>
+</div>
+</div>
+<!-- Date & Time & Timezone -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="flex flex-col gap-2 md:col-span-1">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Date</label>
+<input class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-background-dark/50 h-12 px-4 focus:ring-primary" type="date"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Time</label>
+<input class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-background-dark/50 h-12 px-4 focus:ring-primary" type="time"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Timezone</label>
+<select class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-background-dark/50 h-12 px-4 appearance-none">
+<option>EST (UTC-5)</option>
+<option>PST (UTC-8)</option>
+<option>GMT (UTC+0)</option>
+</select>
+</div>
+</div>
+<!-- Recurrence & Reminders -->
+<div class="flex flex-wrap gap-4 items-center py-2 border-y border-primary/5">
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="rounded text-primary focus:ring-primary border-primary/20" type="checkbox"/>
+<span class="text-sm font-medium">Repeat Event</span>
+</label>
+<div class="h-4 w-px bg-primary/20 mx-2"></div>
+<label class="flex items-center gap-2 cursor-pointer">
+<span class="material-symbols-outlined text-primary text-xl">notifications</span>
+<span class="text-sm font-medium">Add Reminder</span>
+<select class="text-xs bg-primary/10 border-none rounded-lg focus:ring-0 py-1">
+<option>15 mins before</option>
+<option>1 hour before</option>
+<option>1 day before</option>
+</select>
+</label>
+</div>
+<!-- Location & Virtual Meeting -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Location</label>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-3 text-slate-400">location_on</span>
+<input class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-background-dark/50 h-12 pl-10 pr-4" placeholder="Physical address or court room" type="text"/>
+</div>
+<button class="flex items-center gap-2 px-4 h-12 bg-blue-600/10 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-600/20 transition-all font-medium whitespace-nowrap">
+<span class="material-symbols-outlined">video_call</span>
+                            Add Zoom/Teams
+                        </button>
+</div>
+</div>
+<!-- Attendees -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Attendees</label>
+<div class="flex flex-wrap gap-2 p-2 border border-primary/20 rounded-lg bg-background-light dark:bg-background-dark/50 min-h-12">
+<div class="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+<img class="w-5 h-5 rounded-full" data-alt="User avatar icon for attendee" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAIV5dXJaDLPNBWbJnJ29asu7E-lVBmh_N3BFTu8cnjkQE1K1an7k-fSBgTCdvgGrSOHZM2zeVJd_Cazjyur8s5qK2wsy5n7WJHTJMPJMqpW9incUeYOQHAYIRvQHy8sFlR67rRf6xXBdk-fAaeHM73NinIXzI4dT2kZh5b09amUczJVdBCKKSrFsnaWeK0E17z73x8wiIHRrxHqfQguEipesV5dFstRmmQTKhI5DUeW0pkLOt743BAJCIeAF117RVI30So2RbyA"/>
+                            Sarah Jenkins (Lead)
+                            <span class="material-symbols-outlined text-xs cursor-pointer">close</span>
+</div>
+<div class="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+<img class="w-5 h-5 rounded-full" data-alt="User avatar icon for attendee" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdL7aSzSwPDNnlY7o8UTVd8JAAubKV_HE8zp7VaoRz6Z6ghpbV_pGZuBQz-fO26g-gEwdtA7CiwoQCnU_VShOFGN0hgtOM6yd8vY1KyTv_l0GEjyUBC0evq5pLEv_Xka-Dn439ZLG5a_sSVp3hhtp3y_TWFNeiUaY34Ea0CF8edKkooCkHQU2cUtKuSBSXdk31zCBtFm23eXqKyLiDAjzR6SKTRfIQDmVIdhO7WmfipDvbVO2vo4v2eIiPxBCXgoGOC8hKMo_p2Q"/>
+                            Marcus Thorne
+                            <span class="material-symbols-outlined text-xs cursor-pointer">close</span>
+</div>
+<button class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white">
+<span class="material-symbols-outlined text-lg">add</span>
+</button>
+</div>
+</div>
+<!-- Private Notes -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<label class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Internal Team Notes</label>
+<span class="material-symbols-outlined text-slate-400 text-sm" title="Only visible to firm members">lock</span>
+</div>
+<textarea class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-background-dark/50 focus:border-primary focus:ring-primary p-4 min-h-[100px] resize-none" placeholder="Confidential details for the legal team..."></textarea>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="px-8 py-6 border-t border-primary/10 bg-background-light/50 dark:bg-background-dark/20 flex justify-end gap-4 rounded-b-xl">
+<button class="px-6 py-3 rounded-lg border border-primary/30 text-primary font-bold hover:bg-primary/5 transition-all uppercase tracking-widest text-xs">
+                    Cancel
+                </button>
+<button class="px-10 py-3 rounded-lg bg-primary text-white font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all uppercase tracking-widest text-xs">
+                    Save Event
+                </button>
+</div>
+</div>
+</div>
+</body></html>

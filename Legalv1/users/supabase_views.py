@@ -647,3 +647,123 @@ def add_case_client(request):
 #         fb['_id'] = str(fb['_id'])
 
 #     return JsonResponse(feedback_list, safe=False)
+
+# ── REST-compatible client views ───────────────────────────────────────────────
+
+@api_view(['GET'])
+@supabase_required
+def list_clients(request):
+    """
+    GET /api/users/clients/
+    Returns flat list of clients for the logged-in lawyer.
+    """
+    try:
+        supa_user = request.supabase_user
+        user_id = supa_user.get('user_id')
+        obj = Handleusermetadata()
+        cases_without_client, clients_without_case, case_client_map = obj.retrieve_clients_and_cases_for_lawyer(user_id)
+
+        clients = {}
+        # Add clients linked to cases
+        for case_id, client_info in (case_client_map or {}).items():
+            cid = client_info.get('client_id') or client_info.get('user_id', '')
+            if cid:
+                clients[cid] = {
+                    "id": cid,
+                    "client_id": cid,
+                    "fname": client_info.get('fname', ''),
+                    "lname": client_info.get('lname', ''),
+                    "name": f"{client_info.get('fname', '')} {client_info.get('lname', '')}".strip(),
+                    "email": client_info.get('email', ''),
+                    "phone": client_info.get('phone_number', '') or client_info.get('phonenumber', ''),
+                    "case_id": case_id,
+                }
+        # Add clients without cases
+        for client_info in (clients_without_case or []):
+            cid = client_info.get('client_id') or client_info.get('user_id', '')
+            if cid and cid not in clients:
+                clients[cid] = {
+                    "id": cid,
+                    "client_id": cid,
+                    "fname": client_info.get('fname', ''),
+                    "lname": client_info.get('lname', ''),
+                    "name": f"{client_info.get('fname', '')} {client_info.get('lname', '')}".strip(),
+                    "email": client_info.get('email', ''),
+                    "phone": client_info.get('phone_number', '') or client_info.get('phonenumber', ''),
+                    "case_id": None,
+                }
+
+        result = list(clients.values())
+        return JsonResponse({"results": result, "count": len(result)})
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"results": [], "count": 0, "error": str(e)}, status=500)
+
+
+@api_view(['PUT'])
+@supabase_required
+def update_client_detail(request, client_id):
+    """
+    PUT /api/users/clients/<client_id>/
+    Body: {fname, lname, email, phone, ...}
+    """
+    try:
+        from core.init_clients import get_mongo_client
+        data = json.loads(request.body or b"{}")
+        allowed = {k: v for k, v in data.items() if k in ('fname', 'lname', 'email', 'phonenumber', 'phone_number', 'address', 'notes')}
+        if not allowed:
+            return JsonResponse({"error": "No updatable fields provided"}, status=400)
+        db = get_mongo_client()['legaldb']
+        res = db['user_details'].update_one({"user_id": client_id}, {"$set": allowed})
+        if res.matched_count:
+            return JsonResponse({"message": "Updated"})
+        return JsonResponse({"error": "Client not found"}, status=404)
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(['POST'])
+@supabase_required
+def invite_client_handler(request):
+    """
+    POST /api/users/invite_client/
+    Body: {fname, lname, email, phonenumber, case_id (optional)}
+    Wraps the existing onboard_new_client logic.
+    """
+    try:
+        supa_user = request.supabase_user
+        user_id = supa_user.get('user_id')
+        data = json.loads(request.body or b"{}")
+
+        fname = data.get('fname', '').strip()
+        lname = data.get('lname', '').strip()
+        email = data.get('email', '').strip()
+        phonenumber = data.get('phonenumber', '').strip()
+        case_id = data.get('case_id', '')
+
+        if not phonenumber and not email:
+            return JsonResponse({"error": "phonenumber or email required"}, status=400)
+        if not fname:
+            return JsonResponse({"error": "fname required"}, status=400)
+
+        obj = Handleusermetadata()
+        existing = obj.check_user_exists("phone", phonenumber) if phonenumber else obj.check_user_exists("email", email)
+        if existing:
+            client_user_id = existing.get('user_id')
+            if case_id:
+                obj.update_caseid_and_clientid(user_id, client_user_id, case_id)
+                obj.update_caseid_and_lawyerid(client_user_id, user_id, case_id)
+            else:
+                obj.update_caseid_and_clientid(user_id, client_user_id)
+                obj.update_caseid_and_lawyerid(client_user_id, user_id)
+            return JsonResponse({"message": "Existing client linked", "client_id": client_user_id})
+
+        signup_link = obj.create_client_by_lawyer(
+            creator_id=user_id, fname=fname, lname=lname,
+            user_type='Client', phonenumber=phonenumber, email=email, case_id=case_id
+        )
+        return JsonResponse({"message": "Invite sent", "signup_link": signup_link})
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=500)

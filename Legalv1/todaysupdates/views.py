@@ -205,3 +205,51 @@ def fetch_my_updates(request):
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@supabase_required
+def updates_list(request):
+    """
+    GET /api/todaysupdates/updates/
+    Query params: today(bool), is_critical(bool), start_date, end_date, court, page, page_size
+    Returns: {results: [...], count: N, next: bool}
+    """
+    try:
+        supa_user = request.supabase_user
+        user_id = supa_user.get('user_id')
+
+        today_flag = request.GET.get('today', '').lower() in ('1', 'true', 'yes')
+        start_date_str = None
+        end_date_str = None
+        if today_flag:
+            today_str = datetime.datetime.utcnow().strftime('%Y-%m-%d')
+            start_date_str = today_str
+            end_date_str = today_str
+        else:
+            start_date_str = request.GET.get('start_date')
+            end_date_str = request.GET.get('end_date')
+
+        requested_court = request.GET.get('court')
+        page = int(request.GET.get('page', 1))
+        page_size = min(int(request.GET.get('page_size', 20)), 100)
+        is_critical = request.GET.get('is_critical', '').lower() in ('1', 'true', 'yes')
+
+        obj = CreateandmanageSubscription()
+        all_updates = obj.fetch_updates_for_subscribed_courts(user_id, start_date_str, end_date_str, requested_court)
+        if not isinstance(all_updates, list):
+            all_updates = []
+
+        if is_critical:
+            all_updates = [u for u in all_updates if u.get('is_critical') or u.get('critical')]
+
+        total = len(all_updates)
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_items = all_updates[start:end]
+        has_next = end < total
+
+        return JsonResponse({"results": page_items, "count": total, "next": has_next}, status=200)
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"results": [], "count": 0, "next": False, "error": str(e)}, status=500)

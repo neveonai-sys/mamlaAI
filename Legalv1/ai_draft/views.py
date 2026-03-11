@@ -86,12 +86,14 @@ def initiate_drafting_session(request):
     # fetch the freshly‑generated sections
     draft_sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
     draft_name = f"Untitled {datetime.datetime.now().strftime('%Y‑%m‑d %H:%M')}"
-    draft_id = obj.auto_save_initial_draft(session_id, draft_name, draft_sections)
+    saved_draft = obj.auto_save_initial_draft(session_id, draft_name, draft_sections)
 
     return JsonResponse({
         'session_id': str(session_id),
         'draft_name': draft_name,
-        'draft_id'  : draft_id,
+        'draft_id'  : saved_draft.get('draft_id'),
+        'draft_saved_at': saved_draft.get('saved_at'),
+        'last_updated_on': saved_draft.get('last_updated_on'),
         'draft_for' : draft_for,
         'draft_sections': draft_sections
     })
@@ -410,7 +412,12 @@ def save_draft(request):
 
     chk = obj.save_semi_filled_drafts(session_id, draft_name, draft_sections, draft_id)
     if chk.get('mssg'):
-        return JsonResponse({'message': 'Successfully Saved'})
+        return JsonResponse({
+            'message': 'Successfully Saved',
+            'draft_id': chk.get('draft_id'),
+            'saved_at': chk.get('saved_at'),
+            'last_updated_on': chk.get('last_updated_on'),
+        })
     else:
         return JsonResponse({'error': 'Failed'}, status=500)
 
@@ -774,3 +781,115 @@ def get_draft_for_draftsession_id(request):
         return JsonResponse(chk, status=200)
     else:
         return JsonResponse(chk, status=500)
+
+
+# ─── New REST-compatible views added for mamlaAI frontend ────────────────────
+
+@api_view(['GET'])
+@supabase_required
+def list_drafts(request):
+    """GET aidrafts/list/ — paginated list of saved drafts with 'results' key."""
+    user_id = request.supabase_user.get("user_id")
+    page_size = int(request.GET.get('page_size', 20))
+    page = int(request.GET.get('page', 1))
+    q = request.GET.get('q', '').strip().lower()
+
+    db = CreateupdatefetchAIdrafts(user_id).get_mongo_client_db()
+    saved = []
+    for sess in db.find({"user_id": user_id},
+                        {"saved_drafts": 1, "draft_for": 1, "last_updated_on": 1, "status": 1}):
+        sess_for = sess.get("draft_for", {})
+        for d in sess.get("saved_drafts", []):
+            name = d.get("draft_name", "")
+            if q and q not in name.lower():
+                continue
+            saved.append({
+                "id": d["draft_id"],
+                "draft_id": d["draft_id"],
+                "title": name,
+                "draft_name": name,
+                "session_id": str(sess["_id"]),
+                "created_at": d.get("saved_at"),
+                "status": sess.get("status", "draft"),
+                "draft_for": sess_for,
+            })
+    saved.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    total = len(saved)
+    start = (page - 1) * page_size
+    results = saved[start:start + page_size]
+    return JsonResponse({
+        "results": results,
+        "count": total,
+        "next": f"?page={page + 1}" if start + page_size < total else None,
+    }, status=200)
+
+
+@api_view(['POST'])
+@supabase_required
+def section_edit(request):
+    """POST aidrafts/section_edit/ — edit a section by index."""
+    data = json.loads(request.body)
+    session_id = data.get('session_id')
+    section_index = data.get('section_index', 0)
+    new_content = data.get('new_content', '')
+
+    user_id = request.supabase_user.get('user_id')
+    obj = CreateupdatefetchAIdrafts(user_id)
+    sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
+    if not sections or section_index >= len(sections):
+        return JsonResponse({'error': 'Section not found'}, status=404)
+    sec = sections[section_index]
+    chk = obj.update_specific_section_of_the_draft(
+        session_id, sec.get('section_id'), sec.get('section_title'), new_content
+    )
+    if chk.get('mssg'):
+        return JsonResponse({'message': 'Section updated'})
+    return JsonResponse({'error': 'Failed to update section'}, status=500)
+
+
+@api_view(['POST'])
+@supabase_required
+@ratelimit(key='user', rate='10/m', block=True)
+def refine_section(request):
+    """POST aidrafts/refine_section/ — AI refinement of section by index."""
+    data = json.loads(request.body)
+    session_id = data.get('session_id')
+    section_index = data.get('section_index', 0)
+    instruction = data.get('instruction', '')
+
+    user_id = request.supabase_user.get('user_id')
+    obj = CreateupdatefetchAIdrafts(user_id)
+    sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
+    if not sections or section_index >= len(sections):
+        return JsonResponse({'error': 'Section not found'}, status=404)
+    sec = sections[section_index]
+    section_id = sec.get('section_id')
+
+    ai_update_count = obj.update_ai_suggested_content_count(session_id)
+    if ai_update_count > 7:
+        return JsonResponse({'error': 'AI suggestion limit reached. Please upgrade to Premium.'}, status=400)
+
+    chk = obj.update_content_using_AI_with_user_input(session_id, section_id, instruction)
+    refined = chk.get('mssg', '')
+    return JsonResponse({'refined_content': refined, 'content': refined, 'ai_update_count': ai_update_count})
+
+
+@api_view(['POST'])
+@supabase_required
+def export_draft(request):
+    """POST aidrafts/export/ — download draft as docx/pdf."""
+    data = json.loads(request.body)
+    session_id = data.get('session_id')
+    fmt = data.get('format', 'docx')
+
+    user_id = request.supabase_user.get('user_id')
+    obj = CreateupdatefetchAIdrafts(user_id)
+    chk = obj.prepare_content_for_download(session_id)
+    if chk.get('mssg'):
+        response = HttpResponse(
+            chk.get('mssg').read(),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        response['Content-Disposition'] = f'attachment; filename=legal_draft.{fmt}'
+        return response
+    return JsonResponse({'error': 'No draft available'}, status=400)

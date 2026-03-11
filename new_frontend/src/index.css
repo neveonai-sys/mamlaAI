@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+  }
+
+  body {
+    @apply bg-background-light text-ink antialiased;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  /* ─── Material Symbols ─── */
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    user-select: none;
+    line-height: 1;
+  }
+  .icon-filled {
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  /* ─── Sidebar nav active state (matches Stitch .sidebar-active) ─── */
+  .sidebar-active {
+    @apply bg-primary/10 text-primary font-semibold;
+    border-right: 3px solid theme('colors.primary');
+  }
+
+  /* ─── Custom scrollbar ─── */
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-primary/20 rounded-full;
+  }
+
+  /* ─── Gradient mesh background (landing page hero) ─── */
+  .gradient-mesh {
+    background-color: #f8f7f5;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(180, 94, 8, 0.06) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(180, 94, 8, 0.06) 0px, transparent 50%);
+  }
+
+  /* ─── Editor container subtle shadow ─── */
+  .editor-container {
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  }
+
+  /* ─── Input base style ─── */
+  .input-base {
+    @apply w-full bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-sm
+           text-ink placeholder:text-slate-400
+           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40
+           transition-all;
+  }
+
+  /* ─── Button primary ─── */
+  .btn-primary {
+    @apply bg-primary text-ivory font-bold text-sm px-6 py-2.5 rounded-lg
+           hover:bg-primary-dark transition-all shadow-sm
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* ─── Button ghost ─── */
+  .btn-ghost {
+    @apply text-sm font-semibold text-ink/70 px-4 py-2 rounded-lg
+           hover:bg-primary/5 hover:text-primary transition-colors;
+  }
+
+  /* ─── Card surface ─── */
+  .card {
+    @apply bg-ivory rounded-xl border border-primary/10 p-5;
+  }
+
+  /* ─── Status badges ─── */
+  .badge-pending  { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800; }
+  .badge-active   { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800; }
+  .badge-critical { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800; }
+  .badge-closed   { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600; }
+  .badge-info     { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800; }
+
+  /* ─── Metric card ─── */
+  .metric-card {
+    @apply card flex flex-col gap-1 hover:shadow-card transition-shadow;
+  }
+
+  /* ─── Action card ─── */
+  .action-card {
+    @apply card hover:shadow-card hover:border-primary/20 transition-all cursor-pointer;
+  }
+
+  /* ─── Table header row ─── */
+  .table-header {
+    @apply bg-primary/5 text-xs font-semibold text-ink/60 uppercase tracking-wider;
+  }
+
+  /* ─── AI Panel (right sidebar in workspaces) ─── */
+  .ai-panel {
+    @apply flex flex-col bg-ivory border-l border-primary/10;
+  }
+
+  /* ─── FullCalendar customizations ─── */
+  .fc .fc-button-primary {
+    @apply bg-primary border-primary hover:bg-primary-dark focus:ring-primary/30;
+  }
+  .fc .fc-event {
+    @apply bg-primary border-primary text-ivory text-xs rounded;
+  }
+  .fc .fc-today-button {
+    @apply capitalize;
+  }
+  .fc-theme-standard td, .fc-theme-standard th {
+    @apply border-primary/10;
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}

@@ -174,9 +174,9 @@ class Handutilities:
     def initiate_email(self, data, attachments=None):
         try:
             from_email = settings.EMAIL_HOST_USER
-            to_emails = data.get('to_emails', '').split(',')
-            cc_emails = data.get('cc_emails', '').split(',')
-            bcc_emails = data.get('bcc_emails', '').split(',')
+            to_emails = [email.strip() for email in data.get('to_emails', '').split(',') if email.strip()]
+            cc_emails = [email.strip() for email in data.get('cc_emails', '').split(',') if email.strip()]
+            bcc_emails = [email.strip() for email in data.get('bcc_emails', '').split(',') if email.strip()]
             subject = data.get('subject', '')
             body = str(data.get('body', ''))
 

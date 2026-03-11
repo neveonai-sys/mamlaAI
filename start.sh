@@ -6,6 +6,7 @@
 
 # Get the project root directory
 PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
+FRONTEND_ROOT="/home/pronoys/products/sessioned_AiAdalat/mamlaAI_ground_zero/frontend"
 
 # Parse command line arguments
 MODE="prod"  # Default to production
@@ -25,6 +26,16 @@ echo "================================================"
 
 # Create logs directory if it doesn't exist
 mkdir -p "$PROJECT_ROOT/logs"
+
+PYTHON_BIN="${PYTHON_BIN:-/home/pronoys/miniconda3/envs/myenv/bin/python}"
+if [ ! -x "$PYTHON_BIN" ]; then
+    PYTHON_BIN=$(command -v python3 || command -v python)
+fi
+
+if ! "$PYTHON_BIN" -c "import django, celery" >/dev/null 2>&1; then
+    echo "Error: Python environment '$PYTHON_BIN' does not have required Django/Celery modules."
+    exit 1
+fi
 
 # Function to check if a port is in use
 is_port_in_use() {
@@ -70,11 +81,11 @@ cd "$PROJECT_ROOT/Legalv1"
 # Start backend based on mode
 if [ "$MODE" = "dev" ]; then
     echo "🔧 Starting Django Development Server..."
-    nohup python manage.py runserver > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
+    nohup "$PYTHON_BIN" manage.py runserver > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
 else
     echo "🏭 Starting Gunicorn Production Server..."
     # Use gunicorn_config.py with daily log rotation (keeps 3 days)
-    nohup gunicorn Legalv1.wsgi:application \
+    nohup "$PYTHON_BIN" -m gunicorn Legalv1.wsgi:application \
         --config gunicorn_config.py \
         > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
 fi
@@ -84,7 +95,7 @@ echo "Waiting for backend to start..."
 sleep 5
 
 echo "Setting up Frontend ($MODE mode)..."
-cd "$PROJECT_ROOT/frontend_webpack"
+cd "$FRONTEND_ROOT"
 
 # Set environment variables based on mode
 if [ "$MODE" = "dev" ]; then
@@ -137,14 +148,14 @@ else
     
     # Kill any old dev/prod servers
     echo "Cleaning up old frontend processes..."
-    kill -9 `ps -fu $USER | grep -v grep | grep Adalatai_ground_zero | grep react-scripts | awk '{print $2}'` 2>/dev/null
+    kill -9 `ps -fu $USER | grep -v grep | grep mamlaAI_ground_zero/frontend | grep webpack | awk '{print $2}'` 2>/dev/null
     kill -9 `ps -fu $USER | grep -v grep | grep 'webpack serve'| awk '{print $2}'` 2>/dev/null
     kill -9 `ps -fu $USER | grep -v grep | grep webpack| awk '{print $2}'` 2>/dev/null
     lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null
     
     echo "✅ Production build complete"
     echo "🌐 Frontend served by Nginx at: https://mamla.ai"
-    echo "📁 Static files location: $PROJECT_ROOT/frontend_webpack/dist"
+    echo "📁 Static files location: $FRONTEND_ROOT/dist"
     echo "⚡ Nginx serves files directly (no Node server needed)"
 fi
 
@@ -154,10 +165,13 @@ cd "$PROJECT_ROOT/Legalv1"
 
 # Use date-based log files for Celery (matching Django's pattern)
 LOG_DATE=$(date +%d-%m-%Y)
-# WARNING level for production (reduces log volume significantly)
-nohup celery -A Legalv1 worker -P gevent --concurrency=100 --loglevel=warning -Q celery,audio_processing > "$PROJECT_ROOT/logs/${LOG_DATE}_celery.log" 2>&1 &
-nohup celery -A Legalv1 worker -P prefork --concurrency=4 --loglevel=warning -Q ecourts_realtime,ecourts_background -n ecourts_worker@%h > "$PROJECT_ROOT/logs/${LOG_DATE}_celery_ecourts.log" 2>&1 &
-nohup celery -A Legalv1 beat --loglevel=warning > "$PROJECT_ROOT/logs/${LOG_DATE}_celery_beat.log" 2>&1 &
+CELERY_LOGLEVEL="warning"
+if [ "$MODE" = "dev" ]; then
+    CELERY_LOGLEVEL="info"
+fi
+nohup "$PYTHON_BIN" -m celery -A Legalv1 worker -P gevent --concurrency=100 --loglevel="$CELERY_LOGLEVEL" -Q celery,audio_processing > "$PROJECT_ROOT/logs/${LOG_DATE}_celery.log" 2>&1 &
+nohup "$PYTHON_BIN" -m celery -A Legalv1 worker -P prefork --concurrency=4 --loglevel="$CELERY_LOGLEVEL" -Q ecourts_realtime,ecourts_background -n ecourts_worker@%h > "$PROJECT_ROOT/logs/${LOG_DATE}_celery_ecourts.log" 2>&1 &
+nohup "$PYTHON_BIN" -m celery -A Legalv1 beat --loglevel="$CELERY_LOGLEVEL" > "$PROJECT_ROOT/logs/${LOG_DATE}_celery_beat.log" 2>&1 &
 
 echo "Starting Redis Monitor..."
 cd "$PROJECT_ROOT/Legalv1/scripts"
