@@ -244,7 +244,9 @@ path('api/ecourts/', include('ecourts_scraper.urls')),  # restore
 - **External API**: Uses `webapi.ecourtsindia.com` with Bearer token (`ECOURT_TOKEN` in `legalenv`).
 - **Court structure**: Uses external API hierarchy (State → District → Complex → Court) instead of `state_district_court_data` collection. Court structure endpoints are FREE.
 - **Caching**: Same `ecourts_cache` collection via `EcourtsCacheManager`. Keys prefixed with `api:` (e.g. `api:case:<cnr>`, `api:search:<hash>`). Pre-populated defaults stored under `defaults:cases`, `defaults:litigants`, `defaults:lawyers`.
+- **Default landing cache retention**: The direct-API Beat tasks now set explicit TTLs when writing `defaults:*` keys instead of relying on the generic cache-type fallback. Daily case/litigant defaults use a 36-hour TTL, weekly lawyer defaults use an 8-day TTL, and empty refresh runs do not overwrite the previous non-empty cache entry. This prevents the MamlaAI landing pages from going blank when Beat runs late or the partner API temporarily returns no results.
 - **Order download**: `client.get_order_stream(cnr, filename)` returns raw `(bytes, content_type)` — does NOT call `resp.json()` (PDF is binary, not JSON). Frontend fetches as Axios blob with `responseType: 'blob'` so the `Authorization` header is sent (plain `window.open()` would 401).
+- **MamlaAI case detail flow**: The active Tailwind frontend screen at `mamlaAI_ground_zero/frontend/src/components/ecourts/CaseDetail.jsx` should use the shared helper layer in `common/ecourtsApi.js` instead of calling Axios directly. It reads the normalized payload from `GET case/<cnr>/`, hydrates orders from `GET case/<cnr>/orders/`, refreshes via `POST case/<cnr>/refresh/`, and downloads PDFs through the authenticated blob path so direct API errors stay in-page and users are not bounced onto non-existent legacy routes.
 
 ### API Endpoints
 
@@ -270,13 +272,12 @@ path('api/ecourts/', include('ecourts_scraper.urls')),  # restore
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/ecourts` | `EcourtsHome` | Landing page with search categories and feature cards |
-| `/ecourts/search` | `CaseSearch` | Case search results with faceted filters. On blank mount: restore sessionStorage cache → else fetch `defaults/cases/` → else empty. |
+| `/ecourts` | `EcourtsHome` | Landing page with quick CNR lookup, free court-structure stats, last-search recovery from sessionStorage, and backend default preview cards for cases/lawyers/litigants. |
+| `/ecourts/case-search` | `CaseSearch` | Case search results with faceted filters. On blank mount: restore sessionStorage cache → else fetch `defaults/cases/` → else empty. |
 | `/ecourts/case/:cnr` | `CaseDetail` | Full case view — parties, history, orders, IAs. Back button (`navigate(-1)`). Order download via Axios blob. |
 | `/ecourts/lawyers` | `LawyerSearch` | Advocate search. Same blank-mount defaults flow (`defaults/lawyers/`). |
-| `/ecourts/lawyers/:name` | `LawyerProfile` | Advocate's cases with filters |
 | `/ecourts/litigants` | `LitigantSearch` | Litigant/party search. Same blank-mount defaults flow (`defaults/litigants/`). |
-| `/ecourts/causelist` | `CauseListBrowser` | Hierarchical court browser + cause list entries |
+| `/ecourts/cause-list` | `CauseListBrowser` | Hierarchy-driven cause-list search in the active MamlaAI frontend. Uses `states → districts → complexes → court numbers`, optional query modes (`q`, `advocate`, `litigant`, `judge`), and available-date chips from `causelist/dates/`. |
 
 **Blank-mount fallback priority (CaseSearch / LawyerSearch / LitigantSearch):**
 1. URL has `?q=` param → call search API directly

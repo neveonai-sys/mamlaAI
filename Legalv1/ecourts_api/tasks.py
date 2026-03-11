@@ -40,6 +40,8 @@ LITIGANT_SEED_QUERY = "state"
 LAWYER_SEED_QUERIES = ["kumar", "sharma", "singh"]
 
 DEFAULT_PAGE_SIZE = 20
+DAILY_DEFAULT_TTL_HOURS = 36
+WEEKLY_DEFAULT_TTL_HOURS = 8 * 24
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -65,11 +67,21 @@ def populate_case_defaults():
         raw = client.search(params)
         transformed = transformers.transform_search_results(raw)
         enriched = transformers.enrich_cached_facets(transformed)
+        case_list = enriched.get("case_list", [])
+
+        if not case_list:
+            logger.warning("[ecourts defaults] cases: empty result set returned — keeping previous cache")
+            return {"status": "empty"}
 
         cache = EcourtsCacheManager()
-        cache.set("defaults:cases", "ecourts_defaults", enriched)
+        cache.set(
+            "defaults:cases",
+            "ecourts_defaults",
+            enriched,
+            ttl_hours=DAILY_DEFAULT_TTL_HOURS,
+        )
 
-        count = len(enriched.get("case_list", []))
+        count = len(case_list)
         logger.info("[ecourts defaults] cases: stored %d results", count)
         return {"status": "ok", "count": count}
 
@@ -103,11 +115,21 @@ def populate_litigant_defaults():
         raw = client.search(params)
         transformed = transformers.transform_search_results(raw)
         enriched = transformers.enrich_cached_facets(transformed)
+        case_list = enriched.get("case_list", [])
+
+        if not case_list:
+            logger.warning("[ecourts defaults] litigants: empty result set returned — keeping previous cache")
+            return {"status": "empty"}
 
         cache = EcourtsCacheManager()
-        cache.set("defaults:litigants", "ecourts_defaults", enriched)
+        cache.set(
+            "defaults:litigants",
+            "ecourts_defaults",
+            enriched,
+            ttl_hours=DAILY_DEFAULT_TTL_HOURS,
+        )
 
-        count = len(enriched.get("case_list", []))
+        count = len(case_list)
         logger.info("[ecourts defaults] litigants: stored %d results", count)
         return {"status": "ok", "count": count}
 
@@ -183,7 +205,12 @@ def populate_lawyer_defaults():
         }
 
         cache = EcourtsCacheManager()
-        cache.set("defaults:lawyers", "ecourts_defaults", result)
+        cache.set(
+            "defaults:lawyers",
+            "ecourts_defaults",
+            result,
+            ttl_hours=WEEKLY_DEFAULT_TTL_HOURS,
+        )
 
         logger.info("[ecourts defaults] lawyers: stored %d results", len(case_list))
         return {"status": "ok", "count": len(case_list)}

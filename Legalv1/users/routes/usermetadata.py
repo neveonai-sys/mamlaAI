@@ -423,7 +423,13 @@ class Handleusermetadata:
             for client_id in clients_without_case_ids:
                 val = clients.get(client_id)
                 if val:
-                    clients_without_case.append(val)
+                    clients_without_case.append({
+                        **val,
+                        'client_id': client_id,
+                        'user_id': client_id,
+                        'fname': val.get('Fname', ''),
+                        'lname': val.get('Lname', ''),
+                    })
             # Prepare case_client_map with client details
             # case_client_map_with_details = {
             #     case_id: clients.get(client_id, {'Fname': '', 'Lname': '', 'phone_number': ''})
@@ -458,6 +464,10 @@ class Handleusermetadata:
 
                 # assign email (or empty if not found)
                 client_details["email"] = email_map.get(client_id, "")
+                client_details["client_id"] = client_id
+                client_details["user_id"] = client_id
+                client_details["fname"] = client_details.get("Fname", "")
+                client_details["lname"] = client_details.get("Lname", "")
 
                 # fetch that client’s status from Mongo
                 status_doc = self.get_mongo_client_db()['user_details'].find_one(

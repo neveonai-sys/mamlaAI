@@ -1,44 +1,118 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import apiClient from '../../services/api';
-
-const BAR_COUNCILS = [
-  'Bar Council of India', 'Andhra Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Delhi',
-  'Gujarat', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh',
-  'Maharashtra', 'Odisha', 'Punjab & Haryana', 'Rajasthan', 'Tamil Nadu', 'Telangana',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-];
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { getEcourtsDefaults, searchEcourts, unwrapEcourtsPayload } from './common/ecourtsApi';
+import { loadLastSearchCache, loadSearchCache, saveSearchCache } from './common/useSearchCache';
 
 export default function LawyerSearch() {
-  const [form, setForm] = useState({ name: '', bar_council: '', reg_number: '' });
-  const [results, setResults] = useState([]);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get('q') || '';
+  const initialPage = Number.parseInt(searchParams.get('page') || '1', 10);
+
+  const [form, setForm] = useState({ query: initialQuery });
+  const [results, setResults] = useState(null);
+  const [page, setPage] = useState(initialPage);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(Boolean(initialQuery));
+  const [isDefault, setIsDefault] = useState(false);
+  const [defaultRefreshedAt, setDefaultRefreshedAt] = useState(null);
 
   function handleChange(e) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
-  async function handleSearch(e) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    setSearched(true);
-    try {
-      const params = new URLSearchParams();
-      if (form.name.trim()) params.append('name', form.name.trim());
-      if (form.bar_council) params.append('bar_council', form.bar_council);
-      if (form.reg_number.trim()) params.append('reg_number', form.reg_number.trim());
+  const caseList = useMemo(() => results?.case_list || [], [results]);
+  const totalHits = results?.total || 0;
+  const totalPages = results?.total_pages || 0;
 
-      const r = await apiClient.get(`ecourts/lawyers/search/?${params}`);
-      setResults(r.data?.results ?? r.data ?? []);
+  const runSearch = useCallback(async (query, nextPage = 1) => {
+    const trimmedQuery = (query || '').trim();
+    if (!trimmedQuery) return;
+
+    const cacheFilters = { searchType: 'advocate' };
+    const cached = loadSearchCache('lawyers', trimmedQuery, nextPage, cacheFilters);
+    if (cached) {
+      setResults(cached);
+      setIsDefault(false);
+      setError('');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const response = await searchEcourts({
+        searchType: 'advocate',
+        query: trimmedQuery,
+        page: nextPage,
+        pageSize: 20,
+      });
+      const payload = unwrapEcourtsPayload(response) || {};
+      setResults(payload);
+      setIsDefault(false);
+      saveSearchCache('lawyers', trimmedQuery, nextPage, cacheFilters, payload);
     } catch (err) {
       setError(err.response?.data?.error || 'Search failed. Please check your inputs.');
-      setResults([]);
+      setResults(null);
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const fetchDefaults = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await getEcourtsDefaults('lawyers');
+      const payload = response.data?.data || unwrapEcourtsPayload(response) || {};
+      if (payload) {
+        setResults(payload);
+        setIsDefault(true);
+        setSearched(true);
+        setDefaultRefreshedAt(response.data?.refreshed_at || null);
+      }
+    } catch {
+      setResults(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialQuery) {
+      runSearch(initialQuery, initialPage);
+      return;
+    }
+
+    const last = loadLastSearchCache('lawyers');
+    if (last?.query) {
+      setForm({ query: last.query });
+      setPage(last.page || 1);
+      setResults(last.results || null);
+      setSearched(true);
+      setSearchParams({ q: last.query, page: String(last.page || 1) }, { replace: true });
+      return;
+    }
+
+    fetchDefaults();
+  }, [fetchDefaults, initialPage, initialQuery, runSearch, setSearchParams]);
+
+  async function handleSearch(e) {
+    e?.preventDefault();
+    const trimmedQuery = form.query.trim();
+    if (!trimmedQuery) return;
+
+    setSearched(true);
+    setPage(1);
+    setSearchParams({ q: trimmedQuery, page: '1' });
+    await runSearch(trimmedQuery, 1);
+  }
+
+  async function handlePageChange(nextPage) {
+    setPage(nextPage);
+    setSearchParams({ q: form.query.trim(), page: String(nextPage) });
+    await runSearch(form.query, nextPage);
   }
 
   return (
@@ -46,6 +120,9 @@ export default function LawyerSearch() {
       <div className="mb-6">
         <h2 className="text-2xl font-black text-ink tracking-tight">Lawyer Search</h2>
         <p className="text-sm text-slate-500 mt-0.5">Find advocate registration and case records</p>
+        <button type="button" onClick={() => navigate('/ecourts')} className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 transition-colors hover:text-primary">
+          Back to eCourts Home
+        </button>
       </div>
 
       <div className="card p-6 mb-6">
@@ -53,31 +130,12 @@ export default function LawyerSearch() {
           <div>
             <label className="block text-xs font-semibold mb-1 text-slate-700">Advocate Name</label>
             <input
-              name="name"
-              value={form.name}
+              name="query"
+              value={form.query}
               onChange={handleChange}
               className="input-base"
               placeholder="e.g., Ramesh Gupta"
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-slate-700">Bar Council</label>
-              <select name="bar_council" value={form.bar_council} onChange={handleChange} className="input-base">
-                <option value="">Any Bar Council</option>
-                {BAR_COUNCILS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-slate-700">Registration Number</label>
-              <input
-                name="reg_number"
-                value={form.reg_number}
-                onChange={handleChange}
-                className="input-base font-mono"
-                placeholder="e.g., DL/123/2010"
-              />
-            </div>
           </div>
 
           {error && (
@@ -89,7 +147,7 @@ export default function LawyerSearch() {
 
           <button
             type="submit"
-            disabled={loading || (!form.name.trim() && !form.bar_council && !form.reg_number.trim())}
+            disabled={loading || !form.query.trim()}
             className="btn-primary flex items-center gap-2"
           >
             {loading ? (
@@ -102,40 +160,74 @@ export default function LawyerSearch() {
       </div>
 
       {/* Results */}
-      {searched && !loading && (
+      {isDefault && results ? (
+        <div className="mb-4 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-primary">
+          Showing cached backend advocate matches{defaultRefreshedAt ? ` · updated ${new Date(defaultRefreshedAt).toLocaleDateString('en-IN')}` : ''}.
+        </div>
+      ) : null}
+
+      {(searched || isDefault) && !loading && (
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">
-            {results.length > 0 ? `${results.length} result${results.length > 1 ? 's' : ''}` : 'No results found'}
+            {caseList.length > 0
+              ? `${totalHits || caseList.length} result${(totalHits || caseList.length) > 1 ? 's' : ''}`
+              : 'No results found'}
           </p>
           <div className="space-y-3">
-            {results.map((lawyer) => (
-              <div
-                key={lawyer.id || lawyer.reg_number}
-                className="card p-5 flex items-start gap-4"
+            {caseList.map((item, index) => (
+              <Link
+                key={item.cnr || item.id || index}
+                to={`/ecourts/case/${encodeURIComponent(item.cnr || item.cnr_number || item.id || '')}`}
+                className="card p-5 hover:border-primary/30 hover:shadow-md transition-all flex items-center justify-between group"
               >
-                <div className="size-12 rounded-full bg-primary/10 text-primary font-bold text-sm flex items-center justify-center flex-shrink-0">
-                  {(lawyer.name || 'L')[0].toUpperCase()}
-                </div>
-                <div className="flex-1">
-                  <p className="font-bold text-ink">{lawyer.name}</p>
-                  {lawyer.reg_number && (
-                    <p className="text-xs font-mono text-slate-400 mt-0.5">{lawyer.reg_number}</p>
-                  )}
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {lawyer.bar_council && (
-                      <span className="badge-info">{lawyer.bar_council}</span>
-                    )}
-                    {lawyer.enrollment_year && (
-                      <span className="badge-info">Enrolled {lawyer.enrollment_year}</span>
-                    )}
-                    {lawyer.active_cases_count !== undefined && (
-                      <span className="badge-info">{lawyer.active_cases_count} active cases</span>
-                    )}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                      item.status === 'Disposed' || item.case_status === 'Disposed'
+                        ? 'bg-slate-100 text-slate-500'
+                        : 'bg-emerald-100 text-emerald-600'
+                    }`}>
+                      {item.status || item.case_status || 'Active'}
+                    </span>
+                    <span className="text-xs font-mono text-slate-400">{item.cnr || item.cnr_number || '—'}</span>
                   </div>
+                  <p className="font-semibold text-ink">{item.case_title || item.title || 'Advocate-linked case'}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {[item.case_type, item.case_number && item.year ? `${item.case_number}/${item.year}` : item.case_number, item.court || item.court_name].filter(Boolean).join(' — ') || 'Court data unavailable'}
+                  </p>
+                  {item.petitioner || item.respondent ? (
+                    <p className="text-xs text-slate-500 mt-1">
+                      {[item.petitioner, item.respondent].filter(Boolean).join(' vs ')}
+                    </p>
+                  ) : null}
                 </div>
-              </div>
+                <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">
+                  chevron_right
+                </span>
+              </Link>
             ))}
           </div>
+          {!isDefault && totalPages > 1 ? (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page <= 1 || loading}
+                className="rounded-full border border-primary/10 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-primary/5 hover:text-primary disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-sm font-semibold text-slate-500">Page {page} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= totalPages || loading}
+                className="rounded-full border border-primary/10 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-primary/5 hover:text-primary disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

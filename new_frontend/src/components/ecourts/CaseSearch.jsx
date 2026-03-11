@@ -1,59 +1,129 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import apiClient from '../../services/api';
-
-const STATES = [
-  'Andhra Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Delhi',
-  'Gujarat', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Odisha', 'Punjab & Haryana', 'Rajasthan',
-  'Tamil Nadu', 'Telangana', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-];
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { getEcourtsDefaults, searchEcourts, unwrapEcourtsPayload } from './common/ecourtsApi';
+import { loadLastSearchCache, loadSearchCache, saveSearchCache } from './common/useSearchCache';
 
 export default function CaseSearch() {
-  const [searchType, setSearchType] = useState('cnr'); // cnr | party | case_number
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get('q') || '';
+  const initialType = searchParams.get('type') || 'general';
+  const initialPage = Number.parseInt(searchParams.get('page') || '1', 10);
+
+  const [searchType, setSearchType] = useState(initialType);
   const [form, setForm] = useState({
-    cnr: '',
-    party_name: '',
-    case_number: '',
-    case_type: '',
-    year: new Date().getFullYear(),
-    state: '',
-    district: '',
+    query: initialQuery,
   });
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState(null);
+  const [page, setPage] = useState(initialPage);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(Boolean(initialQuery));
+  const [isDefault, setIsDefault] = useState(false);
+  const [defaultRefreshedAt, setDefaultRefreshedAt] = useState(null);
 
   function handleChange(e) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
-  async function handleSearch(e) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    setSearched(true);
-    try {
-      const params = new URLSearchParams();
-      if (searchType === 'cnr') params.append('cnr', form.cnr.trim().toUpperCase());
-      if (searchType === 'party') params.append('party_name', form.party_name.trim());
-      if (searchType === 'case_number') {
-        params.append('case_number', form.case_number.trim());
-        params.append('case_type', form.case_type.trim());
-        params.append('year', form.year);
-      }
-      if (form.state) params.append('state', form.state);
-      if (form.district) params.append('district', form.district);
+  const caseList = useMemo(() => results?.case_list || [], [results]);
+  const totalHits = results?.total || 0;
+  const totalPages = results?.total_pages || 0;
 
-      const r = await apiClient.get(`ecourts/search/cases/?${params}`);
-      setResults(r.data?.results ?? r.data ?? []);
+  const searchTypeMap = {
+    cnr: 'cnr',
+    party: 'party_name',
+    case_number: 'case_number',
+    general: 'general',
+  };
+
+  const runSearch = useCallback(async (query, nextPage = 1, type = searchType) => {
+    const trimmedQuery = (query || '').trim();
+    if (!trimmedQuery) return;
+
+    const cacheFilters = { searchType: type };
+    const cached = loadSearchCache('cases', trimmedQuery, nextPage, cacheFilters);
+    if (cached) {
+      setResults(cached);
+      setIsDefault(false);
+      setError('');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const response = await searchEcourts({
+        searchType: searchTypeMap[type] || 'general',
+        query: trimmedQuery,
+        page: nextPage,
+        pageSize: 20,
+      });
+      const payload = unwrapEcourtsPayload(response) || {};
+      setResults(payload);
+      setIsDefault(false);
+      saveSearchCache('cases', trimmedQuery, nextPage, cacheFilters, payload);
     } catch (err) {
       setError(err.response?.data?.error || 'Search failed. Please check your inputs and try again.');
-      setResults([]);
+      setResults(null);
     } finally {
       setLoading(false);
     }
+  }, [searchType]);
+
+  const fetchDefaults = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await getEcourtsDefaults('cases');
+      const payload = response.data?.data || unwrapEcourtsPayload(response) || {};
+      if (payload) {
+        setResults(payload);
+        setIsDefault(true);
+        setSearched(true);
+        setDefaultRefreshedAt(response.data?.refreshed_at || null);
+      }
+    } catch {
+      setResults(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialQuery) {
+      runSearch(initialQuery, initialPage, initialType);
+      return;
+    }
+
+    const last = loadLastSearchCache('cases');
+    if (last?.query) {
+      setForm({ query: last.query });
+      setPage(last.page || 1);
+      setResults(last.results || null);
+      setSearched(true);
+      setSearchParams({ q: last.query, type: initialType, page: String(last.page || 1) }, { replace: true });
+      return;
+    }
+
+    fetchDefaults();
+  }, [fetchDefaults, initialPage, initialQuery, initialType, runSearch, setSearchParams]);
+
+  async function handleSearch(e) {
+    e?.preventDefault();
+    const trimmedQuery = form.query.trim();
+    if (!trimmedQuery) return;
+
+    setSearched(true);
+    setPage(1);
+    setSearchParams({ q: trimmedQuery, type: searchType, page: '1' });
+    await runSearch(trimmedQuery, 1, searchType);
+  }
+
+  async function handlePageChange(nextPage) {
+    setPage(nextPage);
+    setSearchParams({ q: form.query.trim(), type: searchType, page: String(nextPage) });
+    await runSearch(form.query, nextPage, searchType);
   }
 
   return (
@@ -61,19 +131,30 @@ export default function CaseSearch() {
       <div className="mb-6">
         <h2 className="text-2xl font-black text-ink tracking-tight">Case Search</h2>
         <p className="text-sm text-slate-500 mt-0.5">Search cases across Indian eCourts</p>
+        <button type="button" onClick={() => navigate('/ecourts')} className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 transition-colors hover:text-primary">
+          Back to eCourts Home
+        </button>
       </div>
 
       <div className="card p-6 mb-6">
         {/* Type toggle */}
         <div className="flex gap-1 bg-background-light rounded-lg p-1 w-fit mb-5">
           {[
+            { key: 'general', label: 'General' },
             { key: 'cnr', label: 'By CNR' },
             { key: 'party', label: 'By Party Name' },
             { key: 'case_number', label: 'By Case No.' },
           ].map((t) => (
             <button
               key={t.key}
-              onClick={() => { setSearchType(t.key); setResults([]); setSearched(false); }}
+              onClick={() => {
+                setSearchType(t.key);
+                setResults(null);
+                setSearched(false);
+                setError('');
+                setForm((current) => ({ ...current, query: '' }));
+                setSearchParams({ type: t.key, page: '1' }, { replace: true });
+              }}
               className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${
                 searchType === t.key
                   ? 'bg-primary text-ivory shadow-sm'
@@ -86,96 +167,36 @@ export default function CaseSearch() {
         </div>
 
         <form onSubmit={handleSearch} className="space-y-4">
-          {searchType === 'cnr' && (
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-slate-700">CNR Number *</label>
-              <input
-                name="cnr"
-                required
-                value={form.cnr}
-                onChange={handleChange}
-                className="input-base font-mono uppercase"
-                placeholder="e.g., MHAU010001232024"
-                maxLength={20}
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Case Number Record — unique 16–20 character identifier
-              </p>
-            </div>
-          )}
-
-          {searchType === 'party' && (
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-slate-700">Party Name *</label>
-              <input
-                name="party_name"
-                required
-                value={form.party_name}
-                onChange={handleChange}
-                className="input-base"
-                placeholder="e.g., Ramesh Kumar"
-              />
-            </div>
-          )}
-
-          {searchType === 'case_number' && (
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1 text-slate-700">Case Type *</label>
-                <input
-                  name="case_type"
-                  required
-                  value={form.case_type}
-                  onChange={handleChange}
-                  className="input-base"
-                  placeholder="CS / WP / CRL"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1 text-slate-700">Case Number *</label>
-                <input
-                  name="case_number"
-                  required
-                  value={form.case_number}
-                  onChange={handleChange}
-                  className="input-base"
-                  placeholder="e.g., 00123"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1 text-slate-700">Year</label>
-                <input
-                  name="year"
-                  type="number"
-                  value={form.year}
-                  onChange={handleChange}
-                  className="input-base"
-                  min={2000}
-                  max={new Date().getFullYear()}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* State / district filters */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-slate-700">State</label>
-              <select name="state" value={form.state} onChange={handleChange} className="input-base">
-                <option value="">All States</option>
-                {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-slate-700">District</label>
-              <input
-                name="district"
-                value={form.district}
-                onChange={handleChange}
-                className="input-base"
-                placeholder="Optional"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1 text-slate-700">
+              {searchType === 'cnr'
+                ? 'CNR Number *'
+                : searchType === 'party'
+                  ? 'Party Name *'
+                  : searchType === 'case_number'
+                    ? 'Case Number / Type *'
+                    : 'Search Query *'}
+            </label>
+            <input
+              name="query"
+              required
+              value={form.query}
+              onChange={handleChange}
+              className={`input-base ${searchType === 'cnr' ? 'font-mono uppercase' : ''}`}
+              placeholder={
+                searchType === 'cnr'
+                  ? 'e.g., MHAU010001232024'
+                  : searchType === 'party'
+                    ? 'e.g., Ramesh Kumar'
+                    : searchType === 'case_number'
+                      ? 'e.g., CS 123 2024'
+                      : 'Search by party, case title, advocate, court, or CNR'
+              }
+              maxLength={searchType === 'cnr' ? 20 : undefined}
+            />
+            {searchType === 'cnr' ? (
+              <p className="text-[11px] text-slate-400 mt-1">Case Number Record — unique 16–20 character identifier</p>
+            ) : null}
           </div>
 
           {error && (
@@ -196,32 +217,40 @@ export default function CaseSearch() {
       </div>
 
       {/* Results */}
-      {searched && !loading && (
+      {isDefault && results ? (
+        <div className="mb-4 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-primary">
+          Showing cached default case cards from backend data{defaultRefreshedAt ? ` · updated ${new Date(defaultRefreshedAt).toLocaleDateString('en-IN')}` : ''}.
+        </div>
+      ) : null}
+
+      {(searched || isDefault) && !loading && (
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">
-            {results.length > 0 ? `${results.length} result${results.length > 1 ? 's' : ''}` : 'No results'}
+            {caseList.length > 0
+              ? `${totalHits || caseList.length} result${(totalHits || caseList.length) > 1 ? 's' : ''}`
+              : 'No results'}
           </p>
           <div className="space-y-3">
-            {results.map((c) => (
+            {caseList.map((c, index) => (
               <Link
-                key={c.cnr || c.id}
-                to={`/ecourts/case/${encodeURIComponent(c.cnr)}`}
+                key={c.cnr || c.id || index}
+                to={`/ecourts/case/${encodeURIComponent(c.cnr || c.cnr_number || c.id || '')}`}
                 className="card p-5 hover:border-primary/30 hover:shadow-md transition-all flex items-center justify-between group"
               >
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                      c.status === 'Disposed'
+                      c.status === 'Disposed' || c.case_status === 'Disposed'
                         ? 'bg-slate-100 text-slate-500'
                         : 'bg-emerald-100 text-emerald-600'
                     }`}>
-                      {c.status ?? 'Active'}
+                      {c.status || c.case_status || 'Active'}
                     </span>
-                    <span className="text-xs font-mono text-slate-400">{c.cnr}</span>
+                    <span className="text-xs font-mono text-slate-400">{c.cnr || c.cnr_number || '—'}</span>
                   </div>
                   <p className="font-semibold text-ink">{c.case_title || c.title || 'Case'}</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {c.case_type} {c.case_number}/{c.year} — {c.court || c.court_name || '—'}
+                    {[c.case_type, c.case_number && c.year ? `${c.case_number}/${c.year}` : c.case_number, c.court || c.court_name].filter(Boolean).join(' — ') || 'Court data unavailable'}
                   </p>
                   {c.next_hearing_date && (
                     <p className="text-xs text-primary font-semibold mt-1 flex items-center gap-1">
@@ -236,6 +265,27 @@ export default function CaseSearch() {
               </Link>
             ))}
           </div>
+          {!isDefault && totalPages > 1 ? (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page <= 1 || loading}
+                className="rounded-full border border-primary/10 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-primary/5 hover:text-primary disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-sm font-semibold text-slate-500">Page {page} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= totalPages || loading}
+                className="rounded-full border border-primary/10 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-primary/5 hover:text-primary disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

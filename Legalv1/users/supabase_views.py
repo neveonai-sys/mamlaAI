@@ -671,12 +671,13 @@ def list_clients(request):
                 clients[cid] = {
                     "id": cid,
                     "client_id": cid,
-                    "fname": client_info.get('fname', ''),
-                    "lname": client_info.get('lname', ''),
-                    "name": f"{client_info.get('fname', '')} {client_info.get('lname', '')}".strip(),
+                    "fname": client_info.get('fname', '') or client_info.get('Fname', ''),
+                    "lname": client_info.get('lname', '') or client_info.get('Lname', ''),
+                    "name": f"{client_info.get('fname', '') or client_info.get('Fname', '')} {client_info.get('lname', '') or client_info.get('Lname', '')}".strip(),
                     "email": client_info.get('email', ''),
                     "phone": client_info.get('phone_number', '') or client_info.get('phonenumber', ''),
                     "case_id": case_id,
+                    "status": client_info.get('status', ''),
                 }
         # Add clients without cases
         for client_info in (clients_without_case or []):
@@ -685,12 +686,13 @@ def list_clients(request):
                 clients[cid] = {
                     "id": cid,
                     "client_id": cid,
-                    "fname": client_info.get('fname', ''),
-                    "lname": client_info.get('lname', ''),
-                    "name": f"{client_info.get('fname', '')} {client_info.get('lname', '')}".strip(),
+                    "fname": client_info.get('fname', '') or client_info.get('Fname', ''),
+                    "lname": client_info.get('lname', '') or client_info.get('Lname', ''),
+                    "name": f"{client_info.get('fname', '') or client_info.get('Fname', '')} {client_info.get('lname', '') or client_info.get('Lname', '')}".strip(),
                     "email": client_info.get('email', ''),
                     "phone": client_info.get('phone_number', '') or client_info.get('phonenumber', ''),
                     "case_id": None,
+                    "status": client_info.get('status', ''),
                 }
 
         result = list(clients.values())

@@ -37,9 +37,9 @@ class EcourtsCacheManager:
 
         return doc
 
-    def set(self, cache_key: str, data_type: str, data: dict, source_site: str = ""):
+    def set(self, cache_key: str, data_type: str, data: dict, source_site: str = "", ttl_hours: float | None = None):
         """Store scraped data with appropriate TTL."""
-        ttl_hours = CACHE_TTL.get(data_type, 24)
+        ttl_hours = ttl_hours if ttl_hours is not None else CACHE_TTL.get(data_type, 24)
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(hours=ttl_hours)
 
