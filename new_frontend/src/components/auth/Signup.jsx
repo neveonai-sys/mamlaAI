@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import apiClient from '../../services/api';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+import AuthShowcase from './AuthShowcase';
 
 const USER_TYPE_OPTIONS = ['Lawyer', 'Client', 'Paralegal'];
 
 export default function Signup() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -36,6 +40,7 @@ export default function Signup() {
       return;
     }
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Creating your account...' }));
 
     try {
       await apiClient.post('users/onboard/', {
@@ -51,82 +56,45 @@ export default function Signup() {
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Registration failed.';
       setError(msg);
     } finally {
+      dispatch(stopBlocking());
       setLoading(false);
     }
   }
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row min-h-screen bg-background-light">
-      {/* ── Left branding panel ───────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary/10 items-center justify-center p-12 relative overflow-hidden">
-        {/* Decorative blobs */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-72 h-72 bg-primary rounded-full blur-3xl" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary rounded-full blur-3xl" />
-        </div>
-
-        <div className="max-w-xl relative z-10">
-          <div className="flex items-center gap-2 mb-12">
-            <span className="material-symbols-outlined text-primary text-4xl icon-filled">gavel</span>
-            <span className="text-2xl font-black tracking-tight text-ink">Mamla.AI</span>
-          </div>
-          <h1 className="text-5xl font-black leading-tight mb-6 text-ink">
-            Empower Your Legal Practice with Intelligence.
-          </h1>
-          <p className="text-lg text-slate-600 mb-10 leading-relaxed">
-            Join thousands of legal professionals streamlining their workflow and winning more cases.
-          </p>
-          <div className="grid grid-cols-1 gap-6">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <span className="material-symbols-outlined text-primary">verified_user</span>
-              </div>
-              <div>
-                <h3 className="font-bold text-ink">Enterprise-Grade Security</h3>
-                <p className="text-sm text-slate-500">
-                  Your client data is encrypted and handled with the highest standards.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <span className="material-symbols-outlined text-primary">auto_awesome</span>
-              </div>
-              <div>
-                <h3 className="font-bold text-ink">AI Document Summarization</h3>
-                <p className="text-sm text-slate-500">
-                  Extract key insights from hundreds of pages in seconds, not hours.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <span className="material-symbols-outlined text-primary">edit_note</span>
-              </div>
-              <div>
-                <h3 className="font-bold text-ink">AI-Powered Drafting</h3>
-                <p className="text-sm text-slate-500">
-                  Generate professional legal documents with AI assistance.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AuthShowcase
+        eyebrow="Create account"
+        title="Set up your Mamla.AI workspace."
+        description="Create an account to start drafting, reviewing documents, and managing chamber work from one system."
+        highlights={[
+          { title: 'Drafting', text: 'Prepare petitions, agreements, and replies in one workspace.' },
+          { title: 'Documents', text: 'Review filings and exhibits with chamber context preserved.' },
+          { title: 'Operations', text: 'Track schedules, updates, and team activity together.' },
+        ]}
+      />
 
       {/* ── Right form panel ──────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 lg:p-24 bg-white">
+      <div className="flex-1 flex items-center justify-center bg-background-light p-6 sm:p-8 lg:min-h-screen lg:p-10 xl:p-12">
         <div className="w-full max-w-md">
+          <div className="mb-8 flex items-center justify-between">
+            <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary-dark transition-colors">
+              <span className="material-symbols-outlined text-base">arrow_back</span>
+              Back to Landing Page
+            </Link>
+          </div>
+
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-8">
             <span className="material-symbols-outlined text-primary text-3xl icon-filled">gavel</span>
-            <span className="text-xl font-black tracking-tight text-ink">Mamla.AI</span>
+            <span className="text-xl font-semibold tracking-tight text-ink">Mamla.AI</span>
           </div>
 
-          <div className="mb-10">
-            <h2 className="text-3xl font-bold text-ink mb-2">Create your account</h2>
-            <p className="text-slate-500">Start your 14-day free trial today. No credit card required.</p>
-          </div>
+          <div className="rounded-[1.75rem] border border-slate-200/80 bg-white p-7 shadow-card lg:p-8">
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-ink mb-2">Create your account</h2>
+              <p className="font-medium text-slate-600">Start your Mamla.AI workspace. No credit card required.</p>
+            </div>
 
           {success ? (
             <div className="flex flex-col items-center gap-4 text-center py-8">
@@ -319,12 +287,13 @@ export default function Signup() {
             </form>
           )}
 
-          <p className="mt-6 text-center text-sm text-slate-500">
-            Already have an account?{' '}
-            <Link to="/login" className="font-semibold text-primary hover:text-primary/80">
-              Sign In
-            </Link>
-          </p>
+            <p className="mt-6 text-center text-sm text-slate-500">
+              Already have an account?{' '}
+              <Link to="/login" className="font-semibold text-primary hover:text-primary/80">
+                Sign In
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

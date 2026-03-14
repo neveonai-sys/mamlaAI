@@ -21,6 +21,7 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 |--------|------|------|-------------|
 | POST | `signup-user/` | No auth | Main signup (Mongo). Token-based or standard; email verification link. |
 | GET | `check-auth/` | **Supabase** | Returns user + sessions. Used by frontend for auth check and session list. |
+| GET | `entitlements/summary/` | **Supabase** | Returns the current entitlement summary (`plan_code`, wallet, trial, `features`) for live quota refreshes in the active frontend. |
 | POST | `invalidate-session/` | **Supabase** | Body: `{ "session_id": "..." }`. Invalidates that session. |
 | POST | `get-prefilled-data/` | No auth | Body: `{ "token": "..." }`. Returns prefilled signup data for token. |
 | POST | `onboard-client/` | **Supabase** | Lawyer onboard new client (creates signup link). |
@@ -53,7 +54,7 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `get-draft-count/` | Supabase | Total drafts count. |
-| POST | `start_session` | Supabase | Start drafting session. |
+| POST | `start_session` | Supabase | Start drafting session. Consumes `ai_draft_generation` and returns `quota` on success or exhaustion. |
 | POST | `set_location` | Supabase | Set draft location. |
 | POST | `update_section` | Supabase | Update a section. |
 | POST | `download_draft` | Supabase | Download draft (e.g. PDF). |
@@ -70,8 +71,8 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | GET | `get_user_saved_drafts_v2` | Supabase | Saved drafts v2. |
 | POST | `load_saved_draft` | Supabase | Load saved draft. |
 | POST | `delete_saved_draft` | Supabase | Delete saved draft. |
-| POST | `upload_template` | Supabase | Upload template. |
-| POST | `start_session_for_casedocument` | Supabase | Start session from case document. |
+| POST | `upload_template` | Supabase | Upload template. Consumes `ai_draft_generation` and returns `quota` on success or exhaustion. |
+| POST | `start_session_for_casedocument` | Supabase | Start session from case document. Consumes `ai_draft_generation` and returns `quota` on success or exhaustion. |
 | GET | `download_template` | Supabase | Default template. |
 | GET | `get_draft_for` | Supabase | Draft by session ID. |
 | GET | `get_supported_languages` | Supabase | Supported languages. |
@@ -209,12 +210,75 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | GET | `session_messages/?session_id=<id>` | Supabase | REST-style message list for the rebuilt frontend. |
 | POST | `upload/` | Supabase | REST-style multipart upload endpoint used by the rebuilt frontend. Supports PDF, DOCX, TXT, CSV, XLSX, and image uploads used for OCR-style extraction. Uploaded records preserve the original filename and also generate a timestamped display/stored name for clearer chat citations and document lists. |
 | POST | `create_session/` | Supabase | REST-style session creation endpoint. Accepts `doc_ids`, optional `matter`, optional `title`. |
-| POST | `query/` | Supabase | REST-style chat query endpoint. Accepts `session_id` and `query`. Retrieval is scoped to the session's stored `doc_ids` and `matter`. |
+| POST | `query/` | Supabase | REST-style chat query endpoint. Accepts `session_id` and `query`. Retrieval is scoped to the session's stored `doc_ids` and `matter`. Returns `answer`, `message`, `citations`, and a Mamla-Brain-compatible `quota` payload. Consumes `brain_doc_analysis` for sessions with docs and `general_legal_chat` for no-document sessions. In TalkDoc, one successful charge opens a bounded 10-chat session bundle before the next quota unit is consumed; the response `quota` includes `session_turn_limit`, `session_turns_used`, and `session_turns_remaining`. For no-document sessions, clearly non-legal prompts are rejected locally before any LLM call or quota charge. |
 | GET | `sessions/<session_id>/messages` | Supabase | Get messages. |
-| POST | `sessions/<session_id>/message` | Supabase | Send message. |
+| POST | `sessions/<session_id>/message` | Supabase | Send message. Returns `message`, `citations`, and `quota`. Consumes `brain_doc_analysis` for sessions with docs and `general_legal_chat` for no-document sessions. In TalkDoc, one successful charge opens a bounded 10-chat session bundle before the next quota unit is consumed; the response `quota` includes `session_turn_limit`, `session_turns_used`, and `session_turns_remaining`. For no-document sessions, clearly non-legal prompts are rejected locally before any LLM call or quota charge. |
 | POST | `sessions/<session_id>/docs` | Supabase | Modify session docs. Adds are allowed and are used for live uploads into an active chat; removals are rejected after the session has started exchanging messages. |
 | DELETE | `sessions/<session_id>` | Supabase | Delete session. |
 | POST | `rename_session/<session_id>` | Supabase | Rename session. |
+
+---
+
+## Mamla Brain (`/api/brain/`)
+
+**Module:** `mamla_brain/views.py`.  
+**URL config:** `Legalv1/mamla_brain/urls.py`.  
+**Auth model:** Dual. First-party callers can use **Supabase** exactly like the rest of the backend. Third-party callers can use **`X-Brain-API-Key`**. `GET /api/brain/v1/health/` is public.
+
+### Core ideas
+
+- The framework is API-first and can be used beyond legal-only workflows.
+- Built-in `domain_key` values are currently `legal`, `banking`, and `markets`.
+- User-uploaded source documents are still stored in `rag_documents`; Brain adds its own session/message/auth collections and domain knowledge-base retrieval.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `v1/health/` | No auth | Health/status endpoint. Returns configured LLM tiers plus knowledge-base index stats per domain. |
+| POST | `v1/docs/upload/` | Supabase or API key with `doc_qa` | Multipart upload for Brain source documents. Accepts `file`, optional `matter`, optional `domain_key`. Stores metadata in `rag_documents` and queues TalkDoc ingestion. |
+| GET | `v1/docs/` | Supabase or API key with `doc_qa` | List caller-owned Brain documents. Supports pagination and optional `q` / `domain_key` filtering. |
+| POST | `v1/sessions/` | Supabase or API key with `doc_qa` | Create a Brain session. Body supports `domain_key`, `mode`, `doc_ids`, optional `matter`, `case_type`, `party_role`, `metadata`, `title`. |
+| GET | `v1/sessions/list/` | Supabase or API key with `doc_qa` | List Brain sessions for the authenticated caller. Supports pagination, optional `q`, optional `domain_key`. |
+| GET | `v1/sessions/<session_id>/messages/` | Supabase or API key with `doc_qa` | Return all stored Brain messages for a session. |
+| POST | `v1/sessions/<session_id>/message/` | Supabase or API key with `doc_qa` | Standard Brain message endpoint. Runs tier-1 query rewrite, document retrieval, optional KB retrieval, then tier-2 answering. Returns `message`, `answer`, `citations`, and `rewritten_query`. |
+| DELETE | `v1/sessions/<session_id>/` | Supabase or API key with `doc_qa` | Soft-delete a Brain session. |
+| POST | `v1/case-companion/start/` | Supabase or API key with `case_companion` | Create a Case Companion session (`mode=case_companion`). Supports `domain_key`, `doc_ids`, `matter`, `case_type`, `party_role`, `metadata`, `title`. |
+| POST | `v1/case-companion/<session_id>/advise/` | Supabase or API key with `case_companion` | Structured reasoning endpoint. Runs tier-1 issue classification, knowledge-base retrieval, document retrieval, then tier-3 JSON response generation. |
+| POST | `v1/admin/keys/` | Supabase admin only | Generate an external Brain API key. Returns the raw key once; only the hash is stored in MongoDB. |
+
+### Example Brain session payload
+
+```json
+{
+  "domain_key": "banking",
+  "mode": "doc_qa",
+  "doc_ids": ["67d3b3b3b3b3b3b3b3b3b3b3"],
+  "matter": {
+    "caseid": ["BANK-2026-014"],
+    "clientid": ["client-112"]
+  },
+  "metadata": {
+    "product": "loan-recovery"
+  }
+}
+```
+
+### Example Case Companion response shape
+
+```json
+{
+  "summary": "brief case or matter summary",
+  "applicable_law": [
+    {"act": "Negotiable Instruments Act", "section": "138", "relevance": "dishonour notice and complaint framing"}
+  ],
+  "arguments_for": ["..."],
+  "arguments_against": ["..."],
+  "weaknesses": ["..."],
+  "recommended_steps": ["..."],
+  "citations": [
+    {"source": "loan_agreement_20260314.pdf", "snippet": "..."}
+  ]
+}
+```
 
 ---
 

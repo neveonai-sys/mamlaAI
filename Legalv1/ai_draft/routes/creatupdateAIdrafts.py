@@ -5,7 +5,7 @@ import os
 import math
 from io import BytesIO
 from docx import Document
-from pymongo import ASCENDING, DESCENDING
+from pymongo import ASCENDING, DESCENDING, ReturnDocument
 from core.init_clients import get_mongo_client
 from pdfminer.high_level import extract_text as extract_text_from_pdf
 import datetime
@@ -1020,14 +1020,27 @@ Here is the case document:
             update_result = self.get_mongo_client_db().find_one_and_update(
                 {'user_id': self.user_id, '_id': session_object_id},
                 {'$inc': {'ai_suggested_update_count': 1}},
-                return_document=True  # This will return the document after the update
+                return_document=ReturnDocument.AFTER
             )
 
             # Now you can access the final count from the updated document
-            final_count = update_result.get('ai_suggested_update_count')
+            final_count = (update_result or {}).get('ai_suggested_update_count', 0)
             return final_count
         except Exception as e:
             logger.error(f"Exception in update_ai_suggested_content_count: {traceback.format_exc()}")
+            return 0
+
+
+    def get_ai_suggested_content_count(self, session_id):
+        try:
+            session_object_id = ObjectId(session_id)
+            draft = self.get_mongo_client_db().find_one(
+                {'user_id': self.user_id, '_id': session_object_id},
+                {'ai_suggested_update_count': 1},
+            )
+            return int((draft or {}).get('ai_suggested_update_count', 0))
+        except Exception:
+            logger.error(f"Exception in get_ai_suggested_content_count: {traceback.format_exc()}")
             return 0
 
 

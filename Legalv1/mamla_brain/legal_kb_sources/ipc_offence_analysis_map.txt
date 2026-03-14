@@ -1,0 +1,31 @@
+Section 1
+Title: IPC analysis as ingredient matching
+Indian Penal Code reasoning should start with ingredients, mental state, and factual role. Instead of jumping from allegation labels to offence names, the retrieval system should break the query into conduct, victim impact, property impact, deception or entrustment, intention or knowledge, and common-intention or conspiracy linkage. This prevents overclassification and makes charge-stage reasoning more precise.
+
+Section 2
+Title: Hurt, grievous hurt, and assault cluster
+Where bodily harm is alleged, the IPC map should separate threat, preparation, contact, injury, seriousness of injury, weapon use, and intention inference. Retrieval should compare oral allegations with medical timing, injury pattern, and witness consistency. It should also detect when the allegation sounds more like intimidation or minor scuffle than a high-severity violence narrative.
+
+Section 3
+Title: Homicide and attempt cluster
+Serious violence queries should be mapped through causation, intention, knowledge, weapon, injury location, sequence, and surrounding provocation or premeditation facts. A useful output should not merely name possible homicide provisions; it should explain which factual features strengthen or weaken the theory of intention, common object, or sudden escalation.
+
+Section 4
+Title: Theft robbery extortion and criminal breach cluster
+Property offences should be split by possession, consent, fear, entrustment, dishonest intention, and movement or retention of property. Retrieval should distinguish pure possession disputes from theft logic, coercive extraction from extortion logic, and entrusted-property misuse from breach-of-trust logic. This cluster is especially useful in commercial-criminal overlap matters where civil and criminal narratives compete.
+
+Section 5
+Title: Cheating and inducement cluster
+Cheating-style IPC reasoning turns on deception at the inception of the transaction, not merely later non-performance. The knowledge base should therefore prioritize representations made before money or property changed hands, internal contradictions in promised capability, false authority claims, and evidence that the accused never intended genuine performance from the start.
+
+Section 6
+Title: Trespass intimidation and insult cluster
+Many local-dispute matters involve a mix of entry, threat, abuse, and neighborhood or possession friction. Retrieval should map these to intention behind entry, lawful authority claims, the nature of the threat, and whether the narrative shows escalation into violence or remains at the level of intimidation and disturbance. The assistant should be careful not to flatten distinct wrongs into a single emotional narrative.
+
+Section 7
+Title: Common intention conspiracy and group liability cluster
+Group-offence analysis requires more than the presence of several accused. The retrieval system should look for coordinated acts, prior meeting of minds indicators, role distribution, shared motive, and synchronized conduct before or after the event. Vague naming of multiple persons without individualized conduct should be marked as weaker support for serious collective-liability conclusions.
+
+Section 8
+Title: IPC outputs should stay issue-specific
+The best IPC outputs do not dump section lists. They explain which offence families are realistically engaged, what ingredients seem supported, what ingredients appear weak, and what documents or witness material would most change the assessment. Mamla Brain should favor that issue-specific style over encyclopedic listing.

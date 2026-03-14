@@ -8,6 +8,7 @@ from django_ratelimit.decorators import ratelimit
 from supabase_required import supabase_required  # your decorator
 from core.init_clients import get_mongo_client
 from core.llm_client import chat_complete
+from core.entitlements import authorize_feature_use, consume_feature_use, get_feature_quota_payload
 from .storage import upload_bytes
 from .tasks import ingest_document, embed_texts
 from .search import ensure_index, knn_search
@@ -15,6 +16,22 @@ import logging
 from gridfs import GridFS
 
 logger = logging.getLogger('django')
+TALKDOC_SESSION_INCLUDED_TURNS = max(int(os.getenv('TALKDOC_SESSION_INCLUDED_TURNS', '10') or 10), 1)
+
+LEGAL_QUERY_KEYWORDS = {
+    'law', 'legal', 'lawyer', 'advocate', 'court', 'judge', 'bail', 'fir', 'police', 'arrest', 'criminal',
+    'civil', 'petition', 'plaint', 'complaint', 'contract', 'agreement', 'lease', 'rent', 'tenant', 'landlord',
+    'property', 'title', 'injunction', 'maintenance', 'divorce', 'custody', 'alimony', 'inheritance', 'succession',
+    'will', 'probate', 'cheque', 'dishonour', 'notice', 'summons', 'warrant', 'appeal', 'revision', 'tribunal',
+    'labour', 'consumer', 'gst', 'tax', 'company', 'compliance', 'employment', 'termination', 'salary', 'harassment',
+    'dowry', 'domestic violence', 'possession', 'mutation', 'stamp duty', 'ipc', 'crpc', 'cpc', 'evidence', 'section',
+}
+
+NON_LEGAL_QUERY_KEYWORDS = {
+    'weather', 'recipe', 'movie', 'song', 'music', 'cricket score', 'football score', 'crypto', 'horoscope',
+    'travel plan', 'hotel', 'restaurant', 'joke', 'poem', 'birthday wish', 'python code', 'javascript', 'css',
+    'gym plan', 'diet plan', 'medical advice', 'symptoms', 'exam answer', 'homework', 'instagram caption', 'wedding speech',
+}
 
 def _db():
     return get_mongo_client()['legaldb']
@@ -158,6 +175,114 @@ def _serialize_doc(document):
         'created_at': str(document.get('created_at', '')),
         'updated_at': str(document.get('updated_at', '')),
     }
+
+
+def _quota_error_response(message, quota, status):
+    return JsonResponse({'error': message, 'quota': quota}, status=status)
+
+
+def _session_bundle_state(session, feature_code):
+    bundle = session.get('quota_bundle')
+    if not isinstance(bundle, dict):
+        return None
+
+    if bundle.get('feature_code') != feature_code:
+        return None
+
+    turn_limit = max(int(bundle.get('turn_limit') or TALKDOC_SESSION_INCLUDED_TURNS), 1)
+    turns_used = max(int(bundle.get('turns_used') or 0), 0)
+    if turns_used >= turn_limit:
+        return None
+
+    return {
+        'feature_code': feature_code,
+        'turn_limit': turn_limit,
+        'turns_used': turns_used,
+        'turns_remaining': max(turn_limit - turns_used, 0),
+        'charged_at': bundle.get('charged_at'),
+    }
+
+
+def _decorate_talkdoc_quota(quota, bundle_state):
+    payload = dict(quota or {})
+    if not bundle_state:
+        return payload
+
+    payload.update({
+        'session_charge_mode': 'session_bundle',
+        'session_turn_limit': int(bundle_state.get('turn_limit', TALKDOC_SESSION_INCLUDED_TURNS)),
+        'session_turns_used': int(bundle_state.get('turns_used', 0)),
+        'session_turns_remaining': int(bundle_state.get('turns_remaining', 0)),
+        'session_charged_at': str(bundle_state.get('charged_at', '') or ''),
+    })
+    return payload
+
+
+def _authorize_talkdoc_feature(request, session, feature_code):
+    bundle_state = _session_bundle_state(session, feature_code)
+    if bundle_state:
+        quota = _decorate_talkdoc_quota(
+            get_feature_quota_payload(getattr(request, 'supabase_user', None), feature_code),
+            bundle_state,
+        )
+        return {
+            'allowed': True,
+            'charge_source': 'session_bundle',
+            'wallet_credits_charged': 0,
+            'quota': quota,
+            'session_bundle': bundle_state,
+        }
+
+    return authorize_feature_use(getattr(request, 'supabase_user', None), feature_code)
+
+
+def _finalize_talkdoc_quota(request, session, feature_code, decision):
+    current = datetime.utcnow()
+    session_bundle = decision.get('session_bundle') or _session_bundle_state(session, feature_code)
+
+    if decision.get('charge_source') == 'session_bundle':
+        turn_limit = max(int(session_bundle.get('turn_limit', TALKDOC_SESSION_INCLUDED_TURNS)) if session_bundle else TALKDOC_SESSION_INCLUDED_TURNS, 1)
+        turns_used = (int(session_bundle.get('turns_used', 0)) if session_bundle else 0) + 1
+        bundle_state = {
+            'feature_code': feature_code,
+            'turn_limit': turn_limit,
+            'turns_used': turns_used,
+            'turns_remaining': max(turn_limit - turns_used, 0),
+            'charged_at': (session_bundle or {}).get('charged_at') or current,
+        }
+        _db()['rag_chat_sessions'].update_one(
+            {'_id': session['_id']},
+            {'$set': {'quota_bundle': bundle_state}},
+        )
+        quota = get_feature_quota_payload(getattr(request, 'supabase_user', None), feature_code)
+        return _decorate_talkdoc_quota(quota, bundle_state)
+
+    quota = consume_feature_use(getattr(request, 'supabase_user', None), feature_code, decision)
+    bundle_state = {
+        'feature_code': feature_code,
+        'turn_limit': TALKDOC_SESSION_INCLUDED_TURNS,
+        'turns_used': 1,
+        'turns_remaining': max(TALKDOC_SESSION_INCLUDED_TURNS - 1, 0),
+        'charged_at': current,
+    }
+    _db()['rag_chat_sessions'].update_one(
+        {'_id': session['_id']},
+        {'$set': {'quota_bundle': bundle_state}},
+    )
+    return _decorate_talkdoc_quota(quota, bundle_state)
+
+
+def _talkdoc_feature_code(session):
+    return 'brain_doc_analysis' if session.get('has_docs') else 'general_legal_chat'
+
+
+def _is_clearly_non_legal_query(text):
+    lowered = str(text or '').strip().lower()
+    if not lowered or len(lowered) < 8:
+        return False
+    if any(keyword in lowered for keyword in LEGAL_QUERY_KEYWORDS):
+        return False
+    return any(keyword in lowered for keyword in NON_LEGAL_QUERY_KEYWORDS)
 
 
 # ---------- Rename Session ----------
@@ -476,6 +601,16 @@ def send_message(request, session_id: str):
     sess = db['rag_chat_sessions'].find_one({"_id": ObjectId(session_id), "user_id": user_id, "deleted": False})
     if not sess: return JsonResponse({"error":"not found"}, status=404)
 
+    if not sess.get('has_docs') and _is_clearly_non_legal_query(text):
+        return JsonResponse({
+            'error': 'Mamla.AI chat only supports legal questions. Please ask about Indian law, legal procedure, or your legal matter.',
+        }, status=400)
+
+    feature_code = _talkdoc_feature_code(sess)
+    decision = _authorize_talkdoc_feature(request, sess, feature_code)
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
+
     # 1) save user message
     um = {"session_id": sess["_id"], "role": "user", "content": text, "created_at": datetime.utcnow()}
     db['rag_messages'].insert_one(um)
@@ -534,7 +669,7 @@ def send_message(request, session_id: str):
     history_msgs = list(db['rag_messages'].find(
         {"session_id": sess["_id"]},
         {"role": 1, "content": 1, "_id": 0}
-    ).sort("created_at", 1).limit(20))  # Last 20 messages for context
+    ).sort("created_at", 1).limit(6))  # Last 6 messages for context
     
     # Build messages array with system prompt, history, and current question
     messages = [{"role": "system", "content": system}]
@@ -562,8 +697,9 @@ def send_message(request, session_id: str):
     am = {"session_id": sess["_id"], "role": "assistant", "content": answer, "citations": citations, "created_at": datetime.utcnow()}
     db['rag_messages'].insert_one(am)
     db['rag_chat_sessions'].update_one({"_id": sess["_id"]}, {"$set": {"last_message_at": datetime.utcnow()}})
+    quota = _finalize_talkdoc_quota(request, sess, feature_code, decision)
 
-    return JsonResponse({"message": answer, "citations": citations})
+    return JsonResponse({"message": answer, "citations": citations, "quota": quota})
 
 
 # ── New REST-compatible views ──────────────────────────────────────────────────
@@ -762,6 +898,16 @@ def query_v2(request):
     if not sess:
         return JsonResponse({"error": "session not found"}, status=404)
 
+    if not sess.get('has_docs') and _is_clearly_non_legal_query(text):
+        return JsonResponse({
+            'error': 'Mamla.AI chat only supports legal questions. Please ask about Indian law, legal procedure, or your legal matter.',
+        }, status=400)
+
+    feature_code = _talkdoc_feature_code(sess)
+    decision = _authorize_talkdoc_feature(request, sess, feature_code)
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
+
     session_doc_ids = [str(doc_id) for doc_id in sess.get("doc_ids", [])]
 
     um = {"session_id": sess["_id"], "role": "user", "content": text, "created_at": datetime.utcnow()}
@@ -789,7 +935,7 @@ def query_v2(request):
 
     history_msgs = list(db['rag_messages'].find(
         {"session_id": sess["_id"]}, {"role": 1, "content": 1, "_id": 0}
-    ).sort("created_at", 1).limit(20))
+    ).sort("created_at", 1).limit(6))
 
     messages = [{"role": "system", "content": system}]
     for msg in history_msgs[:-1]:
@@ -809,5 +955,6 @@ def query_v2(request):
     am = {"session_id": sess["_id"], "role": "assistant", "content": answer, "citations": citations, "created_at": datetime.utcnow()}
     db['rag_messages'].insert_one(am)
     db['rag_chat_sessions'].update_one({"_id": sess["_id"]}, {"$set": {"last_message_at": datetime.utcnow()}})
+    quota = _finalize_talkdoc_quota(request, sess, feature_code, decision)
 
-    return JsonResponse({"answer": answer, "message": answer, "citations": citations})
+    return JsonResponse({"answer": answer, "message": answer, "citations": citations, "quota": quota})

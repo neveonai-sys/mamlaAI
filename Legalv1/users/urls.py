@@ -9,6 +9,7 @@ urlpatterns = [
 
     path('signup-user/', views.signup_user),
     path('check-auth/', supabase_views.check_auth),
+    path('entitlements/summary/', supabase_views.entitlement_summary),
     path('invalidate-session/', supabase_views.invalidate_session),
     path('get-prefilled-data/', views.get_prefilled_data),
     path('onboard-client/', supabase_views.onboard_new_client),

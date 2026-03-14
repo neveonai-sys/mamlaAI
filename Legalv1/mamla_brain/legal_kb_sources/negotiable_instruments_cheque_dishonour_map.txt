@@ -1,0 +1,31 @@
+Section 1
+Title: NI Act dishonour workflow orientation
+Cheque dishonour analysis should be treated as a timeline problem first and a presumption problem second. The sequence usually matters more than abstract doctrine: issuance, presentation, dishonour memo, statutory demand notice, payment window, complaint filing, defence posture, and rebuttal material. Retrieval should therefore build outputs around a dated event chain.
+
+Section 2
+Title: Foundational cheque dishonour cluster
+The knowledge base should identify whether the cheque appears linked to an admitted financial relationship, whether dishonour reason is recorded, and whether statutory notice chronology is facially compliant. A practical assistant should surface gaps in service, wrong addressee issues, stale presentation concerns, or uncertainty about whether the cheque was actually drawn by or on behalf of the accused.
+
+Section 3
+Title: Presumption and rebuttal cluster
+NI Act-style reasoning is often driven by presumptions in favor of the holder once execution is established, followed by rebuttal through probability rather than necessarily complete defence proof. Retrieval should therefore separate signature admission, debt or liability contest, security-cheque defence, blank-cheque explanation, account-closure narrative, and business-book support.
+
+Section 4
+Title: Security cheque and collateral purpose cluster
+Many dishonour disputes turn on whether the cheque represented an immediately enforceable liability or was held only as security or collateral comfort. The assistant should search for loan restructuring, conditional delivery, escrow-style handling, post-dated schedule context, and communications showing that the cheque was not meant for unconditional presentment at the time it was issued.
+
+Section 5
+Title: Notice service and demand wording cluster
+The statutory demand stage should be treated carefully. Retrieval should identify how notice was sent, whether the address aligns with known business or residential records, whether refusal or deemed service arguments exist, and whether the demand clearly identified the cheque and payment claim. Loose or ambiguous demand drafting can create avoidable litigation friction.
+
+Section 6
+Title: Partnership company and authorized signatory cluster
+Commercial dishonour cases frequently involve firms and companies rather than purely personal drawers. The knowledge base should therefore flag authorization, signatory role, company liability posture, board or mandate material, and whether vicarious-responsibility allegations are individually pleaded or merely formulaic.
+
+Section 7
+Title: Settlement compounding and sentencing cluster
+NI Act matters are often commercially resolved even after prosecution begins. Retrieval should surface whether settlement offers exist, whether partial payment has already occurred, and whether the user is really asking about compounding leverage, not strict merits. Sentencing and compensation analysis should also remain available for late-stage posture.
+
+Section 8
+Title: Documentary bundle priorities for cheque cases
+The most useful retrieval outputs in dishonour matters should point users toward the core bundle: cheque copy, return memo, notice, dispatch and delivery proof, account statement or ledger, underlying agreement or loan material, and replies exchanged. Without that bundle, presumption and rebuttal analysis tends to become speculative.

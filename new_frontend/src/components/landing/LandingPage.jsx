@@ -1,60 +1,276 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const FEATURES = [
   {
     icon: 'edit_note',
     title: 'AI Drafting',
-    desc: 'Generate complex legal documents with unmatched accuracy using domain-specific LLMs trained on sovereign legal corpora.',
+    desc: 'Generate complex legal documents with unmatched accuracy using domain-specific models and structured chamber workflows.',
   },
   {
     icon: 'forum',
     title: 'Document Chat',
-    desc: 'Interrogate thousands of discovery documents using natural language. Instant citation provided for every answer.',
+    desc: 'Interrogate discovery sets, filings, and exhibits with natural language prompts and source-grounded answers.',
   },
   {
     icon: 'dynamic_feed',
     title: 'Live Court Updates',
-    desc: 'Automatically monitor eCourts for case status changes, order uploads, and hearing schedules in real time.',
+    desc: 'Monitor eCourts for listing changes, order uploads, and next-hearing movement without leaving the chamber dashboard.',
   },
   {
     icon: 'calendar_month',
     title: 'Hearing Calendar',
-    desc: 'Never miss a date. Unified calendar integrating court deadlines, hearing schedules, and client meetings.',
+    desc: 'Coordinate hearings, deadlines, and chamber commitments inside one operational calendar layer.',
   },
   {
     icon: 'people',
     title: 'Client Portal',
-    desc: 'Secure, role-based access for clients and paralegals. Share documents and updates instantly.',
+    desc: 'Share matter context with clients and colleagues through secure, role-aware access and session management.',
   },
   {
     icon: 'search',
     title: 'eCourts Search',
-    desc: 'Search case details, cause lists, and lawyer information directly from the eCourts national database.',
+    desc: 'Search case details, lawyers, litigants, and cause lists from one high-contrast legal workspace.',
   },
 ];
 
 const TESTIMONIALS = [
   {
-    text: 'Mamla.AI cut our document review time by 60%. The AI drafting feature alone has transformed our practice.',
+    text: 'Mamla.AI cut our document review time by 60%. The drafting and document tools now feel like chamber software, not a lifestyle startup dashboard.',
     author: 'Adv. Priya Sharma',
     role: 'Senior Partner, Sharma & Associates',
   },
   {
-    text: "Our team handles 3x more cases with the same headcount. The court updates feature alone saves us hours every day.",
+    text: 'Our team handles materially more matters with the same staff. The eCourts and operations surfaces are easier to scan during busy listing days.',
     author: 'Adv. Rahul Mehta',
     role: 'Managing Partner, Mehta Law Firm',
   },
   {
-    text: 'The document intelligence is extraordinary. I can interrogate a 500-page contract in seconds.',
+    text: 'The document intelligence remains strong, but the new presentation finally matches the seriousness of the work product.',
     author: 'Adv. Ananya Kapoor',
     role: 'Corporate Counsel, TechVenture Ltd.',
   },
 ];
 
+const HERO_SCENES = [
+  {
+    id: 'bench',
+    title: 'Bench watch with court-ready calm.',
+    description: 'Track cause lists, hearing shifts, and daily chamber priorities with a visual language that feels judicial, not generic SaaS.',
+    badge: 'Constitution bench',
+    boardLabel: 'Bench Priority Board',
+    panelLabel: 'Listing pulse',
+    highlights: ['Cause List Live', 'Draft Queue', 'Hearing Notes'],
+    metrics: [
+      { label: 'Bench movement', value: '09', detail: 'matters flagged before first call' },
+      { label: 'Draft review', value: '14', detail: 'documents in active circulation' },
+      { label: 'Client touchpoints', value: '06', detail: 'updates due before 5 PM' },
+    ],
+  },
+  {
+    id: 'chamber',
+    title: 'A chamber desk that feels occupied, not static.',
+    description: 'Bring together lawyers, drafts, and matter movement into one active surface so the landing page reflects real work rather than a placeholder hero.',
+    badge: 'Senior counsel desk',
+    boardLabel: 'Chamber Operations',
+    panelLabel: 'Matter desk',
+    highlights: ['Senior Counsel Notes', 'Matter Timeline', 'Evidence Stack'],
+    metrics: [
+      { label: 'Open matters', value: '28', detail: 'under active review this week' },
+      { label: 'Replies pending', value: '07', detail: 'draft windows closing today' },
+      { label: 'Courtrooms mapped', value: '11', detail: 'jurisdictions loaded in workspace' },
+    ],
+  },
+  {
+    id: 'drafts',
+    title: 'Draft-heavy work without visual clutter.',
+    description: 'Show petitions, drafts, and review lanes in motion so the public page already hints at the chamber experience inside the product.',
+    badge: 'Draft review lane',
+    boardLabel: 'Draft Control Room',
+    panelLabel: 'Review queue',
+    highlights: ['Petition Stack', 'Clause Review', 'Client Redlines'],
+    metrics: [
+      { label: 'Active drafts', value: '19', detail: 'being edited across teams' },
+      { label: 'AI refinements', value: '42', detail: 'suggestions accepted this week' },
+      { label: 'Finalized today', value: '05', detail: 'exports sent to filing teams' },
+    ],
+  },
+];
+
+function SceneThumbnail({ scene, active }) {
+  return (
+    <div className={`relative overflow-hidden rounded-[1.5rem] border p-4 transition-all ${active ? 'border-primary/40 bg-background-dark text-white shadow-card' : 'border-slate-200 bg-white text-ink hover:border-primary/25'}`}>
+      <div className="absolute inset-0 opacity-0 transition-opacity duration-300" style={active ? { opacity: 1, background: 'radial-gradient(circle at top right, rgba(216,227,242,0.18), transparent 45%)' } : undefined} />
+      <div className="relative">
+        <div className={`mb-4 h-28 rounded-2xl border ${active ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-background-light'} p-3`}>
+          <div className="flex h-full items-end justify-between gap-3">
+            <div className={`h-full w-1/3 rounded-t-[2rem] ${active ? 'bg-primary-soft/70' : 'bg-primary/20'}`} />
+            <div className={`h-3/4 w-1/3 rounded-t-[2rem] ${active ? 'bg-white/85' : 'bg-slate-300'}`} />
+            <div className={`h-1/2 w-1/3 rounded-t-[2rem] ${active ? 'bg-primary-soft/35' : 'bg-primary/10'}`} />
+          </div>
+        </div>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${active ? 'text-primary-soft/84' : 'text-primary'}`}>{scene.badge}</p>
+        <h3 className="mt-2 font-display text-2xl font-semibold leading-tight">{scene.title}</h3>
+        <p className={`mt-3 text-sm font-medium leading-6 ${active ? 'text-white/72' : 'text-graphite'}`}>{scene.description}</p>
+      </div>
+    </div>
+  );
+}
+
+function PracticeSceneBoard({ scene }) {
+  return (
+    <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-6 shadow-card">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(22,52,95,0.1),transparent_38%)]" />
+      <div className="relative">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Inside the Chamber</p>
+            <h3 className="mt-2 font-display text-4xl font-bold leading-tight text-ink">{scene.title}</h3>
+          </div>
+          <div className="rounded-full border border-primary/15 bg-primary/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            {scene.badge}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-[1.75rem] bg-background-dark p-5 text-white shadow-elevated">
+            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-soft/84">{scene.boardLabel}</p>
+                <p className="mt-1 font-display text-2xl font-semibold text-white">Matter pulse board</p>
+              </div>
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+                <span className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-primary-soft" />
+                Live updates
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-soft/78">Court feed</p>
+                <div className="mt-4 space-y-3">
+                  {scene.highlights.map((item, index) => (
+                    <div key={item} className="flex items-center justify-between rounded-xl border border-white/8 bg-background-dark/40 px-3 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{item}</p>
+                        <p className="mt-1 text-xs text-white/58">Updated {index + 2} min ago</p>
+                      </div>
+                      <span className="material-symbols-outlined text-primary-soft">gavel</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-soft/78">Draft movement</p>
+                <div className="mt-4 space-y-3">
+                  {scene.metrics.map((metric) => (
+                    <div key={metric.label} className="rounded-xl border border-white/8 bg-background-dark/50 px-3 py-3">
+                      <div className="flex items-end justify-between gap-3">
+                        <p className="text-sm font-semibold text-white">{metric.label}</p>
+                        <span className="font-display text-3xl font-bold text-primary-soft">{metric.value}</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-white/62">{metric.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="rounded-[1.75rem] border border-slate-200 bg-background-light p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Counsel desk</p>
+              <div className="mt-4 rounded-[1.5rem] bg-white p-4 shadow-subtle">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="h-24 rounded-2xl bg-primary/12" />
+                  <div className="h-24 rounded-2xl bg-slate-200" />
+                  <div className="h-24 rounded-2xl bg-primary/8" />
+                </div>
+                <div className="mt-4 space-y-3">
+                  <div className="h-3 w-3/4 rounded-full bg-slate-200" />
+                  <div className="h-3 w-full rounded-full bg-slate-100" />
+                  <div className="h-3 w-2/3 rounded-full bg-slate-100" />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-subtle">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Draft stack</p>
+              <div className="mt-4 space-y-3">
+                {[scene.highlights[0], scene.highlights[1], scene.highlights[2]].map((item, index) => (
+                  <div key={item} className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{item}</p>
+                      <p className="mt-1 text-xs text-slate-500">Draft window {index + 1}</p>
+                    </div>
+                    <span className="material-symbols-outlined text-primary">description</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SupremeCourtIllustration({ scene }) {
+  return (
+    <svg viewBox="0 0 720 840" className="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="48" y="44" width="624" height="752" rx="40" fill="url(#panelGlow)" />
+      <rect x="64" y="60" width="592" height="720" rx="34" fill="#08111F" stroke="rgba(255,255,255,0.08)" />
+      <circle cx="360" cy="204" r="108" fill="url(#domeGlow)" opacity="0.7" />
+      <path d="M236 318C236 248.412 292.412 192 362 192C431.588 192 488 248.412 488 318H236Z" fill="#F8FBFF" />
+      <path d="M284 318C284 274.922 318.922 240 362 240C405.078 240 440 274.922 440 318H284Z" fill="#D8E3F2" />
+      <rect x="216" y="318" width="292" height="24" rx="12" fill="#CAD7E8" />
+      <rect x="176" y="342" width="372" height="26" rx="13" fill="#FFFFFF" opacity="0.92" />
+      <rect x="194" y="368" width="336" height="172" rx="28" fill="#0E203C" stroke="#D8E3F2" strokeOpacity="0.25" />
+      <rect x="228" y="400" width="32" height="108" rx="16" fill="#E6EEF8" />
+      <rect x="292" y="400" width="32" height="108" rx="16" fill="#E6EEF8" />
+      <rect x="356" y="400" width="32" height="108" rx="16" fill="#E6EEF8" />
+      <rect x="420" y="400" width="32" height="108" rx="16" fill="#E6EEF8" />
+      <rect x="160" y="540" width="400" height="24" rx="12" fill="#FFFFFF" opacity="0.92" />
+      <rect x="132" y="564" width="456" height="26" rx="13" fill="#CAD7E8" />
+      <path d="M178 664C178 623.131 211.131 590 252 590C292.869 590 326 623.131 326 664V704H178V664Z" fill="#111827" />
+      <circle cx="252" cy="572" r="40" fill="#F3F7FC" />
+      <path d="M286 572C286 560.954 277.046 552 266 552H238C226.954 552 218 560.954 218 572V576H286V572Z" fill="#0E203C" />
+      <path d="M392 654C392 617.549 421.549 588 458 588C494.451 588 524 617.549 524 654V704H392V654Z" fill="#0F1727" />
+      <circle cx="458" cy="566" r="38" fill="#F7FAFD" />
+      <path d="M492 568C492 556.402 482.598 547 471 547H445C433.402 547 424 556.402 424 568V572H492V568Z" fill="#10243F" />
+      <path d="M114 722H606" stroke="rgba(255,255,255,0.18)" strokeWidth="2" strokeDasharray="8 10" />
+      <rect x="116" y="108" width="134" height="118" rx="22" fill="#0F1727" stroke="rgba(255,255,255,0.1)" />
+      <text x="138" y="154" fill="#D8E3F2" fontFamily="IBM Plex Sans" fontSize="17" fontWeight="600">{scene.panelLabel}</text>
+      <text x="138" y="186" fill="#FFFFFF" fontFamily="Source Serif 4" fontSize="28" fontWeight="700">{scene.badge}</text>
+      <rect x="472" y="126" width="132" height="80" rx="18" fill="#0F1727" stroke="rgba(255,255,255,0.1)" />
+      <text x="488" y="168" fill="#D8E3F2" fontFamily="IBM Plex Sans" fontSize="16" fontWeight="600">{scene.highlights[0]}</text>
+      <defs>
+        <linearGradient id="panelGlow" x1="108" y1="60" x2="602" y2="780" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#17355F" />
+          <stop offset="1" stopColor="#08111F" />
+        </linearGradient>
+        <radialGradient id="domeGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(360 204) rotate(90) scale(108)">
+          <stop stopColor="#FFFFFF" stopOpacity="0.9" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+}
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
+  const [activeSceneIdx, setActiveSceneIdx] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveSceneIdx((current) => (current + 1) % HERO_SCENES.length);
+    }, 4800);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const activeScene = HERO_SCENES[activeSceneIdx];
 
   function handleRequestAccess(e) {
     e.preventDefault();
@@ -62,37 +278,33 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="bg-background-light text-ink font-display antialiased">
-      {/* ── Sticky Navigation ─────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 w-full border-b border-primary/10 bg-background-light/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="size-8 bg-ink flex items-center justify-center rounded-lg">
-              <span className="material-symbols-outlined text-primary text-xl">account_balance</span>
+    <div className="app-fade-in bg-background-light text-ink antialiased">
+      <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-background-dark text-white shadow-[0_14px_40px_-24px_rgba(8,17,31,0.9)]">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+              <span className="material-symbols-outlined text-primary-soft text-xl">account_balance</span>
             </div>
-            <span className="text-xl font-bold tracking-tight">Mamla.AI</span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-soft/85">Supreme-ready</p>
+              <span className="font-sans text-xl font-semibold tracking-tight text-white">Mamla.AI</span>
+            </div>
           </div>
 
-          {/* Desktop Nav links */}
-          <div className="hidden md:flex items-center gap-10">
-            <a className="text-sm font-medium hover:text-primary transition-colors" href="#features">Platform</a>
-            <a className="text-sm font-medium hover:text-primary transition-colors" href="#features">Solutions</a>
-            <a className="text-sm font-medium hover:text-primary transition-colors" href="#security">Security</a>
-            <a className="text-sm font-medium hover:text-primary transition-colors" href="#testimonials">Testimonials</a>
+          <div className="hidden items-center gap-10 md:flex">
+            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#features">Platform</a>
+            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#features">Solutions</a>
+            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#security">Security</a>
+            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#testimonials">Testimonials</a>
           </div>
 
-          {/* CTA buttons */}
           <div className="flex items-center gap-4">
-            <Link
-              to="/login"
-              className="text-sm font-semibold px-4 py-2 hover:text-primary transition-colors"
-            >
+            <Link to="/login" className="px-4 py-2 text-sm font-semibold text-white/88 transition-colors hover:text-white">
               Log In
             </Link>
             <Link
               to="/signup"
-              className="bg-primary text-ivory text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-primary/90 transition-all shadow-sm"
+              className="rounded-lg bg-white px-6 py-2.5 text-sm font-bold text-primary-dark shadow-card transition-all hover:bg-primary-soft"
             >
               Get Started
             </Link>
@@ -100,85 +312,114 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ── Hero Section ───────────────────────────────────────────── */}
-      <header className="gradient-mesh relative overflow-hidden pt-20 pb-32">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            {/* Left: Copy */}
-            <div className="flex flex-col gap-8">
-              {/* Beta badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 w-fit">
+      <header className="gradient-mesh court-grid relative overflow-hidden pt-20 pb-32 text-white">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,17,31,0.1),rgba(8,17,31,0.55))]" />
+        <div className="float-slow absolute -left-12 top-20 h-64 w-64 rounded-full bg-white/8 blur-3xl" />
+        <div className="float-slow absolute bottom-10 right-0 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        <div className="relative mx-auto max-w-7xl px-6">
+          <div className="grid items-center gap-16 lg:grid-cols-2">
+            <div className="app-rise-in flex flex-col gap-8">
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1 backdrop-blur-sm">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-soft opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-primary-soft" />
                 </span>
-                <span className="text-xs font-bold uppercase tracking-widest text-primary">Now in Private Beta</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-primary-soft">Now in Private Beta</span>
               </div>
 
-              <h1 className="text-6xl md:text-7xl font-black leading-[1.1] tracking-tight">
-                Manage High-Value Legal Work{' '}
-                <span className="text-primary">in One Place.</span>
+              <h1 className="font-display text-5xl font-bold leading-[1.04] tracking-tight md:text-7xl">
+                Litigation Infrastructure
+                <span className="block text-primary-soft">for Indian Counsel.</span>
               </h1>
 
-              <p className="text-lg text-ink/70 leading-relaxed max-w-xl">
-                Experience the future of legal operations. A sophisticated workflow platform
-                engineered for precision, speed, and absolute security for top-tier law firms.
+              <p className="max-w-2xl text-lg font-medium leading-8 text-white/88">
+                {activeScene.description}
               </p>
 
-              {/* Email capture */}
-              <form onSubmit={handleRequestAccess} className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 flex border border-ink/10 rounded-xl overflow-hidden bg-white focus-within:ring-2 ring-primary/20">
+              <div className="rounded-[1.75rem] border border-white/10 bg-white/7 p-5 shadow-card backdrop-blur-sm">
+                <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div className="max-w-xl">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary-soft/84">Live chamber reel</p>
+                    <h2 className="mt-2 font-display text-3xl font-semibold leading-tight text-white">{activeScene.title}</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {HERO_SCENES.map((scene, index) => (
+                      <button
+                        key={scene.id}
+                        type="button"
+                        onClick={() => setActiveSceneIdx(index)}
+                        className={`h-2.5 rounded-full transition-all ${index === activeSceneIdx ? 'w-10 bg-primary-soft' : 'w-2.5 bg-white/30 hover:bg-white/55'}`}
+                        aria-label={`Show ${scene.title}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  {activeScene.metrics.map((metric) => (
+                    <div key={metric.label} className="rounded-2xl border border-white/10 bg-background-dark/52 px-4 py-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-soft/82">{metric.label}</p>
+                      <div className="mt-2 flex items-end gap-2">
+                        <span className="font-display text-4xl font-bold text-white">{metric.value}</span>
+                        <span className="pb-1 text-xs font-medium text-white/62">live</span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium leading-6 text-white/72">{metric.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <form onSubmit={handleRequestAccess} className="flex flex-col gap-4 sm:flex-row">
+                <div className="flex flex-1 overflow-hidden rounded-2xl border border-white/12 bg-white/95 shadow-elevated ring-primary/20 focus-within:ring-2">
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter professional email"
-                    className="flex-1 px-5 py-4 border-none focus:ring-0 text-ink bg-transparent text-sm"
+                    className="flex-1 border-none bg-transparent px-5 py-4 text-sm text-ink focus:ring-0"
                   />
                   <button
                     type="submit"
-                    className="bg-ink text-ivory font-bold px-8 py-4 hover:bg-ink/90 transition-all text-sm"
+                    className="bg-primary-dark px-8 py-4 text-sm font-bold text-ivory transition-all hover:bg-ink"
                   >
                     Request Access
                   </button>
                 </div>
               </form>
 
-              {/* Stats */}
-              <div className="flex items-center gap-8 pt-4">
+              <div className="grid grid-cols-3 gap-4 pt-4">
                 <div className="flex flex-col">
-                  <span className="text-2xl font-bold">99.9%</span>
-                  <span className="text-xs font-semibold text-ink/50 uppercase tracking-tighter">Success Rate</span>
+                  <span className="font-sans text-2xl font-bold">24/7</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/68">Chamber Continuity</span>
                 </div>
-                <div className="w-px h-10 bg-ink/10" />
                 <div className="flex flex-col">
-                  <span className="text-2xl font-bold">40%</span>
-                  <span className="text-xs font-semibold text-ink/50 uppercase tracking-tighter">Efficiency Gain</span>
+                  <span className="font-sans text-2xl font-bold">10x</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/68">Faster Review Cycles</span>
                 </div>
-                <div className="w-px h-10 bg-ink/10" />
                 <div className="flex flex-col">
-                  <span className="text-2xl font-bold">SOC2</span>
-                  <span className="text-xs font-semibold text-ink/50 uppercase tracking-tighter">Compliance</span>
+                  <span className="font-sans text-2xl font-bold">RBAC</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/68">Matter Security</span>
                 </div>
               </div>
             </div>
 
-            {/* Right: Hero visual */}
-            <div className="relative group">
-              <div className="absolute -inset-4 bg-primary/5 rounded-[2rem] blur-3xl group-hover:bg-primary/10 transition-all duration-500" />
-              <div className="relative aspect-[4/5] bg-ink rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center">
-                <div className="z-10 text-center p-12">
-                  <div className="size-20 bg-primary/20 border border-primary/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <span className="material-symbols-outlined text-primary text-4xl icon-filled">gavel</span>
+            <div className="app-rise-in group relative" style={{ animationDelay: '90ms' }}>
+              <div className="absolute -inset-5 rounded-[2rem] bg-primary/20 blur-3xl transition-all duration-500 group-hover:bg-primary/30" />
+              <div key={activeScene.id} className="relative aspect-[4/5] overflow-hidden rounded-[2rem] border border-white/10 bg-white/6 shadow-elevated backdrop-blur-sm app-fade-in">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),transparent_40%)]" />
+                <div className="absolute left-6 right-6 top-6 z-10 flex items-center justify-between rounded-2xl border border-white/10 bg-background-dark/70 px-4 py-3 backdrop-blur-sm">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary-soft/82">{activeScene.boardLabel}</p>
+                    <p className="font-display text-2xl font-semibold text-white">Daily Chamber Board</p>
                   </div>
-                  <h3 className="text-ivory text-2xl font-bold mb-2">Automated Litigation</h3>
-                  <p className="text-ivory/60 text-sm max-w-xs mx-auto leading-relaxed">
-                    Systematic intelligence applied to every discovery and drafting phase.
-                  </p>
-                  {/* Feature pills */}
-                  <div className="mt-8 flex flex-wrap gap-2 justify-center">
-                    {['AI Drafting', 'Document Chat', 'Court Monitor', 'eCourts', 'Calendar', 'Clients'].map((pill) => (
-                      <span key={pill} className="px-3 py-1 bg-primary/20 border border-primary/30 rounded-full text-xs text-ivory font-semibold">
+                  <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-white/92">
+                    {activeScene.badge}
+                  </div>
+                </div>
+                <div className="relative h-full p-8 pt-28">
+                  <SupremeCourtIllustration scene={activeScene} />
+                  <div className="absolute bottom-8 left-8 right-8 flex flex-wrap justify-center gap-2">
+                    {[...activeScene.highlights, 'eCourts', 'Calendar', 'Clients'].map((pill) => (
+                      <span key={pill} className="rounded-full border border-white/10 bg-background-dark/78 px-3 py-1 text-xs font-semibold text-white/92 backdrop-blur-sm">
                         {pill}
                       </span>
                     ))}
@@ -190,66 +431,96 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ── Core Features ──────────────────────────────────────────── */}
-      <section id="features" className="py-24 bg-white border-y border-ink/5">
-        <div className="max-w-7xl mx-auto px-6">
+      <section id="features" className="app-rise-in border-y border-slate-200/80 bg-white py-24" style={{ animationDelay: '120ms' }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-16 grid gap-5 lg:grid-cols-3">
+            {HERO_SCENES.map((scene, index) => (
+              <button
+                key={scene.id}
+                type="button"
+                onClick={() => setActiveSceneIdx(index)}
+                className="text-left"
+              >
+                <SceneThumbnail scene={scene} active={index === activeSceneIdx} />
+              </button>
+            ))}
+          </div>
+
           <div className="mb-16">
-            <h2 className="text-sm font-bold text-primary uppercase tracking-widest mb-4">Core Intelligence</h2>
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <h3 className="text-4xl md:text-5xl font-black max-w-2xl">
-                Precision-Engineered Tools for Modern Counsel.
+            <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">Core Intelligence</h2>
+            <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <h3 className="max-w-2xl font-display text-4xl font-bold leading-tight md:text-5xl">
+                Precision Systems for Court-Facing Practice.
               </h3>
-              <p className="text-ink/60 max-w-xs">
-                Designed to handle the complexities of high-stakes litigation and transactional law.
+              <p className="max-w-sm text-base font-medium leading-7 text-graphite">
+                Designed for chambers handling filings, reviews, evidence, hearings, and client coordination.
               </p>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {FEATURES.map((f) => (
+          <div className="grid gap-8 md:grid-cols-3">
+            {FEATURES.map((feature) => (
               <div
-                key={f.title}
-                className="group p-8 rounded-2xl border border-ink/5 bg-background-light hover:border-primary/30 transition-all duration-300"
+                key={feature.title}
+                className="group rounded-[1.5rem] border border-slate-200 bg-background-light p-8 transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-elevated"
               >
-                <div className="size-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <span className="material-symbols-outlined text-primary">{f.icon}</span>
+                <div className="mb-6 flex size-12 items-center justify-center rounded-xl bg-white shadow-subtle transition-transform group-hover:scale-110">
+                  <span className="material-symbols-outlined text-primary">{feature.icon}</span>
                 </div>
-                <h4 className="text-xl font-bold mb-4">{f.title}</h4>
-                <p className="text-ink/60 leading-relaxed">{f.desc}</p>
+                <h4 className="mb-4 font-sans text-xl font-bold">{feature.title}</h4>
+                <p className="leading-7 text-graphite">{feature.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Security Section ────────────────────────────────────────── */}
-      <section id="security" className="py-24 bg-background-light">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+      <section className="app-rise-in bg-background-light py-24" style={{ animationDelay: '180ms' }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2 className="text-sm font-bold text-primary uppercase tracking-widest mb-4">Enterprise Security</h2>
-              <h3 className="text-4xl font-black mb-6">Built for the Most Sensitive Legal Work.</h3>
-              <p className="text-ink/60 mb-8 leading-relaxed">
-                Your clients' data is encrypted at rest and in transit. We comply with the highest
-                standards of data protection so you can focus on winning cases, not worrying about breaches.
+              <h2 className="text-sm font-bold uppercase tracking-widest text-primary">From Bench to Brief</h2>
+              <h3 className="mt-4 max-w-3xl font-display text-4xl font-bold leading-tight md:text-5xl">
+                A fuller legal atmosphere beyond the hero.
+              </h3>
+            </div>
+            <p className="max-w-md text-base font-medium leading-7 text-graphite">
+              Explore chamber, draft, and court-control scenes through an interactive visual board designed specifically for Indian legal practice.
+            </p>
+          </div>
+
+          <div key={activeScene.id} className="app-fade-in">
+            <PracticeSceneBoard scene={activeScene} />
+          </div>
+        </div>
+      </section>
+
+      <section id="security" className="app-rise-in bg-background-light py-24" style={{ animationDelay: '240ms' }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="grid items-center gap-16 lg:grid-cols-2">
+            <div>
+              <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">Enterprise Security</h2>
+              <h3 className="mb-6 font-display text-4xl font-bold">Built for Sensitive Legal Workflows.</h3>
+              <p className="mb-8 text-base leading-8 text-graphite">
+                Your clients&apos; data is encrypted at rest and in transit. We comply with the highest standards of data protection so you can focus on winning cases, not worrying about breaches.
               </p>
               <div className="space-y-4">
                 {[
                   { icon: 'shield', text: 'End-to-end encryption for all documents' },
                   { icon: 'verified_user', text: 'SOC2 Type II certified infrastructure' },
                   { icon: 'lock', text: 'Role-based access control (RBAC)' },
-                  { icon: 'policy', text: 'DPDP Act & Bar Council compliant' },
+                  { icon: 'policy', text: 'DPDP Act and Bar Council aligned workflows' },
                 ].map((item) => (
                   <div key={item.text} className="flex items-center gap-3">
-                    <div className="size-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="material-symbols-outlined text-primary text-base">{item.icon}</span>
+                    <div className="flex size-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <span className="material-symbols-outlined text-base text-primary">{item.icon}</span>
                     </div>
-                    <span className="text-sm font-medium text-ink/80">{item.text}</span>
+                    <span className="text-sm font-semibold text-ink/90">{item.text}</span>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="bg-ink rounded-2xl p-8 text-ivory">
+            <div className="rounded-[2rem] bg-background-dark p-8 text-ivory shadow-elevated">
               <div className="grid grid-cols-2 gap-6">
                 {[
                   { label: 'Uptime SLA', value: '99.99%' },
@@ -257,9 +528,9 @@ export default function LandingPage() {
                   { label: 'Data Centers', value: 'India' },
                   { label: 'Compliance', value: 'SOC2' },
                 ].map((stat) => (
-                  <div key={stat.label} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                    <p className="text-white/50 text-xs uppercase tracking-wider mb-1">{stat.label}</p>
-                    <p className="text-2xl font-black text-primary">{stat.value}</p>
+                  <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/68">{stat.label}</p>
+                    <p className="font-sans text-2xl font-black text-primary-soft">{stat.value}</p>
                   </div>
                 ))}
               </div>
@@ -268,18 +539,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ───────────────────────────────────────────── */}
-      <section id="testimonials" className="py-24 bg-white border-t border-ink/5">
-        <div className="max-w-7xl mx-auto px-6">
-          <h2 className="text-sm font-bold text-primary uppercase tracking-widest mb-4">Trusted by Counsel</h2>
-          <h3 className="text-4xl font-black mb-12">What Legal Professionals Say.</h3>
-          <div className="grid md:grid-cols-3 gap-8">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.author} className="p-8 rounded-2xl border border-ink/5 bg-background-light">
-                <p className="text-ink/70 leading-relaxed mb-6 italic">&ldquo;{t.text}&rdquo;</p>
+      <section id="testimonials" className="app-rise-in border-t border-slate-200 bg-white py-24" style={{ animationDelay: '300ms' }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">Trusted by Counsel</h2>
+          <h3 className="mb-12 font-display text-4xl font-bold">What Legal Professionals Say.</h3>
+          <div className="grid gap-8 md:grid-cols-3">
+            {TESTIMONIALS.map((testimonial) => (
+              <div key={testimonial.author} className="rounded-[1.5rem] border border-slate-200 bg-background-light p-8 shadow-card">
+                <p className="mb-6 italic leading-8 text-ink/82">&ldquo;{testimonial.text}&rdquo;</p>
                 <div>
-                  <p className="font-bold text-ink">{t.author}</p>
-                  <p className="text-sm text-ink/50">{t.role}</p>
+                  <p className="font-bold text-ink">{testimonial.author}</p>
+                  <p className="text-sm font-medium text-ink/68">{testimonial.role}</p>
+                </div>
+                <div className="mt-6 flex gap-1 text-primary">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <span key={`${testimonial.author}-${index}`} className="material-symbols-outlined text-base">star</span>
+                  ))}
                 </div>
               </div>
             ))}
@@ -287,26 +562,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── CTA Section ────────────────────────────────────────────── */}
-      <section className="py-24 bg-ink text-ivory">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-5xl font-black mb-6">
-            Ready to Transform Your Practice?
-          </h2>
-          <p className="text-ivory/60 text-lg mb-10 leading-relaxed">
-            Join the growing community of legal professionals using Mamla.AI to handle
-            high-value matters with confidence and speed.
+      <section className="app-rise-in bg-background-dark py-24 text-ivory" style={{ animationDelay: '360ms' }}>
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <h2 className="mb-6 font-display text-5xl font-bold">Ready to Modernize the Chamber?</h2>
+          <p className="mb-10 text-lg font-medium leading-8 text-ivory/82">
+            Join the growing community of legal professionals using Mamla.AI to handle high-value matters with confidence and speed.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <Link
               to="/signup"
-              className="bg-primary text-ivory font-bold px-8 py-4 rounded-xl hover:bg-primary/90 transition-all shadow-lg text-base"
+              className="rounded-xl bg-white px-8 py-4 text-base font-bold text-primary-dark shadow-lg transition-all hover:bg-primary-soft"
             >
               Start Free Trial
             </Link>
             <Link
               to="/login"
-              className="bg-white/10 text-ivory font-bold px-8 py-4 rounded-xl hover:bg-white/20 transition-all text-base"
+              className="rounded-xl border border-white/12 bg-white/10 px-8 py-4 text-base font-bold text-ivory transition-all hover:bg-white/20"
             >
               Sign In
             </Link>
@@ -314,18 +585,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────────── */}
-      <footer className="bg-background-light border-t border-ink/5 py-12">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+      <footer className="border-t border-slate-200 bg-background-light py-12">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary icon-filled">gavel</span>
-            <span className="font-bold">Mamla.AI</span>
+            <span className="material-symbols-outlined icon-filled text-primary">account_balance</span>
+            <span className="font-sans font-bold">Mamla.AI</span>
           </div>
-          <p className="text-sm text-ink/40">© 2025 Mamla.AI. All rights reserved. Secure & Encrypted.</p>
+          <p className="text-sm font-medium text-ink/58">© 2026 Mamla.AI. All rights reserved. Secure and encrypted for chamber operations.</p>
           <div className="flex gap-6">
-            <a href="#" className="text-sm text-ink/50 hover:text-primary transition-colors">Privacy</a>
-            <a href="#" className="text-sm text-ink/50 hover:text-primary transition-colors">Terms</a>
-            <a href="#" className="text-sm text-ink/50 hover:text-primary transition-colors">Contact</a>
+            <a href="#" className="text-sm font-medium text-ink/68 transition-colors hover:text-primary">Privacy</a>
+            <a href="#" className="text-sm font-medium text-ink/68 transition-colors hover:text-primary">Terms</a>
+            <a href="#" className="text-sm font-medium text-ink/68 transition-colors hover:text-primary">Contact</a>
           </div>
         </div>
       </footer>

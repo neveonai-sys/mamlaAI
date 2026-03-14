@@ -1,8 +1,85 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../../services/api';
+import { updateFeatureQuota } from '../../features/entitlementsSlice';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 
 const TALKDOC_ACCEPT = '.pdf,.doc,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff';
+
+function quotaNoticeClassName(tone) {
+  if (tone === 'error') return 'border-red-200 bg-red-50 text-red-700';
+  if (tone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-800';
+  return 'border-sky-200 bg-sky-50 text-sky-700';
+}
+
+function getTalkdocFeatureMeta(featureCode) {
+  if (featureCode === 'general_legal_chat') {
+    return {
+      label: 'General legal chat',
+      blockedMessage: 'General legal chat is exhausted for now. Add wallet credits or wait for reset to continue.',
+      unavailableMessage: 'General legal chat is not available for this account right now.',
+      unitSingular: 'chat',
+      unitPlural: 'chats',
+    };
+  }
+
+  return {
+    label: 'Document analysis',
+    blockedMessage: 'Mamla Brain usage is exhausted for now. Add wallet credits to continue document analysis.',
+    unavailableMessage: 'Mamla Brain access is not available for this account right now.',
+    unitSingular: 'analysis',
+    unitPlural: 'analyses',
+  };
+}
+
+function buildBrainQuotaNotice(quota, featureCode = 'brain_doc_analysis') {
+  if (!quota) return null;
+
+  const remaining = typeof quota.remaining_included === 'number' ? quota.remaining_included : null;
+  const walletBalance = typeof quota.wallet_credits_balance === 'number' ? quota.wallet_credits_balance : 0;
+  const sessionTurnsRemaining = typeof quota.session_turns_remaining === 'number' ? quota.session_turns_remaining : null;
+  const sessionTurnLimit = typeof quota.session_turn_limit === 'number' ? quota.session_turn_limit : null;
+  const meta = getTalkdocFeatureMeta(featureCode);
+
+  if (quota.allowed === false) {
+    return {
+      tone: 'error',
+      message: quota.next_cta === 'top_up_credits'
+        ? meta.blockedMessage
+        : meta.unavailableMessage,
+    };
+  }
+
+  if (sessionTurnsRemaining !== null && sessionTurnLimit !== null) {
+    if (sessionTurnsRemaining <= 2) {
+      return {
+        tone: 'warning',
+        message: `${sessionTurnsRemaining} of ${sessionTurnLimit} included session ${sessionTurnsRemaining === 1 ? 'chat' : 'chats'} left before the next ${meta.label.toLowerCase()} charge${walletBalance ? `, plus ${walletBalance} wallet credit${walletBalance === 1 ? '' : 's'}` : ''}.`,
+      };
+    }
+
+    if (sessionTurnsRemaining === sessionTurnLimit - 1) {
+      return {
+        tone: 'info',
+        message: `This ${meta.label.toLowerCase()} charge now covers up to ${sessionTurnLimit} chats in the current session.`,
+      };
+    }
+  }
+
+  if (remaining !== null && remaining <= 2) {
+    return {
+      tone: 'warning',
+      message: `${remaining} included ${meta.label.toLowerCase()} ${remaining === 1 ? meta.unitSingular : meta.unitPlural} left${walletBalance ? `, plus ${walletBalance} wallet credit${walletBalance === 1 ? '' : 's'}` : ''}.`,
+    };
+  }
+
+  return null;
+}
+
+function nowTimestampString() {
+  return new Date().toISOString().replace('T', ' ').replace('Z', '');
+}
 
 function normalizeDoc(doc) {
   const status = doc.status || (doc.indexed ? 'indexed' : 'uploaded');
@@ -564,6 +641,9 @@ function ChatWindow({
   onCommitRename,
   onCancelRename,
   onJumpToCitation,
+  quotaNotice,
+  sendDisabled,
+  sendPlaceholder,
 }) {
   const bottomRef = useRef(null);
 
@@ -606,6 +686,12 @@ function ChatWindow({
             </button>
           </div>
         </div>
+
+        {quotaNotice && (
+          <div className={`border-b px-4 py-3 text-xs font-medium ${quotaNoticeClassName(quotaNotice.tone)}`}>
+            {quotaNotice.message}
+          </div>
+        )}
 
         <div className="flex flex-1 flex-col overflow-y-auto bg-white p-4 custom-scrollbar">
           {messages.length === 0 && (
@@ -668,13 +754,14 @@ function ChatWindow({
                   onSend();
                 }
               }}
-              placeholder="Ask a question about your documents..."
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 pr-14 text-sm text-gray-700 shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary/25"
+              placeholder={sendDisabled ? sendPlaceholder : 'Ask a question about your documents...'}
+              disabled={sendDisabled}
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 pr-14 text-sm text-gray-700 shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-60"
             />
             <button
               type="button"
               onClick={onSend}
-              disabled={chatLoading || !input.trim()}
+              disabled={chatLoading || !input.trim() || sendDisabled}
               className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-lg bg-[#1c2433] p-2 text-white shadow-sm transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-lg">send</span>
@@ -688,7 +775,10 @@ function ChatWindow({
 
 export default function DocumentWorkspace() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { trial, wallet, features } = useSelector((s) => s.entitlements);
   const [docs, setDocs] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(id || '');
@@ -718,6 +808,7 @@ export default function DocumentWorkspace() {
   const [error, setError] = useState('');
   const [mode, setMode] = useState(id ? 'workspace' : 'setup');
   const [deletingDocId, setDeletingDocId] = useState('');
+  const [chatQuotaNotice, setChatQuotaNotice] = useState(null);
 
   const composerMatter = useMemo(() => buildMatter(composerCaseId, composerClientId), [composerCaseId, composerClientId]);
 
@@ -781,6 +872,28 @@ export default function DocumentWorkspace() {
     if (!previewDocId) return null;
     return docs.find((doc) => doc.doc_id === previewDocId) || null;
   }, [docs, previewDocId]);
+  const activeFeatureCode = activeSession?.has_docs ? 'brain_doc_analysis' : 'general_legal_chat';
+  const activeQuota = features?.[activeFeatureCode] || null;
+  const documentQuota = features?.brain_doc_analysis || null;
+  const legalChatQuota = features?.general_legal_chat || null;
+  const activeFeatureMeta = useMemo(() => getTalkdocFeatureMeta(activeFeatureCode), [activeFeatureCode]);
+  const brainQuotaNotice = useMemo(
+    () => chatQuotaNotice || buildBrainQuotaNotice(activeQuota, activeFeatureCode),
+    [activeFeatureCode, activeQuota, chatQuotaNotice],
+  );
+  const sendDisabled = activeQuota?.allowed === false;
+  const sendPlaceholder = activeSession?.has_docs
+    ? 'Mamla Brain access is unavailable for document analysis in this chat right now.'
+    : 'General legal chat is unavailable for this session right now.';
+
+  async function withBlocking(message, action) {
+    dispatch(beginBlocking({ message }));
+    try {
+      return await action();
+    } finally {
+      dispatch(stopBlocking());
+    }
+  }
 
   async function fetchDocs() {
     try {
@@ -1014,20 +1127,56 @@ export default function DocumentWorkspace() {
     }
   }
 
-  async function loadMessages(sessionId) {
-    try {
-      const response = await apiClient.get(`talkdoc/session_messages/?session_id=${sessionId}`);
-      setMessages(response.data?.results ?? response.data?.messages ?? []);
-    } catch {
-      setMessages([]);
-      setError('Could not load session messages.');
+  async function loadMessages(sessionId, { blockUi = false } = {}) {
+    const load = async () => {
+      try {
+        const response = await apiClient.get(`talkdoc/session_messages/?session_id=${sessionId}`);
+        setMessages(response.data?.results ?? response.data?.messages ?? []);
+      } catch {
+        setMessages([]);
+        setError('Could not load session messages.');
+      }
+    };
+
+    if (blockUi) {
+      await withBlocking('Opening chat session...', load);
+      return;
     }
+
+    await load();
   }
 
   useEffect(() => {
     fetchSessions(id || '');
     fetchCaseClientOptions();
   }, []);
+
+  useEffect(() => {
+    if (id) return;
+
+    const params = new URLSearchParams(location.search);
+    const nextCaseId = params.get('caseid')?.trim() || '';
+    const nextClientIdFromQuery = params.get('clientid')?.trim() || '';
+    const linkedClients = nextCaseId ? (caseClientMap[nextCaseId] || []) : [];
+    const resolvedClientId = nextClientIdFromQuery || (linkedClients.length === 1 ? linkedClients[0].value : '');
+    const resolvedClientInput = resolvedClientId
+      ? (clientOptions.find((option) => option.value === resolvedClientId)?.displayValue
+        || clientOptions.find((option) => option.value === resolvedClientId)?.label
+        || resolvedClientId)
+      : '';
+
+    if (!nextCaseId && !resolvedClientId) return;
+
+    setMode('setup');
+    setCurrentSessionId('');
+    setMessages([]);
+    setSelectedContextRowId('');
+    setDocFilterCaseId(nextCaseId);
+    setDocFilterClientId(resolvedClientId);
+    setComposerCaseId(nextCaseId);
+    setComposerClientId(resolvedClientId);
+    setComposerClientInput(resolvedClientInput);
+  }, [caseClientMap, clientOptions, id, location.search]);
 
   useEffect(() => {
     fetchDocs();
@@ -1038,7 +1187,7 @@ export default function DocumentWorkspace() {
       setMessages([]);
       return;
     }
-    loadMessages(currentSessionId);
+    loadMessages(currentSessionId, { blockUi: true });
   }, [currentSessionId]);
 
   useEffect(() => {
@@ -1121,6 +1270,7 @@ export default function DocumentWorkspace() {
     setPreviewDocId('');
     setInput('');
     setError('');
+    setChatQuotaNotice(null);
     setRenamingSessionId('');
     setRenameValue('');
     navigate('/documents');
@@ -1131,6 +1281,7 @@ export default function DocumentWorkspace() {
     setMode('workspace');
     setPreviewDocId('');
     setError('');
+    setChatQuotaNotice(null);
     navigate(`/documents/${sessionId}`);
   }
 
@@ -1140,37 +1291,39 @@ export default function DocumentWorkspace() {
     setUploading(true);
     setError('');
     try {
-      const uploadedIds = [];
-      const targetMatter = attachToActiveSession && activeSession ? (activeSession.matter || {}) : composerMatter;
+      await withBlocking(files.length > 1 ? 'Uploading documents...' : 'Uploading document...', async () => {
+        const uploadedIds = [];
+        const targetMatter = attachToActiveSession && activeSession ? (activeSession.matter || {}) : composerMatter;
 
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append('file', file);
-        if (Object.keys(targetMatter).length > 0) {
-          formData.append('matter', JSON.stringify(targetMatter));
+        for (const file of files) {
+          const formData = new FormData();
+          formData.append('file', file);
+          if (Object.keys(targetMatter).length > 0) {
+            formData.append('matter', JSON.stringify(targetMatter));
+          }
+          const response = await apiClient.post('talkdoc/upload/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          const uploadedDoc = normalizeDoc(response.data);
+          setDocs((current) => [uploadedDoc, ...current.filter((doc) => doc.doc_id !== uploadedDoc.doc_id)]);
+          uploadedIds.push(uploadedDoc.doc_id);
+          if (!attachToActiveSession) {
+            setComposerSelectedDocIds((current) => (current.includes(uploadedDoc.doc_id) ? current : [...current, uploadedDoc.doc_id]));
+          }
+          setPreviewDocId(uploadedDoc.doc_id);
         }
-        const response = await apiClient.post('talkdoc/upload/', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        const uploadedDoc = normalizeDoc(response.data);
-        setDocs((current) => [uploadedDoc, ...current.filter((doc) => doc.doc_id !== uploadedDoc.doc_id)]);
-        uploadedIds.push(uploadedDoc.doc_id);
-        if (!attachToActiveSession) {
-          setComposerSelectedDocIds((current) => (current.includes(uploadedDoc.doc_id) ? current : [...current, uploadedDoc.doc_id]));
+
+        if (attachToActiveSession && activeSession && uploadedIds.length > 0) {
+          await attachDocIdsToSession(activeSession.id, uploadedIds);
+          await fetchSessions(activeSession.id);
         }
-        setPreviewDocId(uploadedDoc.doc_id);
-      }
 
-      if (attachToActiveSession && activeSession && uploadedIds.length > 0) {
-        await attachDocIdsToSession(activeSession.id, uploadedIds);
-        await fetchSessions(activeSession.id);
-      }
+        if (!attachToActiveSession && uploadedIds.length > 0) {
+          setComposerSelectedDocIds((current) => Array.from(new Set([...current, ...uploadedIds])));
+        }
 
-      if (!attachToActiveSession && uploadedIds.length > 0) {
-        setComposerSelectedDocIds((current) => Array.from(new Set([...current, ...uploadedIds])));
-      }
-
-      await fetchDocs();
+        await fetchDocs();
+      });
     } catch (err) {
       if (err.response?.status === 413) {
         setError('Upload rejected because the file is larger than the current server limit.');
@@ -1186,10 +1339,10 @@ export default function DocumentWorkspace() {
   async function createSession() {
     try {
       setError('');
-      const response = await apiClient.post('talkdoc/create_session/', {
+      const response = await withBlocking('Creating document session...', () => apiClient.post('talkdoc/create_session/', {
         doc_ids: composerSelectedDocIds,
         matter: composerMatter,
-      });
+      }));
       const session = normalizeSession(response.data);
       setSessions((current) => [session, ...current.filter((item) => item.id !== session.id)]);
       setCurrentSessionId(session.id);
@@ -1227,7 +1380,7 @@ export default function DocumentWorkspace() {
     if (!sessionId) return;
     if (!window.confirm('Delete this chat session?')) return;
     try {
-      await apiClient.delete(`talkdoc/sessions/${sessionId}`);
+      await withBlocking('Deleting chat session...', () => apiClient.delete(`talkdoc/sessions/${sessionId}`));
       setSessions((current) => current.filter((session) => session.id !== sessionId));
       if (currentSessionId === sessionId) {
         resetComposer();
@@ -1253,7 +1406,7 @@ export default function DocumentWorkspace() {
     if (!window.confirm('Delete this document from Talk To Docs?')) return;
     setDeletingDocId(docId);
     try {
-      await apiClient.delete(`talkdoc/documents/${docId}/`);
+      await withBlocking('Removing document...', () => apiClient.delete(`talkdoc/documents/${docId}/`));
       setDocs((current) => current.filter((doc) => doc.doc_id !== docId));
       setComposerSelectedDocIds((current) => current.filter((idValue) => idValue !== docId));
       setSessions((current) => current.map((session) => {
@@ -1273,19 +1426,21 @@ export default function DocumentWorkspace() {
   }
 
   async function handleSend() {
-    if (!input.trim() || chatLoading || !activeSession) return;
+    if (!input.trim() || chatLoading || !activeSession || sendDisabled) return;
 
     const text = input.trim();
     setInput('');
     setMessages((current) => [...current, { role: 'user', content: text }]);
     setChatLoading(true);
     setError('');
+    setChatQuotaNotice(null);
 
     try {
-      const response = await apiClient.post('talkdoc/query/', {
+      const response = await withBlocking('Analyzing your question...', () => apiClient.post('talkdoc/query/', {
         session_id: activeSession.id,
         query: text,
-      });
+      }));
+      const responseQuota = response.data?.quota || null;
       setMessages((current) => [
         ...current,
         {
@@ -1294,8 +1449,24 @@ export default function DocumentWorkspace() {
           citations: response.data?.citations || [],
         },
       ]);
-      await fetchSessions(activeSession.id);
+      if (responseQuota) {
+        dispatch(updateFeatureQuota(responseQuota));
+        setChatQuotaNotice(buildBrainQuotaNotice(responseQuota, activeFeatureCode));
+      }
+      setSessions((current) => current.map((session) => (
+        session.id === activeSession.id
+          ? {
+            ...session,
+            last_message_at: nowTimestampString(),
+          }
+          : session
+      )));
     } catch (err) {
+      const nextQuota = err.response?.data?.quota || null;
+      if (nextQuota) {
+        setChatQuotaNotice(buildBrainQuotaNotice(nextQuota, activeFeatureCode));
+        dispatch(updateFeatureQuota(nextQuota));
+      }
       setMessages((current) => [
         ...current,
         { role: 'assistant', content: err.response?.data?.error || 'Sorry, I could not process that request.' },
@@ -1319,6 +1490,33 @@ export default function DocumentWorkspace() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-background-light">
       {error && <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-600">{error}</div>}
+      {(typeof documentQuota?.remaining_included === 'number' || typeof legalChatQuota?.remaining_included === 'number') && (
+        <div className={`border-b px-5 py-3 text-sm ${typeof activeQuota?.remaining_included === 'number' && activeQuota.remaining_included <= 2 ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-primary/10 bg-white text-slate-600'}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-ink">Mamla Brain {trial?.active ? 'trial' : 'usage'}</span>
+            {typeof documentQuota?.remaining_included === 'number' && (
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                {documentQuota.remaining_included} document analyses left
+              </span>
+            )}
+            {typeof legalChatQuota?.remaining_included === 'number' && (
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                {legalChatQuota.remaining_included} general legal chats left
+              </span>
+            )}
+            {wallet?.balance ? (
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                {wallet.balance} credits available for overage
+              </span>
+            ) : null}
+            {activeSession && (
+              <span className="text-xs font-medium text-slate-500">
+                Active mode: {activeFeatureMeta.label.toLowerCase()}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {mode === 'setup' && (
         <SetupWindow
@@ -1413,6 +1611,9 @@ export default function DocumentWorkspace() {
                 setRenameValue('');
               }}
               onJumpToCitation={jumpToCitation}
+              quotaNotice={brainQuotaNotice}
+              sendDisabled={sendDisabled}
+              sendPlaceholder={sendPlaceholder}
             />
           </div>
         </main>

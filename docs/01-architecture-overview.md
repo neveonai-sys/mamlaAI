@@ -6,6 +6,7 @@
 
 - **AI-assisted legal drafting** (sessions, sections, save/load, PDF export)
 - **Document chat (RAG)** via TalkDoc
+- **Mamla Brain**: a reusable API-first reasoning framework that can run in legal, banking, or market-analysis modes depending on the selected domain profile and knowledge sources
 - **Calendar / event management**
 - **Court update subscriptions** (today’s updates)
 - **Client onboarding** (lawyers onboard clients with token-based signup)
@@ -29,9 +30,23 @@ Adalatai_ground_zero/
 │   ├── search_facility/        # OpenSearch document search
 │   ├── whatsapp_module/        # WhatsApp webhook (unchanged)
 │   ├── todaysupdates/          # Court subscriptions
-│   ├── talkdoc/                 # RAG document Q&A
+│   ├── talkdoc/                # RAG document Q&A
+│   ├── mamla_brain/            # Domain reasoning framework (legal, banking, markets)
 │   └── core/                   # Shared clients (Mongo, Supabase), health view
-├── frontend_webpack/           # React SPA
+├── mamlaAI_ground_zero/
+│   └── frontend/               # Active React SPA (Tailwind + Webpack)
+│       ├── src/
+│       │   ├── index.js        # Entry; ErrorBoundary + Provider + App
+│       │   ├── App.js          # Router + interceptor setup
+│       │   ├── AppContent.js   # Auth check, route definitions, lazy routes
+│       │   ├── store.js        # Redux store
+│       │   ├── features/       # userSlice, entitlementsSlice, chatDocsSlice
+│       │   ├── components/     # Pages, layout, auth, drafting, docs, eCourts
+│       │   ├── services/       # apiClient and shared helpers
+│       │   └── utils/          # security utils
+│       ├── webpack.dev.js      # Dev server, proxy /api -> backend
+│       └── webpack.prod.js     # Production build
+├── frontend_webpack/           # Previous React SPA kept for reference/parity
 │   ├── src/
 │   │   ├── index.js            # Entry; ErrorBoundary + Provider + App
 │   │   ├── App.js               # ThemeProvider, Router, AppContent
@@ -76,8 +91,10 @@ Adalatai_ground_zero/
 | Layer    | Technologies |
 |----------|--------------|
 | Backend  | Django 5.x, Django REST Framework, MongoDB, Supabase (auth), Redis, Celery, OpenSearch (search) |
-| Frontend | React 18, React Router v6, Redux Toolkit, MUI v5, Axios, Webpack 5 |
+| Frontend | React 18, React Router v6, Redux Toolkit, Tailwind CSS, Axios, Webpack 5 |
 | Auth     | Supabase (login, signup, password reset, session); no JWT/OTP legacy in use |
+
+Mamla Brain reuses the same backend stack but adds a second caller mode for external integrations: Supabase for first-party app users, and API-key auth for third-party clients.
 
 ---
 
@@ -85,8 +102,9 @@ Adalatai_ground_zero/
 
 - **Backend entry**: `Legalv1/Legalv1/urls.py` → includes per-app urls (`users.urls`, `ai_draft.urls`, etc.).  
 - **Backend config**: `Legalv1/Legalv1/settings.py` (env, CORS, DB, Celery).  
-- **Frontend entry**: `frontend_webpack/src/index.js` → `App.js` → `AppContent.js`.  
-- **Frontend routes**: `frontend_webpack/src/AppContent.js` (all `<Route>` definitions).  
-- **API client**: `frontend_webpack/src/components/common/AxiosInstance.jsx` (baseURL, interceptors, auth header).
+- **Active frontend entry**: `mamlaAI_ground_zero/frontend/src/index.js` → `App.js` → `AppContent.js`.
+- **Active frontend routes**: `mamlaAI_ground_zero/frontend/src/AppContent.js` (all `<Route>` definitions).
+- **Active API client**: `mamlaAI_ground_zero/frontend/src/services/api.js` (baseURL, interceptors, auth header).
+- **Previous frontend**: `frontend_webpack/` remains in the repo as the earlier UI.
 
 Use **02-backend-legalv1.md** and **03-frontend-webpack.md** for per-layer detail; **04-api-reference.md** for endpoint-level reference.

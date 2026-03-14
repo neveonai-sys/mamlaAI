@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/webhook/', include('whatsapp_module.urls')),
     path('api/todaysupdates/', include('todaysupdates.urls')),
     path('api/talkdoc/', include('talkdoc.urls')),
+    path('api/brain/', include('mamla_brain.urls')),
     # Scraper disabled (CAPTCHA issues); using direct eCourts partner API instead.
     # To revert: uncomment the scraper line and comment out ecourts_api.
     # path('api/ecourts/', include('ecourts_scraper.urls')),

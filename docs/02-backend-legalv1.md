@@ -23,6 +23,7 @@ The backend is a **Django 5.x** project under `Legalv1/`. It exposes REST-style 
 | `api/webhook/` | `whatsapp_module.urls` |
 | `api/todaysupdates/` | `todaysupdates.urls` |
 | `api/talkdoc/` | `talkdoc.urls` |
+| `api/brain/` | `mamla_brain.urls` |
 | `api/ecourts/` | `ecourts_api.urls` (direct partner API; scraper disabled) |
 
 All user-facing API base path is effectively **`/api/`** (e.g. full path `https://<host>/api/users/check-auth/`).
@@ -69,6 +70,7 @@ All user-facing API base path is effectively **`/api/`** (e.g. full path `https:
 | **whatsapp_module** | WhatsApp webhook (verify + handler) | MongoDB: whatsapp_chat_sessions, service_orders |
 | **todaysupdates** | Court subscriptions, fetch updates (lawyer + paralegal) | MongoDB |
 | **talkdoc** | RAG: upload docs, sessions, messages | MongoDB / OpenSearch (see talkdoc app) |
+| **mamla_brain** | API-first domain reasoning framework on top of TalkDoc primitives. Supports tiered LLM routing, reusable domain prompts, external API-key auth, knowledge-base retrieval, document Q&A, and Case Companion-style structured reasoning for legal plus other configured domains such as banking or markets. | MongoDB: brain_api_keys, brain_sessions, brain_messages; OpenSearch knowledge-base indexes per domain; reuses rag_documents for uploaded source docs |
 | **ecourts_scraper** | eCourts live data via browser automation: case by CNR, search, cause list, court structure. **Currently disabled** (CAPTCHA issues). | MongoDB: ecourts_cache, ecourts_scrape_jobs, ecourts_selectors; Celery queues ecourts_realtime, ecourts_background |
 | **ecourts_api** | **Active.** Drop-in replacement for ecourts_scraper. Calls eCourts partner API directly (synchronous, no Celery). Caches in ecourts_cache. | MongoDB: ecourts_cache (shared); no Celery. Env: `ECOURT_TOKEN`. |
 | **core** | Health check view, init_clients, response_utils | N/A |
@@ -117,6 +119,7 @@ All LLM calls are centralised in **`Legalv1/core/llm_client.py`** (`chat_complet
 | `BRAIN_T1_MODEL` | Mamla-Brain tier-1 (micro) model | `meta-llama/llama-3.1-8b-instruct` |
 | `BRAIN_T2_MODEL` | Mamla-Brain tier-2 (balanced) model | `anthropic/claude-3-haiku` |
 | `BRAIN_T3_MODEL` | Mamla-Brain tier-3 (strong) model | `anthropic/claude-sonnet-4-5` |
+| `BRAIN_MONTHLY_FREE_QUOTA` | Default monthly request quota for externally issued Brain API keys | `100` |
 | `TALKDOC_ENABLE_LLM` | Set to `0` to disable LLM in TalkDoc (test mode) | `1` |
 
 ---
@@ -149,12 +152,15 @@ For a full list of endpoints and which require auth, see **04-api-reference.md**
 
 ### TalkDoc Notes
 
+- TalkDoc conversation history for both legacy and REST-style query endpoints is already trimmed to the last 6 stored messages before sending context to the LLM, matching the Mamla Brain token-efficiency target.
 - `talkdoc/views.py` now sanitizes document-processing errors before returning them to the frontend. Internal failure detail stays in Mongo (`error_detail`) and logs, while API responses expose only user-safe summaries.
 - `GET /api/talkdoc/documents/<doc_id>/file/` streams the original uploaded file back to the authenticated owner for inline preview or download.
 - `DELETE /api/talkdoc/documents/<doc_id>/` removes an uploaded TalkDoc file for its owner and strips that document id out of any surviving non-deleted chat sessions.
 - Session reads and deletes in TalkDoc now enforce ownership checks consistently across both legacy and REST-style endpoints.
 - `create_session` and `create_session_v2` default new titles to a timestamped label instead of generic `Chat Session` / `General Chat`, and they preserve optional `matter` context (`caseid`, `clientid`).
 - TalkDoc retrieval is now session-scoped: the active session's stored `doc_ids` are the only document ids used during RAG retrieval. Per-turn document overrides are not used in `query_v2`.
+- TalkDoc chat usage is now session-aware across two entitlement buckets. Sessions with attached documents consume `brain_doc_analysis`, while no-document legal chats consume `general_legal_chat`. For TalkDoc only, one successful charge now opens a bounded session bundle of up to 10 chat turns in the current session before the next quota unit is consumed. Both `POST /api/talkdoc/query/` and `POST /api/talkdoc/sessions/<session_id>/message` return a `quota` payload on success and on quota exhaustion, matching the Mamla Brain contract.
+- For no-document TalkDoc sessions (`has_docs=False`), the backend now applies a lightweight local keyword gate before any LLM call. Clearly non-legal prompts are rejected immediately without a quota charge, which saves cost without adding latency.
 - `modify_session_docs` allows adding more documents to an existing session, but once the session has started exchanging messages it rejects document removal so earlier context cannot silently disappear from the conversation history.
 - `talkdoc/tasks.py` now extracts tables from PDF and DOCX uploads, formats CSV and XLSX uploads into indexable table text, rasterizes scanned PDF pages through `pypdfium2` when a page has no text layer, and uses the shared OpenAI/OpenRouter multimodal path for OCR-style extraction from image uploads and scanned-page images when plain server-side parsing is not available.
 - The rebuilt TalkDoc frontend now supports uploading additional documents after a chat has already started; those new files are automatically attached to the active session through `POST /api/talkdoc/sessions/<session_id>/docs`.
@@ -163,3 +169,12 @@ For a full list of endpoints and which require auth, see **04-api-reference.md**
 - Production TalkDoc uploads depend on the Nginx proxy allowing larger multipart bodies; the checked-in `nginx_mamla.ai_optimized.conf` now raises `client_max_body_size` for `/api/` traffic to support larger post-chat uploads.
 - The tracked live site file is `mamla.ai`, which should be copied to `/etc/nginx/sites-available/mamla.ai` (or merged there directly). Nginx will not read repo copies automatically; after updating the server file, validate with `nginx -t` and reload with `systemctl reload nginx`.
 - Existing TalkDoc documents can be backfilled with `python scripts/backfill_talkdoc_document_metadata.py` from `Legalv1/`. That script populates `name_display`, `case_ids`, `client_ids`, `primary_case_id`, and `primary_client_id` for older `rag_documents` rows.
+
+### Mamla Brain Notes
+
+- `mamla_brain/views.py` exposes `/api/brain/v1/` endpoints for health, document upload/listing, session CRUD, document Q&A, Case Companion reasoning, and admin API-key generation.
+- `mamla_brain/auth.py` implements dual auth: first-party callers may use the existing Supabase token, while third-party callers can use `X-Brain-API-Key` against the `brain_api_keys` collection with quota enforcement.
+- `ai_draft/views.py` now applies `ai_draft_generation` entitlements to draft-creation endpoints (`initial_request/`, `upload_template`, `start_session_for_casedocument`) and returns `quota` payloads on success or exhaustion. The active frontend uses those responses to refresh entitlement state immediately after draft creation.
+- `mamla_brain/prompts.py` defines reusable domain profiles and system prompts. Current built-in domain keys are `legal`, `banking`, and `markets`, so the framework can act as a self-standing reasoning service outside legal-only use cases.
+- `mamla_brain/retrieval.py` reuses TalkDoc document vectors for user-owned source documents and adds separate OpenSearch knowledge-base indexes per domain (`legal_kb`, `banking_kb`, `markets_kb`).
+- `mamla_brain/tasks.py` and `mamla_brain/management/commands/ingest_legal_kb.py` / `ingest_knowledge_base.py` provide chunking and ingestion for plain-text knowledge sources stored under `Legalv1/mamla_brain/legal_kb_sources/` or domain-specific source directories.

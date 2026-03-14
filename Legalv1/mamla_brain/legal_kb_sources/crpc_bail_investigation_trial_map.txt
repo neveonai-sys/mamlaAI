@@ -1,0 +1,31 @@
+Section 1
+Title: CrPC reasoning as stage control
+The Code of Criminal Procedure should be used as a stage-control framework. Retrieval quality improves when a criminal query is first classified into complaint, FIR, investigation, arrest, bail, cognizance, charge, trial, appeal, or post-conviction stage. The same allegation can produce very different legal advice depending on the procedural stage in which it is raised.
+
+Section 2
+Title: FIR and investigation support cluster
+CrPC-oriented investigation analysis should group together registration of information, scope of investigation, police powers to collect material, notice to join investigation, and forwarding of reports. The knowledge base should prioritize facts on delay, complaint source, seizure narrative, recoveries claimed, and the relationship between allegation detail and subsequent investigative expansion.
+
+Section 3
+Title: Arrest and anticipatory protection cluster
+When arrest risk is the immediate concern, retrieval should bring forward factors usually tied to anticipatory protection analysis: role specificity, custodial necessity claims, prior cooperation, recovery allegations, and intimidation or absconding concerns. The answer should distinguish mere accusation gravity from case-specific reasons why custody is or is not practically justified.
+
+Section 4
+Title: Regular bail and default bail cluster
+CrPC bail retrieval should separate ordinary merits-based bail from timeline-sensitive custody questions. A good assistant should identify whether the user is asking about gravity, role, medical and humanitarian factors, delay in trial, parity with co-accused, or statutory default consequences tied to incomplete investigation timelines. These are distinct reasoning paths and should not be collapsed into a generic bail summary.
+
+Section 5
+Title: Cognizance process and discharge cluster
+Once the matter moves beyond investigation, the CrPC map should help the user understand cognizance, supply of papers, committal when required, discharge possibilities, and charge framing thresholds. Retrieval should detect whether the record indicates complete absence of ingredient material, only suspicion-level support, or a contested factual foundation that is more suitable for trial than discharge.
+
+Section 6
+Title: Trial management witness and summons cluster
+CrPC-based trial management requires attention to summons and warrants, attendance of witnesses, compulsion of records, examination sequencing, and procedural delay. A useful knowledge base should identify whether the user’s problem is really about proof and witness control rather than substantive criminal law. Repeated non-service, unavailable witnesses, and missing official records should be surfaced as trial-structure risks.
+
+Section 7
+Title: Compounding settlement and quashing posture cluster
+CrPC reasoning frequently overlaps with settlement posture. Retrieval should identify when the question is about compounding, practical settlement, or inherent-jurisdiction quashing-style considerations based on private dispute character, weak public interest in continuation, or matrimonial/commercial settlement context. The assistant should separate settlement effect from automatic case closure assumptions.
+
+Section 8
+Title: Appeal revision and sentence suspension cluster
+Post-judgment CrPC guidance should distinguish conviction challenge, sentence challenge, revision posture, and suspension of sentence considerations. Retrieval should look for legal error, appreciation-of-evidence challenge, period already undergone, compensation conditions, and urgency linked to custody or coercive execution of sentence consequences.

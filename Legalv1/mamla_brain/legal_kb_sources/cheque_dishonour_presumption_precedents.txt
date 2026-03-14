@@ -1,0 +1,23 @@
+Section 1
+Title: Cheque dishonour precedent overview
+Negotiable-instrument precedent is dominated by presumption-and-rebuttal logic. Once execution is established, the litigation often turns on whether the defence can show a credible probability that the cheque did not represent an enforceable liability in the way alleged. Mamla Brain should use these case notes to build structured issue lists for NI Act matters.
+
+Section 2
+Title: Rangappa style presumption breadth note
+The leading presumption line is often cited for the proposition that the presumption extends to legally enforceable liability and not merely to mechanical issuance of the cheque. The practical consequence is that the defence must do more than offer bare denial. Retrieval should therefore look for material that creates a believable alternate account of the transaction.
+
+Section 3
+Title: Basalingappa style rebuttal probability note
+The rebuttal standard in cheque dishonour matters is not proof beyond all doubt. A defence can succeed by showing a credible and coherent probability inconsistent with the complainant’s version. Mamla Brain should therefore surface ledger gaps, security-cheque context, repayment material, business-course inconsistencies, and admissions that weaken the complainant’s liability narrative.
+
+Section 4
+Title: Kumar Exports style defence burden note
+The defence cannot simply rely on empty suggestion; it must point to circumstances, documents, admissions, or improbabilities that make the complainant’s version doubtful. The practical retrieval lesson is that the assistant should help users identify rebuttal material rather than merely citing the concept of rebuttal in the abstract.
+
+Section 5
+Title: APS Forex style financial-capacity note
+In some cases the complainant’s source of funds, transaction documentation, or business plausibility becomes significant once the defence raises a coherent challenge. Retrieval should therefore notice whether the record explains how the alleged debt arose, whether the amount aligns with books and surrounding documents, and whether the complainant’s own material leaves gaps in transaction credibility.
+
+Section 6
+Title: NI Act synthesis for case outputs
+For cheque dishonour advice, the assistant should answer: is execution disputed, what is the complainant’s liability story, what is the defence’s alternate probability, what service or chronology issues exist, and what documents most strengthen or weaken each side. That structure is more useful than generic recitation of presumption doctrine.

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -20,6 +20,7 @@ import {
   addMinutes,
 } from 'date-fns';
 import apiClient from '../../services/api';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 
 const EVENT_TYPE_OPTIONS = [
   'Court Hearing',
@@ -527,6 +528,7 @@ function EventField({ label, children, hint }) {
 
 export default function CalendarPage() {
   const calendarRef = useRef(null);
+  const dispatch = useDispatch();
   const { firstname, lastname, email, user_type } = useSelector((state) => state.user);
   const fullName = `${firstname || ''} ${lastname || ''}`.trim() || email || 'Lead counsel';
   const readOnly = user_type === 'Client';
@@ -615,17 +617,35 @@ export default function CalendarPage() {
     ].filter((value, index, arr) => value && arr.indexOf(value) === index);
   }, [filterData]);
 
-  async function fetchEvents(startDate = currentRange.start, endDate = currentRange.end) {
-    setLoading(true);
+  async function withBlocking(message, action) {
+    dispatch(beginBlocking({ message }));
     try {
-      const response = await apiClient.get(`calendar/events/?start_date=${startDate}&end_date=${endDate}&page_size=500`);
-      const results = Array.isArray(response.data?.results) ? response.data.results : [];
-      setEvents(results.map(normalizeEventFromApi));
-    } catch {
-      setToast({ open: true, severity: 'error', message: 'Unable to load calendar events right now.' });
+      return await action();
     } finally {
-      setLoading(false);
+      dispatch(stopBlocking());
     }
+  }
+
+  async function fetchEvents(startDate = currentRange.start, endDate = currentRange.end, { blockUi = false } = {}) {
+    setLoading(true);
+    const load = async () => {
+      try {
+        const response = await apiClient.get(`calendar/events/?start_date=${startDate}&end_date=${endDate}&page_size=500`);
+        const results = Array.isArray(response.data?.results) ? response.data.results : [];
+        setEvents(results.map(normalizeEventFromApi));
+      } catch {
+        setToast({ open: true, severity: 'error', message: 'Unable to load calendar events right now.' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (blockUi) {
+      await withBlocking('Loading calendar...', load);
+      return;
+    }
+
+    await load();
   }
 
   async function fetchCaseClientData() {
@@ -653,7 +673,7 @@ export default function CalendarPage() {
   }
 
   useEffect(() => {
-    fetchEvents();
+    fetchEvents(currentRange.start, currentRange.end, { blockUi: true });
     fetchCaseClientData();
   }, []);
 
@@ -782,7 +802,7 @@ export default function CalendarPage() {
   async function runConflictCheck(form = eventForm, showDialog = true) {
     setCheckingConflicts(true);
     try {
-      const response = await apiClient.post('calendar/conflicts/check/', buildPayloadFromForm(form));
+      const response = await withBlocking('Checking scheduling conflicts...', () => apiClient.post('calendar/conflicts/check/', buildPayloadFromForm(form)));
       const report = response.data;
       setConflictReport(report);
       if (report?.has_conflicts && showDialog) setConflictDialogOpen(true);
@@ -812,56 +832,58 @@ export default function CalendarPage() {
 
     setSaving(true);
     try {
-      const payload = buildPayloadFromForm(form, { includeId: editorMode === 'edit' });
-      if (options.allowConflict) {
-        payload.conflict_status = 'conflict';
-        payload.resolution_summary = buildConflictResolutionText(conflictReport);
-      }
-      const shouldReloadRange = Boolean(
-        form.recurring ||
-        form.startDate !== form.endDate ||
-        (editorMode === 'edit' && form.occurrence && form.occurrence !== 'only once')
-      );
-      let response;
-      if (editorMode === 'edit' && form.id) {
-        if (form.recurring && form.occurrence === 'entire series') {
-          response = await apiClient.put(`calendar/events/${form.id}/`, {
-            ...payload,
-            updatedFields: buildUpdatedFields(initialForm, form),
-            occurrence: form.occurrence,
-            recurring: form.recurring,
+      await withBlocking('Saving calendar event...', async () => {
+        const payload = buildPayloadFromForm(form, { includeId: editorMode === 'edit' });
+        if (options.allowConflict) {
+          payload.conflict_status = 'conflict';
+          payload.resolution_summary = buildConflictResolutionText(conflictReport);
+        }
+        const shouldReloadRange = Boolean(
+          form.recurring ||
+          form.startDate !== form.endDate ||
+          (editorMode === 'edit' && form.occurrence && form.occurrence !== 'only once')
+        );
+        let response;
+        if (editorMode === 'edit' && form.id) {
+          if (form.recurring && form.occurrence === 'entire series') {
+            response = await apiClient.put(`calendar/events/${form.id}/`, {
+              ...payload,
+              updatedFields: buildUpdatedFields(initialForm, form),
+              occurrence: form.occurrence,
+              recurring: form.recurring,
+            });
+          } else {
+            response = await apiClient.put(`calendar/events/${form.id}/`, payload);
+          }
+        } else {
+          response = await apiClient.post('calendar/events/', payload);
+        }
+
+        const returnedEvent = response.data?.event;
+        if (shouldReloadRange) {
+          await fetchEvents(currentRange.start, currentRange.end);
+        } else if (returnedEvent) {
+          const normalized = normalizeEventFromApi(returnedEvent);
+          setEvents((previous) => {
+            if (editorMode === 'edit') {
+              return previous.map((item) => (item.id === normalized.id ? normalized : item));
+            }
+            return [...previous, normalized];
           });
         } else {
-          response = await apiClient.put(`calendar/events/${form.id}/`, payload);
+          fetchEvents();
         }
-      } else {
-        response = await apiClient.post('calendar/events/', payload);
-      }
 
-      const returnedEvent = response.data?.event;
-      if (shouldReloadRange) {
-        await fetchEvents(currentRange.start, currentRange.end);
-      } else if (returnedEvent) {
-        const normalized = normalizeEventFromApi(returnedEvent);
-        setEvents((previous) => {
-          if (editorMode === 'edit') {
-            return previous.map((item) => (item.id === normalized.id ? normalized : item));
-          }
-          return [...previous, normalized];
+        setEditorOpen(false);
+        setConflictDialogOpen(false);
+        setConflictReport(null);
+        setToast({
+          open: true,
+          severity: 'success',
+          message: options.allowConflict
+            ? (editorMode === 'edit' ? 'Event saved with a conflict flag.' : 'Event created with a conflict flag.')
+            : (editorMode === 'edit' ? 'Event updated successfully.' : 'Event created successfully.'),
         });
-      } else {
-        fetchEvents();
-      }
-
-      setEditorOpen(false);
-      setConflictDialogOpen(false);
-      setConflictReport(null);
-      setToast({
-        open: true,
-        severity: 'success',
-        message: options.allowConflict
-          ? (editorMode === 'edit' ? 'Event saved with a conflict flag.' : 'Event created with a conflict flag.')
-          : (editorMode === 'edit' ? 'Event updated successfully.' : 'Event created successfully.'),
       });
     } catch (error) {
       setToast({
@@ -878,22 +900,24 @@ export default function CalendarPage() {
     if (!eventForm.id || readOnly) return;
     setSaving(true);
     try {
-      const shouldReloadRange = Boolean(eventForm.recurring || (eventForm.occurrence && eventForm.occurrence !== 'only once'));
-      await apiClient.delete(`calendar/events/${eventForm.id}/`, {
-        data: {
-          title: eventForm.title,
-          partyBEmail: eventForm.partyBEmail,
-          occurrence: eventForm.occurrence,
-          recurring: eventForm.recurring,
-        },
+      await withBlocking('Deleting calendar event...', async () => {
+        const shouldReloadRange = Boolean(eventForm.recurring || (eventForm.occurrence && eventForm.occurrence !== 'only once'));
+        await apiClient.delete(`calendar/events/${eventForm.id}/`, {
+          data: {
+            title: eventForm.title,
+            partyBEmail: eventForm.partyBEmail,
+            occurrence: eventForm.occurrence,
+            recurring: eventForm.recurring,
+          },
+        });
+        if (shouldReloadRange) {
+          await fetchEvents(currentRange.start, currentRange.end);
+        } else {
+          setEvents((previous) => previous.filter((item) => item.id !== eventForm.id));
+        }
+        setEditorOpen(false);
+        setToast({ open: true, severity: 'success', message: 'Event deleted successfully.' });
       });
-      if (shouldReloadRange) {
-        await fetchEvents(currentRange.start, currentRange.end);
-      } else {
-        setEvents((previous) => previous.filter((item) => item.id !== eventForm.id));
-      }
-      setEditorOpen(false);
-      setToast({ open: true, severity: 'success', message: 'Event deleted successfully.' });
     } catch (error) {
       setToast({
         open: true,
@@ -915,15 +939,17 @@ export default function CalendarPage() {
         end: changeInfo.event.endStr,
         allDay: changeInfo.event.allDay,
       };
-      await apiClient.put(`calendar/events/${changeInfo.event.id}/`, movingEvent);
-      if (movingEvent.recurring) {
-        await fetchEvents(currentRange.start, currentRange.end);
-      } else {
-        setEvents((previous) =>
-          previous.map((item) => (item.id === changeInfo.event.id ? normalizeEventFromApi(movingEvent) : item))
-        );
-      }
-      setToast({ open: true, severity: 'success', message: 'Event timing updated.' });
+      await withBlocking('Updating calendar event...', async () => {
+        await apiClient.put(`calendar/events/${changeInfo.event.id}/`, movingEvent);
+        if (movingEvent.recurring) {
+          await fetchEvents(currentRange.start, currentRange.end);
+        } else {
+          setEvents((previous) =>
+            previous.map((item) => (item.id === changeInfo.event.id ? normalizeEventFromApi(movingEvent) : item))
+          );
+        }
+        setToast({ open: true, severity: 'success', message: 'Event timing updated.' });
+      });
     } catch {
       changeInfo.revert();
       setToast({ open: true, severity: 'error', message: 'Unable to move the event.' });

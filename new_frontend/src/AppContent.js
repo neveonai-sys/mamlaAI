@@ -2,6 +2,8 @@ import React, { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUser, clearUser } from './features/userSlice';
+import { clearEntitlements, setEntitlements } from './features/entitlementsSlice';
+import { refreshEntitlements } from './features/entitlementsActions';
 import apiClient from './services/api';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/layout/ProtectedRoute';
@@ -64,7 +66,10 @@ export default function AppContent() {
       (r) => location.pathname === r || location.pathname.startsWith(r + '#'),
     );
     if (isPublic) {
-      if (isAuthenticated === null) dispatch(clearUser());
+      if (isAuthenticated === null) {
+        dispatch(clearUser());
+        dispatch(clearEntitlements());
+      }
       return;
     }
 
@@ -83,12 +88,19 @@ export default function AppContent() {
             user_type: res.data.user_type,
             sessions: res.data.sessions,
           }));
+          if (res.data.entitlements) {
+            dispatch(setEntitlements(res.data.entitlements));
+          } else {
+            refreshEntitlements(dispatch);
+          }
         } else {
           dispatch(clearUser());
+          dispatch(clearEntitlements());
         }
       })
       .catch(() => {
         dispatch(clearUser());
+        dispatch(clearEntitlements());
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);

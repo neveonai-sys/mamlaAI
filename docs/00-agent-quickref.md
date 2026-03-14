@@ -42,6 +42,7 @@
 | Calendar recurring regression script | `Legalv1/scripts/calendar_recurring_regression.py` |
 | Utilities (email, state/district/court) | `Legalv1/utilities/views.py` · `Legalv1/utilities/urls.py` |
 | TalkDoc (RAG) views + URLs | `Legalv1/talkdoc/views.py` · `Legalv1/talkdoc/urls.py` |
+| Mamla Brain framework app | `Legalv1/mamla_brain/` |
 | eCourts API (ACTIVE) views + URLs | `Legalv1/ecourts_api/views.py` · `Legalv1/ecourts_api/urls.py` |
 | eCourts Scraper (DISABLED) | `Legalv1/ecourts_scraper/` — do not enable without resolving CAPTCHA |
 | Search views + URLs | `Legalv1/search_facility/views.py` · `Legalv1/search_facility/urls.py` |
@@ -81,6 +82,7 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | `/api/search/` | `search_facility` |
 | `/api/todaysupdates/` | `todaysupdates` |
 | `/api/talkdoc/` | `talkdoc` |
+| `/api/brain/` | `mamla_brain` |
 | `/api/ecourts/` | `ecourts_api` (active) |
 | `/api/webhook/` | `whatsapp_module` |
 | (root) | `calendersetup` (Google Calendar OAuth) |
@@ -99,27 +101,26 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 
 ## Frontend — exact file paths
 
+Active frontend first. `frontend_webpack/` is the previous UI only.
+
 | What | Exact path |
 |------|-----------|
-| App entry | `frontend_webpack/src/index.js` |
-| Theme + Router wrapper | `frontend_webpack/src/App.js` |
-| **All routes + auth check** | `frontend_webpack/src/AppContent.js` |
-| Redux store | `frontend_webpack/src/store.js` |
-| User slice (auth state) | `frontend_webpack/src/features/userSlice.js` |
-| Chat docs slice | `frontend_webpack/src/features/chatDocsSlice.js` |
-| **Axios instance** (baseURL, interceptors, auth header) | `frontend_webpack/src/components/common/AxiosInstance.jsx` |
-| Layout (Navbar + Outlet) | `frontend_webpack/src/components/layout/Layout.jsx` |
-| Navbar | `frontend_webpack/src/components/layout/Navbar.jsx` |
-| Login page (Supabase) | `frontend_webpack/src/components/auth/LoginSupabase.jsx` (or similar) |
-| Error boundary | `frontend_webpack/src/components/ErrorBoundary.jsx` |
-| Security utils | `frontend_webpack/src/utils/securityUtils.js` |
-| Security middleware (Axios) | `frontend_webpack/src/middleware/securityMiddleware.js` |
-| TalkDoc service | `frontend_webpack/src/services/talkdocService.js` |
-| Webpack common config | `frontend_webpack/webpack.common.js` |
-| Webpack prod config (env injection) | `frontend_webpack/webpack.prod.js` |
-| Webpack dev config (proxy /api) | `frontend_webpack/webpack.dev.js` |
-| Package.json | `frontend_webpack/package.json` |
-| Deprecated / unused components | `frontend_webpack/src/components/unused/` — not in any route |
+| App entry | `mamlaAI_ground_zero/frontend/src/index.js` |
+| Router wrapper | `mamlaAI_ground_zero/frontend/src/App.js` |
+| **All routes + auth check** | `mamlaAI_ground_zero/frontend/src/AppContent.js` |
+| Redux store | `mamlaAI_ground_zero/frontend/src/store.js` |
+| User slice (auth state) | `mamlaAI_ground_zero/frontend/src/features/userSlice.js` |
+| Entitlements slice | `mamlaAI_ground_zero/frontend/src/features/entitlementsSlice.js` |
+| Chat docs slice | `mamlaAI_ground_zero/frontend/src/features/chatDocsSlice.js` |
+| **API client** (baseURL, interceptors, auth header) | `mamlaAI_ground_zero/frontend/src/services/api.js` |
+| App shell | `mamlaAI_ground_zero/frontend/src/components/layout/AppShell.jsx` |
+| Sidebar | `mamlaAI_ground_zero/frontend/src/components/layout/Sidebar.jsx` |
+| Top bar | `mamlaAI_ground_zero/frontend/src/components/layout/TopBar.jsx` |
+| Login page | `mamlaAI_ground_zero/frontend/src/components/auth/Login.jsx` |
+| Error boundary | `mamlaAI_ground_zero/frontend/src/components/common/ErrorBoundary.jsx` |
+| Security utils | `mamlaAI_ground_zero/frontend/src/utils/securityUtils.js` |
+| Tailwind tokens | `mamlaAI_ground_zero/frontend/tailwind.config.js` · `mamlaAI_ground_zero/frontend/src/index.css` |
+| Previous frontend reference | `frontend_webpack/` |
 
 ---
 
@@ -132,15 +133,17 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | API client (apiClient, withCredentials) | `mamlaAI_ground_zero/frontend/src/services/api.js` |
 | Redux store | `mamlaAI_ground_zero/frontend/src/store.js` |
 | User slice | `mamlaAI_ground_zero/frontend/src/features/userSlice.js` |
+| Entitlements slice | `mamlaAI_ground_zero/frontend/src/features/entitlementsSlice.js` |
+| Entitlements refresh helper | `mamlaAI_ground_zero/frontend/src/features/entitlementsActions.js` |
 | Chat docs slice | `mamlaAI_ground_zero/frontend/src/features/chatDocsSlice.js` |
 | App entry / Router | `mamlaAI_ground_zero/frontend/src/index.js` |
 | All routes | `mamlaAI_ground_zero/frontend/src/AppContent.js` |
 | **Dashboard** (agenda uses `upcoming_events_list`) | `mamlaAI_ground_zero/frontend/src/components/dashboard/Dashboard.jsx` |
 | **Command Center** (quick actions, live events) | `mamlaAI_ground_zero/frontend/src/components/dashboard/CommandCenter.jsx` |
-| **Drafting Workspace** (new draft, load draft, load template, save/revert, section history, location refresh) | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` |
+| **Drafting Workspace** (new draft, load draft, load template, save/revert, section history, location refresh, quota-aware AI suggestion UX) | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` |
 | **Calendar Page** (advanced legal calendar shell, FullCalendar, conflict workflow, case/client-aware intake, multi-day linked-series UX) | `mamlaAI_ground_zero/frontend/src/components/calendar/CalendarPage.jsx` |
 | **Court Updates** (subscription management + filter tabs) | `mamlaAI_ground_zero/frontend/src/components/courts/CourtUpdates.jsx` |
-| **Document Workspace** (TalkDoc / RAG chat, two-window flow: setup library for upload/delete/load chats, case/client-aware document filters, timestamped document labels, focused viewer+chat work window, live uploads into active chats, image preview, API-backed case/client suggestions with case→client autofill/filtering, session-scoped docs) | `mamlaAI_ground_zero/frontend/src/components/documents/DocumentWorkspace.jsx` |
+| **Document Workspace** (TalkDoc / RAG chat, two-window flow: setup library for upload/delete/load chats, case/client-aware document filters, timestamped document labels, focused viewer+chat work window, live uploads into active chats, image preview, API-backed case/client suggestions with case→client autofill/filtering, session-scoped docs, session-aware Brain quota banners/locks for both document analysis and general legal chat) | `mamlaAI_ground_zero/frontend/src/components/documents/DocumentWorkspace.jsx` |
 | **Case Detail** (hearings, null-safe date rendering) | `mamlaAI_ground_zero/frontend/src/components/cases/CaseDetail.jsx` |
 | **Client Onboarding** | `mamlaAI_ground_zero/frontend/src/components/clients/ClientOnboarding.jsx` |
 | Webpack dev config (proxy /api) | `mamlaAI_ground_zero/frontend/webpack.dev.js` |
@@ -186,6 +189,8 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | `FRONTEND_URL` | Backend settings | Used in email links, redirects (never hardcode `mamla.ai`) |
 | `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` | Backend settings | Supabase project config |
 | `ECOURT_TOKEN` | `ecourts_api` | eCourts partner API auth token |
+| `BRAIN_T1_MODEL` · `BRAIN_T2_MODEL` · `BRAIN_T3_MODEL` | Backend settings | Mamla Brain tiered model routing |
+| `BRAIN_MONTHLY_FREE_QUOTA` | Backend settings | Default external Brain API-key quota |
 | `REDIS_URL` | Backend settings | Redis broker + cache |
 | `REACT_APP_API_BASE_URL` | Frontend Webpack prod build | API base URL injected at build time |
 | `REACT_APP_SUPABASE_URL` · `REACT_APP_SUPABASE_ANON_KEY` | Frontend | Supabase client init on frontend |

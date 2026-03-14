@@ -101,6 +101,7 @@ INSTALLED_APPS = [
     'todaysupdates',
     'core',
     'talkdoc',
+    'mamla_brain',
     'ecourts_scraper',
     'ecourts_api',
     'corsheaders',
@@ -176,6 +177,7 @@ OPENROUTER_CREATE_DRAFTS_MODEL    = os.getenv('OPENROUTER_CREATE_DRAFTS_MODEL', 
 BRAIN_T1_MODEL = os.getenv('BRAIN_T1_MODEL', 'meta-llama/llama-3.1-8b-instruct')
 BRAIN_T2_MODEL = os.getenv('BRAIN_T2_MODEL', 'anthropic/claude-3-haiku')
 BRAIN_T3_MODEL = os.getenv('BRAIN_T3_MODEL', 'anthropic/claude-sonnet-4-5')
+BRAIN_MONTHLY_FREE_QUOTA = int(os.getenv('BRAIN_MONTHLY_FREE_QUOTA', '100'))
 
 ROOT_URLCONF = 'Legalv1.urls'
 

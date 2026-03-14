@@ -1,14 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   html {
-    font-family: 'Inter', sans-serif;
+    font-family: 'IBM Plex Sans', sans-serif;
   }
 
   body {
     @apply bg-background-light text-ink antialiased;
+    background-image:
+      radial-gradient(circle at top, rgba(22, 52, 95, 0.08), transparent 28%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(238, 243, 249, 0.96));
+    min-height: 100vh;
   }
 
   * {
@@ -29,54 +35,69 @@
 
   /* ─── Sidebar nav active state (matches Stitch .sidebar-active) ─── */
   .sidebar-active {
-    @apply bg-primary/10 text-primary font-semibold;
-    border-right: 3px solid theme('colors.primary');
+    @apply bg-white/10 text-white font-semibold shadow-subtle;
+    border-left: 3px solid theme('colors.primary-soft');
   }
 
   /* ─── Custom scrollbar ─── */
   .custom-scrollbar::-webkit-scrollbar { width: 4px; }
   .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-primary/20 rounded-full;
+    @apply bg-primary/25 rounded-full;
   }
 
   /* ─── Gradient mesh background (landing page hero) ─── */
   .gradient-mesh {
-    background-color: #f8f7f5;
+    background-color: #08111f;
     background-image:
-      radial-gradient(at 0% 0%, rgba(180, 94, 8, 0.06) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(180, 94, 8, 0.06) 0px, transparent 50%);
+      radial-gradient(at 0% 0%, rgba(120, 162, 214, 0.22) 0px, transparent 45%),
+      radial-gradient(at 100% 0%, rgba(22, 52, 95, 0.48) 0px, transparent 42%),
+      radial-gradient(at 50% 100%, rgba(255, 255, 255, 0.08) 0px, transparent 50%),
+      linear-gradient(135deg, #08111f 0%, #0d2241 52%, #16345f 100%);
+  }
+
+  .court-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .app-shell-bg {
+    background-image:
+      radial-gradient(circle at top right, rgba(22, 52, 95, 0.16), transparent 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(238, 243, 249, 0.98));
   }
 
   /* ─── Editor container subtle shadow ─── */
   .editor-container {
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    box-shadow: 0 18px 32px -28px rgba(8,17,31,0.34), 0 10px 20px -20px rgba(8,17,31,0.2);
   }
 
   /* ─── Input base style ─── */
   .input-base {
-    @apply w-full bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-sm
+    @apply w-full bg-white border border-slate-200 rounded-lg px-4 py-3 text-sm
            text-ink placeholder:text-slate-400
-           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40
+           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40
            transition-all;
   }
 
   /* ─── Button primary ─── */
   .btn-primary {
     @apply bg-primary text-ivory font-bold text-sm px-6 py-2.5 rounded-lg
-           hover:bg-primary-dark transition-all shadow-sm
+           hover:bg-primary-dark transition-all shadow-card
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   /* ─── Button ghost ─── */
   .btn-ghost {
-    @apply text-sm font-semibold text-ink/70 px-4 py-2 rounded-lg
+    @apply text-sm font-semibold text-graphite px-4 py-2 rounded-lg
            hover:bg-primary/5 hover:text-primary transition-colors;
   }
 
   /* ─── Card surface ─── */
   .card {
-    @apply bg-ivory rounded-xl border border-primary/10 p-5;
+    @apply bg-ivory rounded-xl border border-slate-200/80 p-5 shadow-card;
   }
 
   /* ─── Status badges ─── */
@@ -88,22 +109,22 @@
 
   /* ─── Metric card ─── */
   .metric-card {
-    @apply card flex flex-col gap-1 hover:shadow-card transition-shadow;
+    @apply card flex flex-col gap-1 hover:shadow-elevated transition-shadow;
   }
 
   /* ─── Action card ─── */
   .action-card {
-    @apply card hover:shadow-card hover:border-primary/20 transition-all cursor-pointer;
+    @apply card hover:shadow-elevated hover:border-primary/25 transition-all cursor-pointer;
   }
 
   /* ─── Table header row ─── */
   .table-header {
-    @apply bg-primary/5 text-xs font-semibold text-ink/60 uppercase tracking-wider;
+    @apply bg-primary/5 text-xs font-semibold text-graphite uppercase tracking-wider;
   }
 
   /* ─── AI Panel (right sidebar in workspaces) ─── */
   .ai-panel {
-    @apply flex flex-col bg-ivory border-l border-primary/10;
+    @apply flex flex-col bg-ivory border-l border-slate-200/80;
   }
 
   /* ─── FullCalendar customizations ─── */
@@ -117,11 +138,23 @@
     @apply capitalize;
   }
   .fc-theme-standard td, .fc-theme-standard th {
-    @apply border-primary/10;
+    @apply border-slate-200;
   }
 }
 
 @layer utilities {
+  .app-fade-in {
+    animation: app-fade-in 420ms ease-out both;
+  }
+
+  .app-rise-in {
+    animation: app-rise-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .float-slow {
+    animation: float-slow 9s ease-in-out infinite;
+  }
+
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -136,5 +169,35 @@
   }
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+@keyframes app-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes app-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
   }
 }

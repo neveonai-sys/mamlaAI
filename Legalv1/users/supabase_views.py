@@ -13,6 +13,7 @@ from rest_framework.decorators import api_view
 from users.supabase_admin import admin_update_password
 from users.routes.usermetadata import Handleusermetadata
 from core.email_templates import EmailTemplates
+from core.entitlements import get_entitlement_summary
 
 logger = logging.getLogger('django')
 
@@ -66,12 +67,19 @@ def check_auth(request):
                 'lastname': supabase_user.get('lname'),
                 'email_id': supabase_user.get('email'),
                 'user_type': supabase_user.get('user_type'),
-                'sessions': session_info
+                'sessions': session_info,
+                'entitlements': get_entitlement_summary(supabase_user),
             })
         raise
     except Exception as err:
         logger.error(traceback.format_exc())
         return JsonResponse({'error message': str(err)}, status=500)
+
+
+@api_view(['GET'])
+@supabase_required
+def entitlement_summary(request):
+    return JsonResponse(get_entitlement_summary(request.supabase_user))
 
 @api_view(['POST'])
 @ratelimit(key='user', rate='5/m', block=True)

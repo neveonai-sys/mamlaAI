@@ -1,0 +1,27 @@
+Section 1
+Title: Bail precedent pattern overview
+Indian bail case law repeatedly returns to a few operational themes: liberty before conviction, the difference between accusation and proof, cooperation with investigation, witness-tampering risk, and the importance of avoiding punishment-through-process. Mamla Brain should use these case notes as reasoning patterns rather than as substitutes for case-specific factual analysis.
+
+Section 2
+Title: Gudikanti Narasimhulu style principle note
+This line of precedent is commonly cited for the idea that bail discretion must be exercised through a liberty-conscious lens rather than through automatic detention. The enduring lesson is that the court should weigh seriousness, risk, and fairness together, instead of treating the mere presence of an accusation as enough to justify continued custody.
+
+Section 3
+Title: Gurbaksh Singh Sibbia style anticipatory bail note
+The leading anticipatory-bail approach emphasizes that extraordinary relief should not be reduced to a dead letter by rigid formulas. A practical takeaway is that courts should assess the individual facts, the realism of arrest apprehension, cooperation posture, and misuse risk, while resisting blanket rules that anticipatory bail is unavailable in broad categories of cases.
+
+Section 4
+Title: Sanjay Chandra style undertrial custody note
+This precedent pattern is often invoked where investigation is substantially complete and prolonged custody starts to resemble pre-trial punishment. The practical lesson for retrieval is that gravity alone is not enough; the system should surface whether evidence is documentary, whether the accused is likely to flee, and whether trial delay makes incarceration disproportionate at the current stage.
+
+Section 5
+Title: Arnesh Kumar style arrest-restraint note
+The arrest-restraint principle is especially relevant in offences where routine arrest became a mechanical practice. The practical lesson is not only about eventual bail but about preventing unnecessary arrest in the first place. Mamla Brain should therefore treat notice compliance, willingness to cooperate, and absence of custodial necessity as high-value facts when users ask about immediate protection.
+
+Section 6
+Title: Satender Kumar Antil style bail process note
+The modern bail-process trend pushes courts and investigators toward a more structured and less arbitrary approach to arrest, production, and release. Retrieval should flag when the real issue is procedural overuse of custody rather than evidentiary strength, and should help users separate failure to appear from ordinary investigative participation.
+
+Section 7
+Title: Personal liberty synthesis for case companion outputs
+When Case Companion generates bail advice, these precedents should collectively push it toward a structured answer: accusation strength, investigation stage, cooperation, recovery claims, tampering risk, parity, health, and delay. The model should avoid rhetorical overstatement and should instead explain which liberty-protective arguments are factually available in the record.

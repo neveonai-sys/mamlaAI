@@ -12,8 +12,21 @@ from supabase_required import supabase_required
 from django.core.cache import cache
 import traceback
 import logging
+from core.entitlements import authorize_feature_use, consume_feature_use, get_feature_quota_payload
 
 logger = logging.getLogger('django')
+
+
+def _quota_error_response(message, quota, status):
+    return JsonResponse({'error': message, 'quota': quota}, status=status)
+
+
+def _authorize_draft_feature(request, feature_code):
+    return authorize_feature_use(getattr(request, 'supabase_user', None), feature_code)
+
+
+def _finalize_draft_quota(request, feature_code, decision):
+    return consume_feature_use(getattr(request, 'supabase_user', None), feature_code, decision)
 
 
 @api_view(['GET'])
@@ -64,6 +77,9 @@ def initiate_drafting_session(request):
     supa_user  = request.supabase_user
     user_id    = supa_user.get('user_id')
     user_type = supa_user.get('user_type', 'Client')  # Default to 'Client' if not specified
+    decision = _authorize_draft_feature(request, 'ai_draft_generation')
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
 
     # For client users, ensure draft_for is empty or contains only their own user_id
     if user_type == 'Client':
@@ -87,6 +103,7 @@ def initiate_drafting_session(request):
     draft_sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
     draft_name = f"Untitled {datetime.datetime.now().strftime('%Y‑%m‑d %H:%M')}"
     saved_draft = obj.auto_save_initial_draft(session_id, draft_name, draft_sections)
+    quota = _finalize_draft_quota(request, 'ai_draft_generation', decision)
 
     return JsonResponse({
         'session_id': str(session_id),
@@ -95,7 +112,8 @@ def initiate_drafting_session(request):
         'draft_saved_at': saved_draft.get('saved_at'),
         'last_updated_on': saved_draft.get('last_updated_on'),
         'draft_for' : draft_for,
-        'draft_sections': draft_sections
+        'draft_sections': draft_sections,
+        'quota': quota,
     })
 
 
@@ -190,21 +208,66 @@ def suggest_section(request):
     supa_user = request.supabase_user
     user_id = supa_user.get('user_id')
     obj = CreateupdatefetchAIdrafts(user_id)
-    # Retrieve session and section
+    current_count = obj.get_ai_suggested_content_count(session_id)
+    per_draft_limit = 7
+    overage_decision = None
+
+    if current_count >= per_draft_limit:
+        overage_decision = authorize_feature_use(supa_user, 'ai_suggestions')
+        if not overage_decision.get('allowed'):
+            quota = get_feature_quota_payload(
+                supa_user,
+                'ai_suggestions',
+                allowed=False,
+                next_cta=overage_decision['quota'].get('next_cta', ''),
+                message_key=overage_decision['quota'].get('message_key', ''),
+                included_limit_override=per_draft_limit,
+                used_count_override=current_count,
+                remaining_override=0,
+            )
+            return JsonResponse({
+                'error': 'AI suggestion limit reached for this draft.',
+                'quota': quota,
+            }, status=overage_decision.get('status_code', 429))
+
     chk = obj.update_content_using_AI_with_user_input(session_id, section_id, suggestion)
-    ai_update_count = obj.update_ai_suggested_content_count(session_id)
-    
-    # Check if the limit is reached before allowing more suggestions
-    if ai_update_count > 7:
-        return JsonResponse({'error': 'AI suggestion limit reached. Please upgrade to Premium for more suggestions.'}, status=400)
 
     if chk.get('mssg'):
+        ai_update_count = obj.update_ai_suggested_content_count(session_id)
+        wallet_credits_charged = 0
+        message_key = ''
+        if overage_decision:
+            wallet_quota = consume_feature_use(supa_user, 'ai_suggestions', overage_decision)
+            wallet_credits_charged = wallet_quota.get('wallet_credits_charged', 0)
+            message_key = wallet_quota.get('message_key', '')
+        elif ai_update_count >= 5:
+            message_key = 'quota_low_remaining'
+
+        quota = get_feature_quota_payload(
+            supa_user,
+            'ai_suggestions',
+            next_cta='continue',
+            message_key=message_key,
+            wallet_credits_charged=wallet_credits_charged,
+            included_limit_override=per_draft_limit,
+            used_count_override=ai_update_count,
+            remaining_override=max(per_draft_limit - ai_update_count, 0),
+        )
         return JsonResponse({
             'updated_content': chk.get('mssg'),
-            'ai_update_count': ai_update_count
+            'ai_update_count': ai_update_count,
+            'quota': quota,
         })
     else:
-        return JsonResponse({'updated_content': '', 'ai_update_count': ai_update_count}, status=400)
+        quota = get_feature_quota_payload(
+            supa_user,
+            'ai_suggestions',
+            next_cta='continue',
+            included_limit_override=per_draft_limit,
+            used_count_override=current_count,
+            remaining_override=max(per_draft_limit - current_count, 0),
+        )
+        return JsonResponse({'updated_content': '', 'ai_update_count': current_count, 'quota': quota}, status=400)
 
 
 
@@ -633,6 +696,9 @@ def upload_template(request):
     """
     supa_user = request.supabase_user
     user_id = supa_user.get('user_id')
+    decision = _authorize_draft_feature(request, 'ai_draft_generation')
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
     
     # Always require draft_type
     draft_type = request.POST.get('draft_type', '').strip()
@@ -688,9 +754,11 @@ def upload_template(request):
         chk = obj.save_draft_from_template(draft_type, draft_sections, draft_for)
 
         if chk.get("mssg"):
+            quota = _finalize_draft_quota(request, 'ai_draft_generation', decision)
             return JsonResponse({
                 'message': 'Template uploaded/processed successfully.',
-                'session_id': chk["mssg"]
+                'session_id': chk["mssg"],
+                'quota': quota,
             }, status=200)
         else:
             logger.error(f"Exception in upload_template: {traceback.format_exc()}")
@@ -716,6 +784,9 @@ def create_drfatsession_by_casedocument(request):
 
     supa_user = request.supabase_user
     user_id = supa_user.get('user_id')
+    decision = _authorize_draft_feature(request, 'ai_draft_generation')
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
     file = request.FILES.get('file')
     draft_for = json.loads(request.POST.get('draft_for'))
     language  = request.POST.get('language','English')
@@ -746,7 +817,8 @@ def create_drfatsession_by_casedocument(request):
 
     chk = obj.insert_draft_session_for_casedocument(draft_sections, draft_for, language)
     if chk.get("mssg"):
-        return JsonResponse({'message': 'Case document processed successfully.', 'session_id': chk.get("mssg")}, status=200)
+        quota = _finalize_draft_quota(request, 'ai_draft_generation', decision)
+        return JsonResponse({'message': 'Case document processed successfully.', 'session_id': chk.get("mssg"), 'quota': quota}, status=200)
     else:
         logger.error(f"Exception in file_lawsuit: {traceback.format_exc()}")
         return JsonResponse({'error': 'An error occurred while processing the case document.'}, status=500)
@@ -857,7 +929,8 @@ def refine_section(request):
     section_index = data.get('section_index', 0)
     instruction = data.get('instruction', '')
 
-    user_id = request.supabase_user.get('user_id')
+    supa_user = request.supabase_user
+    user_id = supa_user.get('user_id')
     obj = CreateupdatefetchAIdrafts(user_id)
     sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
     if not sections or section_index >= len(sections):
@@ -865,13 +938,50 @@ def refine_section(request):
     sec = sections[section_index]
     section_id = sec.get('section_id')
 
-    ai_update_count = obj.update_ai_suggested_content_count(session_id)
-    if ai_update_count > 7:
-        return JsonResponse({'error': 'AI suggestion limit reached. Please upgrade to Premium.'}, status=400)
+    current_count = obj.get_ai_suggested_content_count(session_id)
+    per_draft_limit = 7
+    overage_decision = None
+    if current_count >= per_draft_limit:
+        overage_decision = authorize_feature_use(supa_user, 'ai_suggestions')
+        if not overage_decision.get('allowed'):
+            quota = get_feature_quota_payload(
+                supa_user,
+                'ai_suggestions',
+                allowed=False,
+                next_cta=overage_decision['quota'].get('next_cta', ''),
+                message_key=overage_decision['quota'].get('message_key', ''),
+                included_limit_override=per_draft_limit,
+                used_count_override=current_count,
+                remaining_override=0,
+            )
+            return JsonResponse({
+                'error': 'AI suggestion limit reached for this draft.',
+                'quota': quota,
+            }, status=overage_decision.get('status_code', 429))
 
     chk = obj.update_content_using_AI_with_user_input(session_id, section_id, instruction)
     refined = chk.get('mssg', '')
-    return JsonResponse({'refined_content': refined, 'content': refined, 'ai_update_count': ai_update_count})
+    ai_update_count = obj.update_ai_suggested_content_count(session_id)
+    wallet_credits_charged = 0
+    message_key = ''
+    if overage_decision:
+        wallet_quota = consume_feature_use(supa_user, 'ai_suggestions', overage_decision)
+        wallet_credits_charged = wallet_quota.get('wallet_credits_charged', 0)
+        message_key = wallet_quota.get('message_key', '')
+    elif ai_update_count >= 5:
+        message_key = 'quota_low_remaining'
+
+    quota = get_feature_quota_payload(
+        supa_user,
+        'ai_suggestions',
+        next_cta='continue',
+        message_key=message_key,
+        wallet_credits_charged=wallet_credits_charged,
+        included_limit_override=per_draft_limit,
+        used_count_override=ai_update_count,
+        remaining_override=max(per_draft_limit - ai_update_count, 0),
+    )
+    return JsonResponse({'refined_content': refined, 'content': refined, 'ai_update_count': ai_update_count, 'quota': quota})
 
 
 @api_view(['POST'])

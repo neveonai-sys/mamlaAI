@@ -1,0 +1,31 @@
+Section 1
+Title: Contract dispute intake priorities
+Contract disputes should be assessed by confirming the parties, the operative document set, the promised obligations, the breach event, and the commercial consequences that followed. Many files contain multiple drafts, email amendments, annexures, work orders, and invoices, so the first practical step is to identify which documents are actually operative and which are only negotiation history.
+
+Section 2
+Title: Formation, authority, and execution questions
+The dispute may begin before breach if one side contests formation, authority, or execution. Important indicators include signature disputes, board or authorization gaps, stamp or registration concerns, unsigned annexures, and conduct suggesting both sides acted on the arrangement despite formal defects. Retrieval systems should highlight acceptance language, delivery, performance begun, and partial payment as formation-relevant facts.
+
+Section 3
+Title: Breach classification and seriousness
+Not every deviation amounts to the same legal or commercial consequence. Breaches can relate to payment, quality, timing, exclusivity, confidentiality, milestones, representations, or termination provisions. A useful dispute summary should state whether the alleged breach is one-time, ongoing, curable, repudiatory, or already waived by later conduct.
+
+Section 4
+Title: Notice, cure, and waiver analysis
+Pre-suit or pre-termination notices often decide the narrative tone of a contract dispute. A reasoning system should identify whether a cure notice was contractually required, whether sufficient time was provided, whether the defaulting party responded, and whether the non-defaulting party continued performance after complaining. Continued performance without reservation may weaken later termination or damages arguments in some commercial settings.
+
+Section 5
+Title: Damages, mitigation, and proof of loss
+Damages claims are strongest when loss is tied to clean documentary trails rather than abstract assertion. Typical proof sources include ledger entries, replacement contracts, lost-profit calculations, bank statements, internal approvals, and market comparables. Mitigation matters in practice, so the record should preserve what reasonable steps were taken after breach to reduce avoidable loss.
+
+Section 6
+Title: Specific performance and injunction suitability
+Some contract disputes are better framed around performance or restraint rather than only damages. This usually turns on uniqueness, substitute availability, urgency, and whether monetary compensation is realistically adequate. Knowledge documents should therefore flag property-linked contracts, negative covenants, exclusivity restraints, and confidentiality obligations as categories where non-monetary relief analysis becomes central.
+
+Section 7
+Title: Set-off, counterclaim, and account reconciliation
+Commercial disputes frequently evolve into competing account narratives. One party alleges non-payment while the other asserts defective performance, debit notes, liquidated adjustments, or prior advances. Retrieval should therefore detect running-account language, reconciliation statements, credit notes, and chain emails that show whether liability is disputed in principle or only in amount.
+
+Section 8
+Title: Arbitration and dispute resolution clause impact
+The dispute resolution clause should be read early, not after drafting is complete. Exclusive jurisdiction, arbitration seat, notice method, escalation clauses, and governing-law clauses can all reshape the immediate procedural route. For practical legal reasoning, the system should tag clause language affecting forum, mandatory pre-arbitration steps, emergency relief, and document-preservation obligations.

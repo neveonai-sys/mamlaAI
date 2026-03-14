@@ -1,0 +1,23 @@
+Section 1
+Title: Civil dispute versus criminal offence overview
+Indian courts frequently confront attempts to dress a civil or commercial disagreement in criminal language. The most useful precedent pattern is not that civil and criminal remedies are mutually exclusive, but that criminal process should not be used where the essential ingredient of the offence is missing and the dispute is only about non-performance, accounting, title, or contract enforcement.
+
+Section 2
+Title: Hridaya Ranjan style cheating distinction note
+The core lesson from the cheating-versus-breach cases is that dishonest intention must exist at the beginning of the transaction. Later failure to perform, even if commercially serious, does not automatically prove initial deception. Mamla Brain should therefore prioritize inception-stage representations, false capacity claims, and early contradictory conduct when a user asks whether a commercial default can sustain a cheating accusation.
+
+Section 3
+Title: Indian Oil Corporation style abuse-of-process note
+This precedent pattern is commonly used where criminal proceedings appear to be pressure tactics in a business dispute. The practical takeaway is that the assistant should test whether the complaint truly narrates criminal ingredients or merely repeats the language of deception, breach, or trust violation without factual support. The more the complaint reads like a recovery notice, the stronger the abuse-of-process concern may become.
+
+Section 4
+Title: Mohammed Ibrahim style document-and-title dispute note
+Where the dispute centers on property papers, title assertions, or transactions challenged as invalid, courts often insist on a close reading of who made what representation and whether the complaint really shows fraudulent fabrication or only a competing civil claim. Retrieval should distinguish forged-identity or fabricated-authority allegations from ordinary disputes about ownership, power, or contractual entitlement.
+
+Section 5
+Title: Vesa Holdings style commercial coercion note
+Commercial criminal complaints often arise after failed settlement or recovery efforts. The recurring judicial warning is that criminal law cannot be used purely as leverage to force payment. Mamla Brain should therefore surface chronology: contract, default, notice, settlement talk, then complaint. That sequence often matters when evaluating whether the criminal case looks substantive or strategic.
+
+Section 6
+Title: Practical synthesis for overlap disputes
+For overlap disputes, the output should usually answer three questions: what civil remedy exists, what criminal ingredient is specifically alleged, and what inception-stage or entrustment-stage facts support that criminal ingredient. This keeps the analysis precise and prevents the assistant from treating every dishonest commercial outcome as either purely civil or automatically criminal.

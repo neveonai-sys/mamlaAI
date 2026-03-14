@@ -1,9 +1,54 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import apiClient from '../../services/api';
 import DOMPurify from 'dompurify';
+import { refreshEntitlements } from '../../features/entitlementsActions';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+
+function buildQuotaNotice(quota, fallbackMessage = '') {
+  if (!quota) return null;
+
+  const remaining = typeof quota.remaining_included === 'number' ? quota.remaining_included : null;
+  const walletBalance = typeof quota.wallet_credits_balance === 'number' ? quota.wallet_credits_balance : 0;
+  const walletCharged = typeof quota.wallet_credits_charged === 'number' ? quota.wallet_credits_charged : 0;
+
+  if (quota.allowed === false) {
+    if (quota.next_cta === 'top_up_credits') {
+      return {
+        tone: 'error',
+        message: fallbackMessage || 'This draft has exhausted its included AI suggestions. Add wallet credits to continue.',
+      };
+    }
+    return {
+      tone: 'error',
+      message: fallbackMessage || 'This draft cannot use more AI suggestions right now.',
+    };
+  }
+
+  if (walletCharged > 0) {
+    return {
+      tone: 'info',
+      message: `${walletCharged} wallet credit${walletCharged === 1 ? '' : 's'} used for this suggestion. ${walletBalance} credit${walletBalance === 1 ? '' : 's'} remaining.`,
+    };
+  }
+
+  if (remaining !== null && remaining <= 2) {
+    return {
+      tone: 'warning',
+      message: `${remaining} included AI suggestion${remaining === 1 ? '' : 's'} left on this draft before credit usage starts.`,
+    };
+  }
+
+  return null;
+}
+
+function quotaNoticeClassName(tone) {
+  if (tone === 'error') return 'border-red-200 bg-red-50 text-red-700';
+  if (tone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-800';
+  return 'border-sky-200 bg-sky-50 text-sky-700';
+}
 
 // ─── Inline formatting toolbar ───────────────────────────────────────────────
 function EditorToolbar() {
@@ -50,7 +95,7 @@ function DraftSidebar({ sections, activeSectionIdx, onSelectSection, savedDrafts
   const [showSaved, setShowSaved] = useState(false);
 
   return (
-    <aside className="w-64 flex flex-col border-r border-primary/10 bg-ivory flex-shrink-0">
+    <aside className="w-60 flex flex-col border-r border-primary/10 bg-ivory flex-shrink-0 xl:w-64">
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
         <div className="pt-2 pb-2 px-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Document Outline</p>
@@ -101,7 +146,7 @@ function DraftSidebar({ sections, activeSectionIdx, onSelectSection, savedDrafts
 }
 
 // ─── AI assistant right panel ─────────────────────────────────────────────────
-function AIPanel({ onPrompt, loading, messages }) {
+function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled }) {
   const [input, setInput] = useState('');
   const bottomRef = useRef(null);
 
@@ -110,7 +155,7 @@ function AIPanel({ onPrompt, loading, messages }) {
   }, [messages]);
 
   function handleSend() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || promptDisabled) return;
     onPrompt(input.trim());
     setInput('');
   }
@@ -123,13 +168,19 @@ function AIPanel({ onPrompt, loading, messages }) {
   ];
 
   return (
-    <aside className="w-96 flex flex-col border-l border-primary/10 bg-ivory flex-shrink-0">
+    <aside className="flex w-[340px] flex-col border-l border-primary/10 bg-ivory flex-shrink-0 xl:w-[360px]">
       <div className="p-4 border-b border-primary/10 flex items-center justify-between flex-shrink-0">
         <h3 className="font-bold text-sm flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-xl">auto_awesome</span>
           AI Assistant
         </h3>
       </div>
+
+      {quotaNotice && (
+        <div className={`mx-4 mt-4 rounded-xl border px-3 py-2 text-xs font-medium ${quotaNoticeClassName(quotaNotice.tone)}`}>
+          {quotaNotice.message}
+        </div>
+      )}
 
       {/* Conversation */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
@@ -144,6 +195,7 @@ function AIPanel({ onPrompt, loading, messages }) {
                 <button
                   key={s}
                   onClick={() => onPrompt(s)}
+                  disabled={promptDisabled || loading}
                   className="flex items-center justify-between px-3 py-2 text-xs font-medium bg-primary/5 text-primary rounded-lg border border-primary/10 hover:bg-primary/10 transition-colors text-left"
                 >
                   {s}
@@ -194,15 +246,16 @@ function AIPanel({ onPrompt, loading, messages }) {
                 handleSend();
               }
             }}
-            placeholder="Ask AI to refine, add clauses, check compliance…"
+            placeholder={promptDisabled ? 'AI suggestions are unavailable for this draft right now.' : 'Ask AI to refine, add clauses, check compliance…'}
             rows={2}
             className="flex-1 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 text-xs text-ink
                        placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30
-                       resize-none transition-all"
+                       resize-none transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={promptDisabled}
           />
           <button
             onClick={handleSend}
-            disabled={loading || !input.trim()}
+            disabled={loading || !input.trim() || promptDisabled}
             className="flex-shrink-0 size-9 bg-primary text-ivory rounded-lg flex items-center justify-center
                        hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -337,7 +390,9 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
 export default function DraftingWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user_type } = useSelector((s) => s.user);
+  const { trial, wallet, features } = useSelector((s) => s.entitlements);
 
   // ── State ──
   const [phase, setPhase] = useState('init'); // 'init' | 'editing'
@@ -353,13 +408,15 @@ export default function DraftingWorkspace() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftForData, setDraftForData] = useState([]);
   const [aiSuggestionCount, setAiSuggestionCount] = useState(0);
+  const [suggestionQuota, setSuggestionQuota] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sectionHistory, setSectionHistory] = useState([]);
-  const [locationUpdating, setLocationUpdating] = useState(false);
   const [currentSavedDraftId, setCurrentSavedDraftId] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [showOutlinePanel, setShowOutlinePanel] = useState(true);
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   // Init form state
   const [query, setQuery] = useState('');
@@ -403,6 +460,10 @@ export default function DraftingWorkspace() {
   const [selectedDraftForIds, setSelectedDraftForIds] = useState([]);
 
   const isClientUser = user_type === 'Client';
+  const remainingSuggestionCount = Math.max(0, 7 - aiSuggestionCount);
+  const draftingQuota = features?.brain_drafting_actions;
+  const suggestionQuotaNotice = buildQuotaNotice(suggestionQuota, error);
+  const suggestionPromptDisabled = suggestionQuota?.allowed === false;
 
   function normalizeDraftForEntries(draftFor) {
     if (!draftFor) return [];
@@ -562,6 +623,7 @@ export default function DraftingWorkspace() {
     const nextSections = response.data?.draft_sections ?? [];
     setSections(nextSections);
     setAiSuggestionCount(response.data?.ai_suggested_update_count ?? 0);
+    setSuggestionQuota(null);
     return nextSections;
   }
 
@@ -720,6 +782,7 @@ export default function DraftingWorkspace() {
     }
     setInitLoading(true);
     setError('');
+    dispatch(beginBlocking({ message: 'Generating your draft. This can take a few moments...' }));
     try {
       const payload = {
         user_query: query,
@@ -761,6 +824,9 @@ export default function DraftingWorkspace() {
       } else {
         res = await apiClient.post('aidrafts/initial_request/', payload);
       }
+      if (res.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       const newSessionId = res.data?.session_id || res.data?.id;
       if (!newSessionId) throw new Error('No session ID returned');
 
@@ -778,14 +844,19 @@ export default function DraftingWorkspace() {
       setQuery('');
       setSourceFile(null);
     } catch (err) {
+      if (err.response?.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       setError(err.response?.data?.error || err.message || 'Failed to create draft.');
     } finally {
+      dispatch(stopBlocking());
       setInitLoading(false);
     }
   }
 
   // ── Load saved draft ──
   async function handleLoadDraft(draft) {
+    dispatch(beginBlocking({ message: 'Loading saved draft...' }));
     try {
       const sId = draft.session_id || draft.id;
       const dId = draft.draft_id;
@@ -801,6 +872,8 @@ export default function DraftingWorkspace() {
       navigate(`/drafting/${sId}`, { replace: true });
     } catch {
       setError('Could not load the selected draft.');
+    } finally {
+      dispatch(stopBlocking());
     }
   }
 
@@ -812,6 +885,7 @@ export default function DraftingWorkspace() {
     if (templateSource === 'upload' && !templateFile) { setError('Please choose a .docx file to upload.'); return; }
     setTemplateLoading(true);
     setError('');
+    dispatch(beginBlocking({ message: 'Preparing draft from template...' }));
     try {
       const fd = new FormData();
       fd.append('draft_type', selectedTemplateType);
@@ -834,6 +908,9 @@ export default function DraftingWorkspace() {
       const res = await apiClient.post('aidrafts/upload_template', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      if (res.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       const newSId = res.data?.session_id || res.data?.id;
       if (!newSId) throw new Error('No session ID returned');
       const sectRes = await apiClient.get('aidrafts/get_draft_sections', { params: { session_id: newSId } });
@@ -851,8 +928,12 @@ export default function DraftingWorkspace() {
       setPhase('editing');
       navigate(`/drafting/${newSId}`, { replace: true });
     } catch (err) {
+      if (err.response?.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       setError(err.response?.data?.error || err.message || 'Failed to load template.');
     } finally {
+      dispatch(stopBlocking());
       setTemplateLoading(false);
     }
   }
@@ -920,9 +1001,10 @@ export default function DraftingWorkspace() {
 
   // ── AI prompt ──
   async function handleAIPrompt(prompt) {
-    if (!sessionId) return;
+    if (!sessionId || suggestionPromptDisabled) return;
     setAiMessages((m) => [...m, { role: 'user', content: prompt }]);
     setAiLoading(true);
+    setError('');
     try {
       const activeSection = sections[activeSectionIdx];
       const res = await apiClient.post('aidrafts/refine_section/', {
@@ -933,6 +1015,10 @@ export default function DraftingWorkspace() {
       });
       const refined = res.data?.refined_content || res.data?.content || '';
       setAiSuggestionCount(res.data?.ai_update_count ?? aiSuggestionCount);
+      setSuggestionQuota(res.data?.quota || null);
+      if (res.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       setAiMessages((m) => [...m, { role: 'assistant', content: refined }]);
 
       // Update the section in state
@@ -945,6 +1031,14 @@ export default function DraftingWorkspace() {
         setHasUnsavedChanges(true);
       }
     } catch (err) {
+      const nextQuota = err.response?.data?.quota || null;
+      setSuggestionQuota(nextQuota);
+      if (nextQuota) {
+        refreshEntitlements(dispatch);
+      }
+      if (nextQuota) {
+        setError(buildQuotaNotice(nextQuota, err.response?.data?.error)?.message || err.response?.data?.error || 'AI suggestions are unavailable right now.');
+      }
       setAiMessages((m) => [
         ...m,
         { role: 'assistant', content: err.response?.data?.error || 'Sorry, I could not process that request.' },
@@ -1100,28 +1194,6 @@ export default function DraftingWorkspace() {
       setHistoryOpen(true);
     } catch {
       setError('Failed to fetch section history.');
-    }
-  }
-
-  async function handleUpdateLocation() {
-    if (!sessionId || !selectedState || !selectedDistrict) {
-      setError('Select at least state and district to update location.');
-      return;
-    }
-    setLocationUpdating(true);
-    setError('');
-    try {
-      await apiClient.post('aidrafts/set_location', {
-        session_id: sessionId,
-        state: selectedState,
-        district: selectedDistrict,
-      });
-      await refreshDraftSections(sessionId);
-      setHasUnsavedChanges(false);
-    } catch {
-      setError('Failed to update location.');
-    } finally {
-      setLocationUpdating(false);
     }
   }
 
@@ -1683,8 +1755,28 @@ export default function DraftingWorkspace() {
           )}
           <span className="text-xs text-slate-500 hidden lg:flex items-center gap-1">
             <span className="material-symbols-outlined text-sm">auto_awesome</span>
-            {Math.max(0, 7 - aiSuggestionCount)} AI suggestions left
+            {remainingSuggestionCount} AI suggestions left on this draft
           </span>
+          {typeof draftingQuota?.remaining_included === 'number' && (
+            <span className="text-xs text-primary hidden xl:flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1">
+              <span className="material-symbols-outlined text-sm">workspace_premium</span>
+              {draftingQuota.remaining_included} Brain drafting actions left
+            </span>
+          )}
+          <button
+            className={`btn-ghost flex items-center gap-1.5 text-xs ${showOutlinePanel ? 'bg-primary/8 text-primary' : ''}`}
+            onClick={() => setShowOutlinePanel((current) => !current)}
+          >
+            <span className="material-symbols-outlined text-base">left_panel_open</span>
+            {showOutlinePanel ? 'Hide Outline' : 'Show Outline'}
+          </button>
+          <button
+            className={`btn-ghost flex items-center gap-1.5 text-xs ${showAiPanel ? 'bg-primary/8 text-primary' : ''}`}
+            onClick={() => setShowAiPanel((current) => !current)}
+          >
+            <span className="material-symbols-outlined text-base">right_panel_open</span>
+            {showAiPanel ? 'Hide AI' : 'Show AI'}
+          </button>
           <button
             className="btn-ghost flex items-center gap-1.5 text-xs"
             onClick={handleSaveDraft}
@@ -1720,19 +1812,32 @@ export default function DraftingWorkspace() {
         </div>
       </header>
 
+      {suggestionQuotaNotice && (
+        <div className={`border-b px-6 py-3 text-sm ${quotaNoticeClassName(suggestionQuotaNotice.tone)}`}>
+          {suggestionQuotaNotice.message}
+        </div>
+      )}
+
       {/* 3-pane body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Outline */}
-        <DraftSidebar
-          sections={sections}
-          activeSectionIdx={activeSectionIdx}
-          onSelectSection={setActiveSectionIdx}
-          savedDrafts={savedDrafts}
-          onLoadDraft={handleLoadDraft}
-        />
+        {showOutlinePanel && (
+          <DraftSidebar
+            sections={sections}
+            activeSectionIdx={activeSectionIdx}
+            onSelectSection={setActiveSectionIdx}
+            savedDrafts={savedDrafts}
+            onLoadDraft={handleLoadDraft}
+          />
+        )}
 
         {/* Center: Editor */}
         <main className="flex-1 flex flex-col bg-background-light overflow-hidden">
+          {(remainingSuggestionCount <= 2 || (trial?.active && typeof draftingQuota?.remaining_included === 'number' && draftingQuota.remaining_included <= 3)) && (
+            <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-800">
+              {remainingSuggestionCount <= 2 ? `This draft is nearing its 7-suggestion limit. ${remainingSuggestionCount} suggestion${remainingSuggestionCount === 1 ? '' : 's'} left before credits or upgrade are needed.` : `Brain drafting usage is running low. ${draftingQuota.remaining_included} premium action${draftingQuota.remaining_included === 1 ? '' : 's'} left${wallet?.balance ? ` and ${wallet.balance} credits available` : ''}.`}
+            </div>
+          )}
           <EditorToolbar />
           <div className="border-b border-primary/10 bg-white px-6 py-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -1746,26 +1851,19 @@ export default function DraftingWorkspace() {
                 <span className="material-symbols-outlined text-sm">article</span>
                 {sections.length} sections
               </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+                <span className="material-symbols-outlined text-sm">place</span>
+                Location locked from draft setup
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <select value={selectedState} onChange={(e) => setSelectedState(e.target.value)} className="input-base min-w-[140px] py-2 text-xs">
-                <option value="">State</option>
-                {states.map((state) => <option key={state} value={state}>{state}</option>)}
-              </select>
-              <select value={selectedDistrict} onChange={(e) => setSelectedDistrict(e.target.value)} className="input-base min-w-[140px] py-2 text-xs" disabled={!selectedState}>
-                <option value="">District</option>
-                {districts.map((district) => <option key={district} value={district}>{district}</option>)}
-              </select>
-              <button className="btn-ghost text-xs" onClick={handleUpdateLocation} disabled={locationUpdating || !selectedState || !selectedDistrict}>
-                {locationUpdating ? 'Updating…' : 'Update Location'}
-              </button>
               <button className="btn-ghost text-xs" onClick={handleAddSection}>
                 Add Section
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar">
-            <div className="max-w-[800px] mx-auto bg-white editor-container min-h-[1100px] p-12 md:p-16 rounded-sm shadow-xl border border-primary/5">
+          <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar">
+            <div className="mx-auto max-w-[1040px] rounded-[1.25rem] border border-primary/5 bg-white p-8 shadow-xl editor-container min-h-[1100px] md:p-12 xl:p-14">
               {sections.length > 0 ? (
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="draft-sections">
@@ -1851,7 +1949,15 @@ export default function DraftingWorkspace() {
         </main>
 
         {/* Right: AI Panel */}
-        <AIPanel onPrompt={handleAIPrompt} loading={aiLoading} messages={aiMessages} />
+        {showAiPanel && (
+          <AIPanel
+            onPrompt={handleAIPrompt}
+            loading={aiLoading}
+            messages={aiMessages}
+            quotaNotice={suggestionQuotaNotice}
+            promptDisabled={suggestionPromptDisabled}
+          />
+        )}
       </div>
     </div>
   );

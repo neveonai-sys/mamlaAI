@@ -1,0 +1,31 @@
+Section 1
+Title: Limitation as a front-end screening question
+Limitation should be tested at intake, not only when the final draft is prepared. The first task is to identify the event that triggered the right to sue or seek relief, then track acknowledgments, part payments, recurring breaches, or continuing wrong arguments that may affect computation. Retrieval should detect dated notices, reminders, ledger confirmations, and renewal communications that may matter to limitation analysis.
+
+Section 2
+Title: Cause of action chronology discipline
+A limitation-safe chronology should separate formation events, breach events, demand events, repudiation events, and discovery events. Mixing these categories produces vague pleading and weak objection handling. A reasoning assistant should present limitation timelines in simple dated stages so that the user can test alternative trigger points quickly.
+
+Section 3
+Title: Acknowledgment, part payment, and fresh starting points
+Certain later communications or payments may refresh or materially affect the limitation narrative. In practice, useful indicators include signed balance confirmations, email admissions, settlement discussions with clear liability language, and credited part payments tied to the same obligation. These facts should be extracted carefully because not every negotiation message amounts to a legally meaningful acknowledgment.
+
+Section 4
+Title: Interim injunction threshold analysis
+Interim injunction requests usually turn on a triad: whether there is a serious arguable case, whether hardship tilts toward the applicant, and whether refusal would cause injury not easily repaired later. The case record should therefore preserve immediacy, threatened acts, attempts at self-help, and the practical insufficiency of later damages. Generic urgency language is less useful than concrete risk facts.
+
+Section 5
+Title: Status quo, mandatory relief, and restraint differences
+All interim orders are not alike. A status quo order aims to hold the position; a prohibitory injunction restrains future conduct; a mandatory direction compels a step that may partly resolve the dispute before trial. Because courts often scrutinize mandatory interim relief more strictly, knowledge documents should separate these categories instead of treating every interim request as interchangeable.
+
+Section 6
+Title: Delay, acquiescence, and conduct-based resistance
+Even where a claim is technically within limitation, delay in seeking urgent interim protection may undermine credibility. If the applicant knew of the threatened act, continued dealing, accepted benefits, or waited until the last moment without explanation, the other side may frame the case as acquiescence rather than urgency. Retrieval should therefore compare knowledge date, protest date, and filing date.
+
+Section 7
+Title: Asset preservation and enforcement-minded interim relief
+In commercial and recovery disputes, interim relief is often aimed at preserving the possibility of later execution. Facts about threatened transfers, shell entities, bank withdrawals, stock depletion, or title movements can be more important than abstract legal formulations. A practical knowledge base should recognize these indicators and rank them highly when the user is seeking a protective order.
+
+Section 8
+Title: Hearing-note structure for urgent relief
+For urgent hearings, the most effective note format is short and disciplined: issue, immediate risk, legal threshold, strongest documents, answer to delay/acquiescence, and the narrowest workable interim order. Seed documents for Mamla Brain should encourage this format because it improves both the legal reasoning output and the operational usefulness of the result.

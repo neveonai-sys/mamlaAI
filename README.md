@@ -52,7 +52,8 @@ Mamla.AI is a comprehensive legal technology platform designed to bring legal se
 - **Storage**: Supabase Storage, AWS S3
 
 ### Frontend
-- **Framework**: React 17+
+- **Active frontend**: `mamlaAI_ground_zero/frontend` (React 18 + Tailwind CSS)
+- **Previous frontend**: `frontend_webpack` (legacy React app kept for reference)
 - **State Management**: Redux Toolkit
 - **Styling**: Tailwind CSS
 - **UI Components**: Headless UI, Custom Components
@@ -169,15 +170,15 @@ mamlaAI/
 │   ├── search_facility/      # Search functionality
 │   └── whatsapp_module/      # WhatsApp integration
 │
-├── frontend_webpack/         # Legacy React frontend
+├── mamlaAI_ground_zero/frontend/  # Active React frontend served by Nginx
+│
+├── frontend_webpack/         # Previous React frontend kept for reference
 │   ├── public/              # Static files
 │   └── src/
 │       ├── components/      # Reusable UI components
 │       ├── pages/           # Page components
 │       ├── store/           # Redux store
 │       └── services/        # API services
-│
-├── mamlaAI_ground_zero/frontend/  # Active React frontend served by Nginx
 │
 ├── advocate_list/            # Lawyer directory
 ├── draftdocs/               # Document templates
@@ -219,12 +220,14 @@ Development: npm start
 Production: npm run start:prod or npm run build && npx serve -s dist -l 3000
 ```
 
+The active production UI is built from `mamlaAI_ground_zero/frontend`. `frontend_webpack` remains in the repo as the previous UI and should only be used for historical reference or parity checks.
+
 ## Deployment
 
 ### Production
 ```bash
-# Build frontend
-cd frontend_webpack
+# Build active frontend
+cd mamlaAI_ground_zero/frontend
 npm run build
 
 # Collect static files

@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { setUser, clearUser } from '../../features/userSlice';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import apiClient from '../../services/api';
+import AuthShowcase from './AuthShowcase';
 
 export default function Login() {
   const dispatch = useDispatch();
@@ -17,6 +19,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Signing you in...' }));
 
     try {
       // Backend handles Supabase auth and sets HttpOnly cookie
@@ -41,59 +44,43 @@ export default function Login() {
       setError(msg);
       dispatch(clearUser());
     } finally {
+      dispatch(stopBlocking());
       setLoading(false);
     }
   }
 
   return (
     <div className="flex min-h-screen w-full flex-col lg:flex-row bg-background-light">
-      {/* ── Left branding panel ───────────────────────────────── */}
-      <div className="relative hidden w-1/2 lg:flex items-center justify-center bg-primary/10 overflow-hidden">
-        {/* Background image with gradient overlay */}
-        <div className="absolute inset-0">
-          <div
-            className="h-full w-full bg-cover bg-center opacity-90"
-            style={{
-              backgroundImage:
-                "url('https://lh3.googleusercontent.com/aida-public/AB6AXuB-_62wTeIeiQFjJq50s1rwhMLExk37dYJ_zW_BGM7KdJXiQBl-nAwDOfx5L6aC55s6LtKjuKzlQeGcLuUAgE7Cmx3JZqUcFx37tslTXV-f9-FWFFE1Cs5V7Cddi7f-au97RAbKI8-M_8dmF8UK1R34lK68NnBeCFOjhc4v-1QmfwI1uMsVGGQIAI7AbYYhRCpnjjzo97U444_DlfAEWuAWHZ5LmQ3Up4rOYbj6DjuZGo-hYNYnRdcxp3q44wdv8HvksKEDj1bYTw')",
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background-dark/80 via-background-dark/20 to-transparent" />
-        </div>
-
-        <div className="relative z-10 p-12 max-w-xl">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8 text-white">
-            <span className="material-symbols-outlined text-4xl icon-filled">gavel</span>
-            <span className="text-2xl font-bold tracking-tight">Mamla.AI</span>
-          </div>
-
-          <h1 className="text-5xl font-black text-white leading-tight mb-6">
-            Trust and<br />Excellence.
-          </h1>
-          <p className="text-lg text-white/80 leading-relaxed font-light">
-            Empowering legal professionals with AI-driven precision and secure insights.
-            Your expertise, amplified by intelligence.
-          </p>
-        </div>
-
-        <div className="absolute bottom-8 left-12 text-white/50 text-sm">
-          © 2025 Mamla.AI. Secure &amp; Encrypted.
-        </div>
-      </div>
+      <AuthShowcase
+        eyebrow="Sign in"
+        title="Access your Mamla.AI workspace."
+        description="Continue with drafting, document review, court updates, and chamber operations from one place."
+        highlights={[
+          { title: 'Drafting', text: 'Open active drafts, edits, and saved matter work.' },
+          { title: 'Documents', text: 'Continue document analysis and chamber research.' },
+          { title: 'Secure', text: 'Protected access for counsel, clients, and paralegals.' },
+        ]}
+      />
 
       {/* ── Right form panel ──────────────────────────────────── */}
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-24 xl:px-32 bg-background-light">
-        <div className="mx-auto w-full max-w-md">
+      <div className="flex w-full flex-col justify-center px-6 py-6 lg:min-h-screen lg:w-1/2 lg:px-20 lg:py-8 xl:px-28 bg-background-light">
+        <div className="mx-auto w-full max-w-md rounded-[1.75rem] border border-slate-200/80 bg-white p-7 shadow-card lg:p-8">
+          <div className="mb-8 flex items-center justify-between">
+            <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary-dark transition-colors">
+              <span className="material-symbols-outlined text-base">arrow_back</span>
+              Back to Landing Page
+            </Link>
+          </div>
+
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-10 text-primary">
             <span className="material-symbols-outlined text-3xl icon-filled">gavel</span>
-            <span className="text-xl font-bold">Mamla.AI</span>
+            <span className="text-xl font-semibold">Mamla.AI</span>
           </div>
 
-          <div className="mb-10">
+          <div className="mb-8">
             <h2 className="text-3xl font-bold text-ink tracking-tight">Welcome Back</h2>
-            <p className="mt-2 text-slate-500">
+            <p className="mt-2 font-medium leading-7 text-slate-600">
               Please enter your credentials to access your dashboard.
             </p>
           </div>

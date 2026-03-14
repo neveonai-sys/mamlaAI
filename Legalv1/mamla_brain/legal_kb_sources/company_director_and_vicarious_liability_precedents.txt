@@ -1,0 +1,27 @@
+Section 1
+Title: Company and director liability overview
+Corporate litigation often fails when responsibility is pleaded at the entity level but not mapped to individual human roles. Mamla Brain should use these notes to distinguish company liability, signatory liability, managing-control liability, nominee or sleeping-director issues, and statute-specific vicarious-liability frameworks. The assistant should never assume that the existence of a directorship alone proves operational responsibility.
+
+Section 2
+Title: SMS Pharmaceuticals style vicarious liability note
+The classic company-prosecution line teaches that statutory vicarious liability usually requires specific pleading that the individual was in charge of and responsible for the conduct of the business at the relevant time. A mere reproduction of job title is often weak. Retrieval should therefore search for role-specific pleadings, signatory status, day-to-day control allegations, board function evidence, and transaction-level participation.
+
+Section 3
+Title: Signatory versus non-signatory distinction note
+Where a director or officer personally signed the relevant instrument or directly communicated the impugned representation, the case posture changes. A signatory is usually analyzed differently from a remote non-signatory director. Mamla Brain should therefore surface the exact linkage between the person and the transaction document, cheque, letter, email, board approval, or payment instruction in question.
+
+Section 4
+Title: Corporate veil and fraud caution note
+Courts may look past formal company structure where the record suggests sham use of incorporation, diversion, facade behavior, or misuse of separate personality to defeat law. But veil-lifting is not a default response to every failed company obligation. The practical retrieval lesson is to identify specific misuse indicators such as fund diversion, related-party concealment, shell layering, and contradictory personal/company dealing.
+
+Section 5
+Title: Civil-commercial default versus personal criminal exposure note
+Many company disputes begin as invoice, contract, or investment defaults and only later acquire criminal framing. The assistant should carefully separate company non-performance from personal deceit or misappropriation allegations. It should ask what the director personally represented, what authority was claimed, how funds moved, and whether the complaint shows individualized fraudulent conduct rather than only corporate failure.
+
+Section 6
+Title: Resignation and timing note
+Director-liability disputes frequently turn on timing. A person who resigned before the relevant transaction, default, or statutory trigger may stand differently from a person in office when the critical act occurred. Mamla Brain should therefore prioritize board records, filing dates, resignation acceptance material, and transaction chronology whenever role attribution is contested.
+
+Section 7
+Title: Corporate liability synthesis for outputs
+For company/director questions, the assistant should usually answer five points: who is the primary obligor, which individuals are linked to the operative act, what statute creates or limits personal exposure, what documents prove operational control, and what timing facts cut for or against vicarious liability. That keeps the reasoning grounded and avoids overbroad personal-liability conclusions.

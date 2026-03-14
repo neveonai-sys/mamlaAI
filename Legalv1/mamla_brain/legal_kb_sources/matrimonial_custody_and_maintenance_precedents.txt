@@ -1,0 +1,27 @@
+Section 1
+Title: Matrimonial litigation precedent overview
+Matrimonial disputes are rarely solved by a single legal label. The same file may involve breakdown allegations, cruelty narratives, maintenance claims, residence issues, custody concerns, and criminal or domestic-violence overlap. Mamla Brain should use these notes to separate marital-status relief from financial support and child-welfare questions, because each of those themes follows a different judicial pattern.
+
+Section 2
+Title: Cruelty and matrimonial breakdown note
+Cruelty-based matrimonial reasoning in precedent typically depends on sustained conduct, serious allegations, humiliating treatment, or patterns of behavior that make marital continuation unreasonable. The assistant should avoid assuming that every unpleasant incident carries the same legal weight. It should instead surface repetition, corroboration, timing, and whether the conduct alleged is physical, emotional, reputational, or financial in character.
+
+Section 3
+Title: Maintenance and financial-disclosure note
+Maintenance precedent consistently emphasizes realistic income assessment over purely formal salary labels. Practical reasoning should therefore look at earnings, business control, standard of living, dependents, liabilities, concealment indicators, and access to financial resources. Mamla Brain should treat financial disclosure gaps as central rather than secondary, because maintenance disputes often turn on incomplete or misleading income portrayal.
+
+Section 4
+Title: Child custody and welfare note
+Custody jurisprudence is anchored in child welfare rather than parental entitlement. The practical lesson for retrieval is to surface school continuity, caregiving history, emotional bond, special needs, safety concerns, geographic stability, and willingness to facilitate the child's relationship with the other parent. The assistant should be cautious about treating allegations between spouses as automatically decisive for child-welfare outcomes.
+
+Section 5
+Title: Interim visitation and contact planning note
+Many custody files require a workable interim arrangement before final adjudication. The assistant should therefore identify whether the immediate issue is complete denial of access, unsafe transfer logistics, communication breakdown, relocation, or supervised-contact concerns. Outputs should favor concrete, child-focused structuring over abstract rights language.
+
+Section 6
+Title: Domestic violence and parallel-proceeding overlap note
+Matrimonial files often run in parallel across family court, domestic violence proceedings, criminal complaints, and maintenance forums. The retrieval system should help users identify overlap without assuming automatic duplication or contradiction. A useful answer should explain how allegations, financial claims, child arrangements, and residence issues interact across the parallel record.
+
+Section 7
+Title: Matrimonial synthesis for case companion outputs
+For matrimonial queries, Mamla Brain should usually separate three tracks: marital-fault narrative, financial-support narrative, and child-welfare narrative. That separation prevents the model from overfitting to one emotional theme and helps produce more operational advice on documents, interim applications, and likely weak points in the case.
