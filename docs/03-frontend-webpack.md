@@ -106,6 +106,22 @@ All frontend API calls that go to this backend should use `apiClient` and paths 
 | `src/components/auth/ResetPassword.jsx` | Password reset |
 | `src/utils/securityUtils.js` | Secure storage helpers |
 
+## Active eCourts Routes
+
+The active scraper-first eCourts shell lives under `mamlaAI_ground_zero/frontend/src/components/ecourt_scrapper/` and is routed from `src/AppContent.js`.
+
+| Path | Component | Notes |
+|------|-----------|-------|
+| `/ecourts` | `EcourtsTerminal` | Terminal landing with scraper/runtime status, module entry cards, and an actionable quick CNR lookup |
+| `/ecourts/case-status` | `CaseStatusTerminal` | New stitched case-status surface. CNR open + advocate search are live on both courts; High Court party-name search is also live; the remaining stitched tabs are explicitly staged |
+| `/ecourts/case-search` | `CaseStatusTerminal` | Compatibility alias for the new case-status surface |
+| `/ecourts/court-orders` | `CourtOrdersTerminal` | CNR-driven order access from cached scraper case data |
+| `/ecourts/cause-list` | `CauseListTerminal` | High-court daily cause-list flow. Non-daily stitched variants remain staged until the current selectors are re-verified |
+| `/ecourts/caveat` | `CaveatTerminal` | Terminal placeholder for caveat modes; reference data is live, scraper selectors are pending |
+| `/ecourts/case/:cnr` | `CaseDetail` | Existing case-detail screen reused against the scraper runtime |
+| `/ecourts/lawyers` | `LawyerSearch` | Older screen retained temporarily as deprecated reference UI |
+| `/ecourts/litigants` | `LitigantSearch` | Older screen retained temporarily as deprecated reference UI |
+
 ## Theme Direction
 
 - Active theme uses a deep navy, white, and graphite palette intended to feel like institutional legal software rather than a warm lifestyle brand.
@@ -114,6 +130,7 @@ All frontend API calls that go to this backend should use `apiClient` and paths 
 - The landing page hero now rotates through bench, chamber, and draft-control scenes, and the page includes an additional chamber-visual board section with original illustrations and live-state cues so the first public screen feels active without changing public routes or auth behavior.
 - The active frontend now has a shared app-level blocking overlay for long-running actions such as login, signup, password reset, draft generation, template-based draft creation, saved-draft loading, TalkDoc session/message/document operations, and calendar load/save/delete/conflict-check flows. This blocks stray clicks during those waits without adding backend latency because it is only a UI layer.
 - The shell top bar is now functional rather than decorative: the search box works as a quick navigator across live app routes, draft-session matches, case-ID shortcuts, and direct CNR lookups; the notification button opens a real alerts tray built from quota state plus `dashboard/home/` upcoming events and court updates; and the help icon opens actionable shortcuts like feedback, command center, and session management. Document Intel now also honors `?caseid=` and `?clientid=` query params so top-bar case searches can land on a pre-filtered matter view instead of a generic library screen.
+- eCourts now defaults to the scraper-first module shell rather than the old partner-API home. New work should go through `components/ecourt_scrapper/` and the shared helper at `components/ecourt_scrapper/api.js`; `components/ecourts/` remains only for reused screens like case detail or temporary backward compatibility.
 - Landing-page motion is implemented with lightweight CSS animation utilities (`app-fade-in`, `app-rise-in`, `float-slow`) rather than heavier animation libraries.
 - Drafting keeps jurisdiction selection in the draft-init flow only; once a draft session is created, the editing workspace treats that location as fixed and gives more width to the document via collapsible outline and AI side rails.
 - Shared tokens live in `tailwind.config.js` and `src/index.css`, so global visual adjustments should happen there first.

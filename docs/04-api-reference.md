@@ -284,46 +284,65 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 
 ## eCourts (`/api/ecourts/`)
 
-**Currently active module:** `ecourts_api/views.py` (direct partner API). All `@supabase_required`.  
-**Scraper module (disabled):** `ecourts_scraper/views.py` (browser automation, CAPTCHA issues).  
-**URL config:** `Legalv1/ecourts_api/urls.py`.  
+**Currently active module:** `ecourts_scraper/views.py`. All `@supabase_required`.  
+**Deprecated reference only:** `ecourts_api/` (partner API).  
+**URL config:** `Legalv1/ecourts_scraper/urls.py`.  
 **Detail doc:** See **06-ecourts-scraper.md** for both modules.
 
-### Active: Direct API (`ecourts_api`)
+### Active: Scraper-first Runtime (`ecourts_scraper`)
 
-All responses are **synchronous** (no 202/job polling). Data returned immediately from partner API or MongoDB cache.
+Case lookup, search, cause-list, and order-download flows are **async/cache-first**. Cache hits return `200`; cache misses queue a job and return `202` with `job_id`.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `case/<cnr>/` | Supabase | Case detail by CNR. Returns 200 with transformed case data. |
-| POST | `case/<cnr>/refresh/` | Supabase | Queue fresh scrape upstream. Returns 202. |
+| GET | `case/<cnr>/` | Supabase | Case detail by CNR. Returns cached data or `202` + `job_id`. |
+| POST | `case/<cnr>/refresh/` | Supabase | Force a fresh scrape and return `202` + `job_id`. |
 | GET | `case/<cnr>/orders/` | Supabase | Orders list from cached case data. |
-| GET | `case/<cnr>/orders/<idx>/download/` | Supabase | Streams PDF binary from partner API. Browser triggers file download. |
-| POST | `search/` | Supabase | Case search. Body: `search_type` (advocate/party/litigant/judge/general), `query`, `page`, `page_size`, optional filters (`court_codes`, `case_statuses`, `case_types`, `filing_date_from/to`). |
-| GET | `defaults/<section>/` | Supabase | Pre-populated landing-page results. `section` = `cases` \| `lawyers` \| `litigants`. Populated by Celery Beat daily/weekly. Response: `{ status, refreshed_at, data }`. Returns `{ status: "empty" }` until first run. |
-| GET | `causelist/` | Supabase | Cause list search. Params: `q`, `date`, `state`, `districtCode`, `courtComplexCode`, `advocate`, `litigant`, `judge`, `limit`, `offset`. |
-| GET | `causelist/dates/` | Supabase | Available dates. Params: `state`, `districtCode`, etc. FREE. |
-| GET | `court-structure/` | Supabase | Top-level: states + high courts. FREE. |
-| GET | `court-structure/states/` | Supabase | All states. FREE. |
-| GET | `court-structure/states/<s>/districts/` | Supabase | Districts. FREE. |
-| GET | `court-structure/states/<s>/districts/<d>/complexes/` | Supabase | Court complexes. FREE. |
-| GET | `court-structure/states/<s>/districts/<d>/complexes/<c>/courts/` | Supabase | Courts in complex. FREE. |
+| GET | `case/<cnr>/orders/<idx>/download/` | Supabase | Cached PDF or `202` + `job_id` for scraper download. |
+| POST | `search/` | Supabase | Scraper search endpoint. Current live support is `search_type: advocate` on both courts and `search_type: party` on High Court; unsupported stitched search modes or unsupported court/mode combinations return `400`. |
+| GET | `jobs/<job_id>/` | Supabase | Poll async scraper job status. |
+| GET | `causelist/` | Supabase | High-court daily cause-list scrape. Requires `date`, `high_court_id`, `bench_code`, and optionally `causelist_type=daily`. Any other `causelist_type` returns `400`. Returns cached data or `202` + `job_id`. |
+| GET | `causelist/dates/` | Supabase | Available cached cause-list dates for a bench. |
+| GET | `reference/<section>/` | Supabase | Stored terminal reference data. Sections: `case-status`, `court-orders`, `cause-list`, `caveat`. |
+| GET | `court-structure/` | Supabase | Top-level high courts plus district-court states. |
 | GET | `court-structure/high-courts/` | Supabase | High courts from constants. |
-| GET | `jobs/<job_id>/` | Supabase | Stub (returns 404 — no async jobs in direct API mode). |
+| GET | `court-structure/district/states/` | Supabase | Stored district-court states reference data. |
+| GET | `court-structure/district/states/<state>/districts/` | Supabase | Districts for a selected state. |
+| GET | `court-structure/district/states/<state>/districts/<district>/complexes/` | Supabase | Stored or synthetic district-court complexes. |
+| GET | `court-structure/district/states/<state>/districts/<district>/courts/` | Supabase | Flattened court list for the district's primary complex. |
+| GET | `court-structure/district/states/<state>/districts/<district>/complexes/<complex>/courts/` | Supabase | Courts scoped to a selected complex. |
 
 **Search body example:**
 ```json
 {
   "search_type": "advocate",
   "query": "Sharma",
+  "court_type": "high_court",
+  "high_court_id": "5",
+  "bench_code": "1",
   "page": 1,
-  "page_size": 20,
-  "case_statuses": ["PENDING"],
-  "court_codes": ["DLHC01"]
+  "page_size": 20
 }
 ```
 
-**Search response:** `data.case_list` (array), `data.total`, `data.page`, `data.page_size`, `data.total_pages`, `data.has_next_page`, `data.facets`.
+For district-court advocate search, replace the high-court selectors above with `state_id`, `district_id`, and `court_complex_id`.
+
+**High Court party-name example:**
+```json
+{
+  "search_type": "party",
+  "query": "Sharma",
+  "court_type": "high_court",
+  "high_court_id": "5",
+  "bench_code": "1",
+  "registration_year": "2024",
+  "case_status": "both",
+  "page": 1,
+  "page_size": 20
+}
+```
+
+**Search response:** cache hit returns `data.case_list`, `data.total`, `data.page`, `data.page_size`, `data.total_pages`; cache miss returns `202` with `job_id`, and the completed job result exposes `result.case_list`.
 
 ---
 

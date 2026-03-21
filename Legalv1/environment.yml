@@ -94,6 +94,7 @@ dependencies:
       - djongo==1.2.31
       - dnspython==2.6.1
       - docx==0.2.4
+      - easyocr==1.7.2
       - events==0.5
       - executing==2.1.0
       - fastjsonschema==2.20.0

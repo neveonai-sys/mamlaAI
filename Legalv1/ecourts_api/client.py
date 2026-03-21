@@ -1,5 +1,5 @@
 """
-HTTP client for eCourts partner API (webapi.ecourtsindia.com).
+Deprecated historical client for the eCourts partner API.
 
 Court-structure endpoints are FREE and require no auth.
 All /api/partner/* endpoints require Bearer token and consume credits.

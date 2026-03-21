@@ -6,6 +6,7 @@ from pymongo import MongoClient, IndexModel
 from pymongo.errors import ConnectionFailure
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from django.core.cache import caches
+from django.core.exceptions import ImproperlyConfigured
 import logging
 import os
 from django.conf import settings
@@ -40,7 +41,11 @@ class DatabaseClients:
     def _init_mongo_client(self):
         """Initialize MongoDB client with connection pooling"""
         try:
-            mongo_uri = settings.MONGO_URI #os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+            mongo_uri = (settings.MONGO_URI or '').strip()
+            if not mongo_uri:
+                raise ImproperlyConfigured(
+                    "MONGO_URI is not configured. Set MONGO_URI or the MONGO_HOSTNAME/MONGO_PWD/MONGO_APPNAME trio in Legalv1/legalenv."
+                )
             self._mongo_client = MongoClient(
                 mongo_uri,
                 maxPoolSize=100,  # Maximum number of connections in the pool

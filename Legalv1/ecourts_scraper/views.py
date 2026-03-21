@@ -13,6 +13,7 @@ from supabase_required import supabase_required
 
 from ecourts_scraper.agent.job_manager import JobManager
 from ecourts_scraper.cache.cache_manager import EcourtsCacheManager
+from ecourts_scraper.reference_data import EcourtsReferenceDataManager
 from core.init_clients import get_mongo_client
 
 logger = logging.getLogger("django")
@@ -22,6 +23,39 @@ CNR_PATTERN = re.compile(r"^[A-Za-z0-9]{14,20}$")
 
 def _get_legaldb():
     return get_mongo_client()["legaldb"]
+
+
+def _reference_response(doc: dict, *, extra: dict | None = None, status: int = 200):
+    payload = {
+        "status": "success",
+        "reference_key": doc.get("reference_key"),
+        "scope": doc.get("scope"),
+        "source": doc.get("source"),
+        "refreshed_at": doc.get("refreshed_at").isoformat() if doc.get("refreshed_at") else None,
+        "meta": doc.get("meta", {}),
+        "data": doc.get("data", []),
+    }
+    if extra:
+        payload.update(extra)
+    return JsonResponse(payload, status=status)
+
+
+@api_view(["GET"])
+@supabase_required
+def get_reference_section(request, section):
+    """
+    GET /api/ecourts/reference/<section>/
+    Static reference payloads for the stitched eCourts terminal UI.
+    """
+    try:
+        manager = EcourtsReferenceDataManager()
+        doc = manager.get_static_section(section)
+        if not doc:
+            return JsonResponse({"error": f"Unknown reference section: {section}"}, status=404)
+        return _reference_response(doc)
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @api_view(["GET"])
@@ -149,6 +183,8 @@ def search_cases(request):
         "court_type": "high_court" | "district_court",
         "page": 1,          // optional, default 1
         "page_size": 20,     // optional, default 20, max 100
+        "registration_year": "2024", // required for HC party-name search
+        "case_status": "pending" | "disposed" | "both", // optional for HC party-name search
         // HC: "high_court_id", "bench_code"
         // DC: "state_id", "district_id", "court_complex_id"
     }
@@ -158,16 +194,45 @@ def search_cases(request):
         user_id = supa_user.get("user_id", "")
 
         data = json.loads(request.body.decode("utf-8")) if request.body else {}
-        search_type = data.get("search_type", "advocate")
+        search_type = (data.get("search_type", "advocate") or "advocate").strip().lower().replace("_", "-")
         query = data.get("query", "").strip()
         court_type = data.get("court_type", "high_court")
         page = max(int(data.get("page", 1)), 1)
         page_size = min(max(int(data.get("page_size", 20)), 1), 100)
+        registration_year = str(data.get("registration_year", "")).strip()
+        case_status = (data.get("case_status", "both") or "both").strip().lower()
+
+        normalized_search_type = {
+            "advocate": "advocate",
+            "advocate-name": "advocate",
+            "party": "party",
+            "party-name": "party",
+        }.get(search_type)
+
+        if normalized_search_type is None:
+            return JsonResponse({
+                "error": (
+                    "Unsupported scraper search_type. "
+                    "The live scraper runtime currently supports advocate search on both courts and party-name search on High Court."
+                ),
+                "supported_search_types": ["advocate", "party"],
+            }, status=400)
 
         if not query:
             return JsonResponse({"error": "query is required"}, status=400)
         if len(query) < 3:
             return JsonResponse({"error": "query must be at least 3 characters"}, status=400)
+        if normalized_search_type == "party" and court_type != "high_court":
+            return JsonResponse({
+                "error": "Party-name scraper search is currently available for High Court only.",
+                "supported_court_types": ["high_court"],
+            }, status=400)
+        if normalized_search_type == "party" and not registration_year:
+            return JsonResponse({"error": "registration_year is required for party-name search"}, status=400)
+        if normalized_search_type == "party" and (not registration_year.isdigit() or len(registration_year) != 4):
+            return JsonResponse({"error": "registration_year must be a 4-digit year"}, status=400)
+        if case_status not in {"pending", "disposed", "both"}:
+            return JsonResponse({"error": "case_status must be one of pending, disposed, or both"}, status=400)
 
         court_params = {}
 
@@ -196,7 +261,14 @@ def search_cases(request):
             }
 
         cache = EcourtsCacheManager()
-        cache_key = _build_search_cache_key(court_type, query, court_params)
+        cache_key = _build_search_cache_key(
+            normalized_search_type,
+            court_type,
+            query,
+            court_params,
+            registration_year=registration_year,
+            case_status=case_status,
+        )
         cached = cache.get(cache_key)
         if cached:
             case_list = cached.get("data", {}).get("case_list", [])
@@ -217,20 +289,47 @@ def search_cases(request):
             }, status=200)
 
         jm = JobManager()
-        job_id = jm.create_job(
-            user_id,
-            f"search_{search_type}",
-            {"query": query, "court_type": court_type, "page": page, "page_size": page_size, **court_params},
-        )
 
-        from ecourts_scraper.tasks import scrape_advocate_search
-        scrape_advocate_search.delay(
-            job_id=job_id,
-            advocate_name=query,
-            court_type=court_type,
-            user_id=user_id,
-            **court_params,
-        )
+        if normalized_search_type == "party":
+            job_id = jm.create_job(
+                user_id,
+                "search_party",
+                {
+                    "query": query,
+                    "court_type": court_type,
+                    "registration_year": registration_year,
+                    "case_status": case_status,
+                    "page": page,
+                    "page_size": page_size,
+                    **court_params,
+                },
+            )
+
+            from ecourts_scraper.tasks import scrape_party_search
+            scrape_party_search.delay(
+                job_id=job_id,
+                party_name=query,
+                court_type=court_type,
+                registration_year=registration_year,
+                case_status=case_status,
+                user_id=user_id,
+                **court_params,
+            )
+        else:
+            job_id = jm.create_job(
+                user_id,
+                "search_advocate",
+                {"query": query, "court_type": court_type, "page": page, "page_size": page_size, **court_params},
+            )
+
+            from ecourts_scraper.tasks import scrape_advocate_search
+            scrape_advocate_search.delay(
+                job_id=job_id,
+                advocate_name=query,
+                court_type=court_type,
+                user_id=user_id,
+                **court_params,
+            )
 
         return JsonResponse({
             "status": "queued",
@@ -342,12 +441,22 @@ def download_order_pdf(request, cnr, order_index):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-def _build_search_cache_key(court_type: str, query: str, court_params: dict) -> str:
+def _build_search_cache_key(
+    search_type: str,
+    court_type: str,
+    query: str,
+    court_params: dict,
+    *,
+    registration_year: str = "",
+    case_status: str = "both",
+) -> str:
     """Build the same cache key the scraper uses for search results."""
     name = query.lower().replace(" ", "_")
     if court_type == "high_court":
         court = court_params.get("high_court_id", "")
         bench = court_params.get("bench_code", "")
+        if search_type == "party":
+            return f"hc:search:party:{court}:{bench}:{registration_year}:{case_status}:{name}"
         return f"hc:search:{court}:{bench}:{name}"
     else:
         state = court_params.get("state_id", "")
@@ -365,7 +474,7 @@ def _build_search_cache_key(court_type: str, query: str, court_params: dict) -> 
 def get_cause_list(request):
     """
     GET /api/ecourts/causelist/?date=YYYY-MM-DD&high_court_id=5&bench_code=1
-        &causelist_type=daily|advocate|courtroom&query=...&court_no=...
+        &causelist_type=daily
 
     Returns cached cause list if available; otherwise 202 + job_id.
     """
@@ -377,21 +486,24 @@ def get_cause_list(request):
         hc_id = request.GET.get("high_court_id", "").strip()
         bench_code = request.GET.get("bench_code", "").strip()
         causelist_type = request.GET.get("causelist_type", "daily").strip()
-        query = request.GET.get("query", "").strip()
-        court_no = request.GET.get("court_no", "").strip()
 
         if not date:
             return JsonResponse({"error": "date query parameter is required (YYYY-MM-DD)"}, status=400)
         if not hc_id or not bench_code:
             return JsonResponse({"error": "high_court_id and bench_code are required"}, status=400)
+        if causelist_type != "daily":
+            return JsonResponse({
+                "error": "The live High Court cause-list scraper currently supports daily lists only.",
+                "supported_causelist_types": ["daily"],
+            }, status=400)
 
         params = {
             "date": date,
             "high_court_id": hc_id,
             "bench_code": bench_code,
             "causelist_type": causelist_type,
-            "query": query,
-            "court_no": court_no,
+            "query": "",
+            "court_no": "",
         }
 
         cache = EcourtsCacheManager()
@@ -471,9 +583,8 @@ def get_court_structure(request):
     try:
         from ecourts_scraper.constants import HIGH_COURT_CODES
 
-        db = _get_legaldb()
-        states = db["state_district_court_data"].distinct("state_name")
-        states.sort()
+        manager = EcourtsReferenceDataManager()
+        district_states = manager.get_district_states()
 
         high_courts = []
         for code, info in sorted(HIGH_COURT_CODES.items(), key=lambda x: x[1]["name"]):
@@ -488,7 +599,7 @@ def get_court_structure(request):
             "data": {
                 "high_courts": high_courts,
                 "district_courts": {
-                    "states": [{"name": s} for s in states],
+                    "states": district_states.get("data", []),
                 },
             },
         }, status=200)
@@ -534,14 +645,8 @@ def get_district_states(request):
     Returns all states for district courts.
     """
     try:
-        db = _get_legaldb()
-        states = db["state_district_court_data"].distinct("state_name")
-        states.sort()
-
-        return JsonResponse({
-            "status": "success",
-            "data": [{"name": s} for s in states],
-        }, status=200)
+        manager = EcourtsReferenceDataManager()
+        return _reference_response(manager.get_district_states())
 
     except Exception as e:
         logger.error(traceback.format_exc())
@@ -556,21 +661,36 @@ def get_district_by_state(request, state_name):
     Returns districts within a state.
     """
     try:
-        db = _get_legaldb()
-        districts = db["state_district_court_data"].distinct(
-            "district_name", {"state_name": state_name}
-        )
-        districts.sort()
+        manager = EcourtsReferenceDataManager()
+        doc = manager.get_districts(state_name)
 
-        if not districts:
+        if not doc.get("data"):
             return JsonResponse({"error": f"No districts found for state: {state_name}"}, status=404)
 
-        return JsonResponse({
-            "status": "success",
-            "state": state_name,
-            "data": [{"name": d} for d in districts],
-        }, status=200)
+        return _reference_response(doc, extra={"state": state_name})
 
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@supabase_required
+def get_complexes_by_district(request, state_name, district_name):
+    """
+    GET /api/ecourts/court-structure/district/states/<state>/districts/<district>/complexes/
+    Returns stored district court complexes when available, otherwise a synthetic
+    district-level fallback complex so the new frontend can keep its cascade intact.
+    """
+    try:
+        manager = EcourtsReferenceDataManager()
+        doc = manager.get_complexes(state_name, district_name)
+        if not doc.get("data"):
+            return JsonResponse(
+                {"error": f"No court complexes found for {district_name}, {state_name}"},
+                status=404,
+            )
+        return _reference_response(doc, extra={"state": state_name, "district": district_name})
     except Exception as e:
         logger.error(traceback.format_exc())
         return JsonResponse({"error": str(e)}, status=500)
@@ -584,31 +704,61 @@ def get_courts_by_district(request, state_name, district_name):
     Returns courts within a district.
     """
     try:
-        db = _get_legaldb()
-        cursor = db["state_district_court_data"].find(
-            {"state_name": state_name, "district_name": district_name},
-            {"_id": 0, "court_name": 1, "court_platform_assigned_id": 1},
-        )
-        courts = []
-        for doc in cursor:
-            courts.append({
-                "name": doc.get("court_name", ""),
-                "platform_id": doc.get("court_platform_assigned_id", ""),
-            })
-        courts.sort(key=lambda c: c["name"])
-
-        if not courts:
+        manager = EcourtsReferenceDataManager()
+        complexes_doc = manager.get_complexes(state_name, district_name)
+        complexes = complexes_doc.get("data", [])
+        if not complexes:
             return JsonResponse(
                 {"error": f"No courts found for {district_name}, {state_name}"},
                 status=404,
             )
 
-        return JsonResponse({
-            "status": "success",
-            "state": state_name,
-            "district": district_name,
-            "data": courts,
-        }, status=200)
+        primary_complex_id = str(complexes[0].get("id", ""))
+        doc = manager.get_courts(state_name, district_name, primary_complex_id)
+        if not doc.get("data"):
+            return JsonResponse(
+                {"error": f"No courts found for {district_name}, {state_name}"},
+                status=404,
+            )
+
+        return _reference_response(
+            doc,
+            extra={
+                "state": state_name,
+                "district": district_name,
+                "complex_id": primary_complex_id,
+            },
+        )
+
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@supabase_required
+def get_courts_by_complex(request, state_name, district_name, complex_code):
+    """
+    GET /api/ecourts/court-structure/district/states/<state>/districts/<district>/complexes/<complex>/courts/
+    Returns courts scoped to a selected district court complex.
+    """
+    try:
+        manager = EcourtsReferenceDataManager()
+        doc = manager.get_courts(state_name, district_name, complex_code)
+        if not doc.get("data"):
+            return JsonResponse(
+                {"error": f"No courts found for complex {complex_code} in {district_name}, {state_name}"},
+                status=404,
+            )
+
+        return _reference_response(
+            doc,
+            extra={
+                "state": state_name,
+                "district": district_name,
+                "complex_id": complex_code,
+            },
+        )
 
     except Exception as e:
         logger.error(traceback.format_exc())

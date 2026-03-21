@@ -8,6 +8,7 @@ from celery import shared_task
 
 from ecourts_scraper.agent.job_manager import JobManager
 from ecourts_scraper.constants import HC_RATE_LIMIT_PER_MIN, DC_RATE_LIMIT_PER_MIN
+from ecourts_scraper.reference_data import EcourtsReferenceDataManager
 
 logger = logging.getLogger("django")
 
@@ -129,6 +130,67 @@ def scrape_advocate_search(
             return {"status": "failed", "job_id": job_id, "error": ctx.error}
     except Exception as e:
         logger.error("scrape_advocate_search failed: %s\n%s", e, traceback.format_exc())
+        jm.fail_job(job_id, str(e))
+        return {"status": "failed", "job_id": job_id, "error": str(e)}
+    finally:
+        agent.cleanup(ctx)
+
+
+@shared_task(
+    name="ecourts_scraper.tasks.scrape_party_search",
+    queue="ecourts_realtime",
+    rate_limit="5/m",
+    max_retries=0,
+)
+def scrape_party_search(
+    job_id: str,
+    party_name: str,
+    court_type: str,
+    registration_year: str,
+    case_status: str = "both",
+    user_id: str = "",
+    **court_params,
+):
+    """Search High Court cases by petitioner/respondent name."""
+    from ecourts_scraper.agent.state_machine import ScrapeAgent, AgentContext
+    from ecourts_scraper.scrapers.highcourt import HighCourtScraper
+
+    jm = JobManager()
+    hc_rate_limiter, _ = _get_rate_limiters()
+
+    if court_type != "high_court":
+        error = "Party-name scraper search is currently available for High Court only."
+        jm.fail_job(job_id, error)
+        return {"status": "failed", "job_id": job_id, "error": error}
+
+    params = {
+        "party_name": party_name,
+        "registration_year": str(registration_year),
+        "case_status": case_status,
+        "_method": "search_party",
+    }
+    params.update(court_params)
+
+    scraper = HighCourtScraper()
+    agent = ScrapeAgent(scraper, jm)
+    ctx = AgentContext(
+        job_id=job_id,
+        scraper_name="high_court",
+        scraper_method="search_party",
+        params=params,
+        rate_limiter=hc_rate_limiter,
+    )
+
+    try:
+        result = agent.execute(ctx)
+        if result:
+            jm.complete_job(job_id, result)
+            return {"status": "completed", "job_id": job_id}
+        else:
+            jm.fail_job(job_id, ctx.error or "No result returned")
+            return {"status": "failed", "job_id": job_id, "error": ctx.error}
+    except Exception as e:
+        logger.error("scrape_party_search failed: %s\n%s", e, traceback.format_exc())
         jm.fail_job(job_id, str(e))
         return {"status": "failed", "job_id": job_id, "error": str(e)}
     finally:
@@ -343,19 +405,35 @@ def refresh_subscribed_causelists():
 
         queued = 0
         for doc in unique_courts:
-            court_name = doc["_id"]
-            if not court_name:
+            court_spec = doc["_id"]
+            if not court_spec:
+                continue
+
+            if not isinstance(court_spec, dict):
+                logger.info(
+                    "refresh_subscribed_causelists: skipping legacy subscription without scraper ids: %s",
+                    court_spec,
+                )
+                continue
+
+            high_court_id = str(court_spec.get("high_court_id", "")).strip()
+            bench_code = str(court_spec.get("bench_code", "")).strip()
+            if not high_court_id or not bench_code:
+                logger.info(
+                    "refresh_subscribed_causelists: skipping unmapped subscription payload: %s",
+                    court_spec,
+                )
                 continue
 
             job_id = jm.create_job("system", "causelist_refresh", {
-                "court": court_name, "date": today,
+                "court": court_spec, "date": today,
             })
             scrape_cause_list.apply_async(
                 kwargs={
                     "job_id": job_id,
                     "date": today,
-                    "high_court_id": "",
-                    "bench_code": "",
+                    "high_court_id": high_court_id,
+                    "bench_code": bench_code,
                     "causelist_type": "daily",
                     "user_id": "system",
                 },
@@ -496,3 +574,34 @@ def health_check_selectors():
         results["error"] = str(e)
 
     return results
+
+
+@shared_task(
+    name="ecourts_scraper.tasks.seed_reference_data",
+    queue="ecourts_background",
+)
+def seed_reference_data():
+    """
+    Materialize stitched-terminal reference datasets into MongoDB so the
+    frontend can populate dropdowns without depending on the retired partner
+    API warm-cache jobs.
+    """
+    manager = EcourtsReferenceDataManager()
+
+    seeded = {
+        "static": [],
+        "district_states": 0,
+    }
+    try:
+        for section in ("case-status", "court-orders", "cause-list", "caveat"):
+            doc = manager.get_static_section(section)
+            if doc:
+                seeded["static"].append(section)
+
+        states_doc = manager.get_district_states()
+        seeded["district_states"] = len(states_doc.get("data", []))
+        logger.info("seed_reference_data complete: %s", seeded)
+        return seeded
+    except Exception as e:
+        logger.error("seed_reference_data failed: %s\n%s", e, traceback.format_exc())
+        return {"error": str(e), **seeded}

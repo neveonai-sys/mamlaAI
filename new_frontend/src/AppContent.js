@@ -26,12 +26,14 @@ const Sessions           = lazy(() => import('./components/sessions/Sessions'));
 const Feedback           = lazy(() => import('./components/feedback/Feedback'));
 
 // eCourts sub-routes
-const EcourtsHome        = lazy(() => import('./components/ecourts/EcourtsHome'));
-const CaseSearch         = lazy(() => import('./components/ecourts/CaseSearch'));
+const EcourtsTerminal    = lazy(() => import('./components/ecourt_scrapper/EcourtsTerminal'));
+const CaseStatusTerminal = lazy(() => import('./components/ecourt_scrapper/CaseStatusTerminal'));
+const CourtOrdersTerminal = lazy(() => import('./components/ecourt_scrapper/CourtOrdersTerminal'));
+const CauseListTerminal  = lazy(() => import('./components/ecourt_scrapper/CauseListTerminal'));
+const CaveatTerminal     = lazy(() => import('./components/ecourt_scrapper/CaveatTerminal'));
 const CaseDetail         = lazy(() => import('./components/ecourts/CaseDetail'));
 const LawyerSearch       = lazy(() => import('./components/ecourts/LawyerSearch'));
 const LitigantSearch     = lazy(() => import('./components/ecourts/LitigantSearch'));
-const CauseListBrowser   = lazy(() => import('./components/ecourts/CauseListBrowser'));
 
 // ─── Public routes that skip auth check ─────────────────────────────────────
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/reset-password'];
@@ -130,12 +132,15 @@ export default function AppContent() {
             <Route path="/feedback"        element={<Feedback />} />
 
             {/* eCourts nested */}
-            <Route path="/ecourts"              element={<EcourtsHome />} />
-            <Route path="/ecourts/case-search"  element={<CaseSearch />} />
+            <Route path="/ecourts"              element={<EcourtsTerminal />} />
+            <Route path="/ecourts/case-search"  element={<CaseStatusTerminal />} />
+            <Route path="/ecourts/case-status"  element={<CaseStatusTerminal />} />
+            <Route path="/ecourts/court-orders" element={<CourtOrdersTerminal />} />
             <Route path="/ecourts/case/:cnr"    element={<CaseDetail />} />
             <Route path="/ecourts/lawyers"      element={<LawyerSearch />} />
             <Route path="/ecourts/litigants"    element={<LitigantSearch />} />
-            <Route path="/ecourts/cause-list"   element={<CauseListBrowser />} />
+            <Route path="/ecourts/cause-list"   element={<CauseListTerminal />} />
+            <Route path="/ecourts/caveat"       element={<CaveatTerminal />} />
           </Route>
         </Route>
 

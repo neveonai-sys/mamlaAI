@@ -76,3 +76,4 @@ transformers>=4.41.0
 torch>=2.1.0
 pdfminer.six>=20221105
 openai>=1.30.0
+easyocr>=1.7.2

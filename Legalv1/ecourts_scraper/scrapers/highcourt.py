@@ -4,6 +4,7 @@ Implements case lookup by CNR and advocate name search.
 """
 from __future__ import annotations
 
+import re
 import time
 import logging
 from typing import TYPE_CHECKING, Any
@@ -39,19 +40,29 @@ def _sel(name: str) -> tuple[str, str]:
 class HighCourtScraper(BaseScraper):
     """Scraper for High Court eCourts services."""
 
+    def __init__(self):
+        self._active_method = "case_by_cnr"
+
     def get_source_site(self) -> str:
         return "hcservices.ecourts.gov.in"
 
     def get_data_type(self, method: str) -> str:
         return {
             "case_by_cnr": "case_detail",
+            "search_party": "case_search",
             "search_advocate": "case_search",
-            "causelist": "causelist",
         }.get(method, "case_detail")
 
     def build_cache_key(self, method: str, params: dict) -> str:
         if method == "case_by_cnr":
             return f"hc:case:{params['cnr']}"
+        elif method == "search_party":
+            court = params.get("high_court_id", "")
+            bench = params.get("bench_code", "")
+            name = params.get("party_name", "").lower().replace(" ", "_")
+            year = params.get("registration_year", "")
+            status = params.get("case_status", "both")
+            return f"hc:search:party:{court}:{bench}:{year}:{status}:{name}"
         elif method == "search_advocate":
             court = params.get("high_court_id", "")
             bench = params.get("bench_code", "")
@@ -75,8 +86,11 @@ class HighCourtScraper(BaseScraper):
         self._dismiss_dialog(page)
 
         method = params.get("_method", "case_by_cnr")
+        self._active_method = method
         if method == "case_by_cnr":
             self._setup_cnr_form(page, params)
+        elif method == "search_party":
+            self._setup_party_form(page, params)
         elif method == "search_advocate":
             self._setup_advocate_form(page, params)
 
@@ -100,6 +114,20 @@ class HighCourtScraper(BaseScraper):
 
         adv_val, adv_by = _sel("advocate_name_link")
         click_element(page, adv_val, adv_by)
+        time.sleep(0.5)
+
+    def _setup_party_form(self, page: Page, params: dict):
+        """Select state, bench, and open party-name search form."""
+        state_val, state_by = _sel("state_select")
+        select_option(page, state_val, params["high_court_id"], state_by)
+        time.sleep(1)
+
+        court_val, court_by = _sel("court_complex_select")
+        select_option(page, court_val, params["bench_code"], court_by)
+        time.sleep(0.5)
+
+        party_val, party_by = _sel("party_name_link")
+        click_element(page, party_val, party_by)
         time.sleep(0.5)
 
     # ------------------------------------------------------------------
@@ -139,6 +167,21 @@ class HighCourtScraper(BaseScraper):
         if method == "case_by_cnr":
             cnr_val, cnr_by = _sel("cnr_input")
             fill_input(page, cnr_val, params["cnr"], cnr_by)
+        elif method == "search_party":
+            party_val, party_by = _sel("party_name_input")
+            fill_input(page, party_val, params["party_name"], party_by)
+
+            year_val, year_by = _sel("party_year_input")
+            fill_input(page, year_val, str(params["registration_year"]), year_by)
+
+            status_key = {
+                "pending": "party_status_pending",
+                "disposed": "party_status_disposed",
+                "both": "party_status_both",
+            }.get(str(params.get("case_status", "both")).lower(), "party_status_both")
+            status_val, status_by = _sel(status_key)
+            click_element(page, status_val, status_by)
+            time.sleep(1)
         elif method == "search_advocate":
             adv_val, adv_by = _sel("advocate_name_input")
             fill_input(page, adv_val, params["advocate_name"], adv_by)
@@ -148,8 +191,23 @@ class HighCourtScraper(BaseScraper):
     # Submit
     # ------------------------------------------------------------------
 
+    def _get_submit_selector(self) -> tuple[str, str]:
+        if self._active_method == "case_by_cnr":
+            return _sel("cnr_submit")
+        if self._active_method == "search_party":
+            return (
+                "//input[@type='button' and contains(@onclick, \"funShowRecords('CSpartyName')\")]",
+                "xpath",
+            )
+        if self._active_method == "search_advocate":
+            return (
+                "//input[@type='button' and contains(@onclick, \"funShowRecords('CSAdvName')\")]",
+                "xpath",
+            )
+        return _sel("submit_button")
+
     def submit_and_check(self, page: Page) -> str:
-        sub_val, sub_by = _sel("submit_button")
+        sub_val, sub_by = self._get_submit_selector()
         click_element(page, sub_val, sub_by)
         time.sleep(2)
 
@@ -178,8 +236,10 @@ class HighCourtScraper(BaseScraper):
         method = params.get("_method", "case_by_cnr")
         if method == "case_by_cnr":
             return self._parse_case_detail(page)
+        elif method == "search_party":
+            return self._parse_case_search(page)
         elif method == "search_advocate":
-            return self._parse_advocate_search(page)
+            return self._parse_case_search(page)
         return {}
 
     def _parse_case_detail(self, page: Page) -> dict:
@@ -291,17 +351,89 @@ class HighCourtScraper(BaseScraper):
             parties.append(current_party)
         return parties
 
-    def _parse_advocate_search(self, page: Page) -> dict:
-        """Parse the advocate search results table."""
+    def _parse_case_search(self, page: Page) -> dict:
+        """Parse a case-status search results table."""
         num_text = get_text_safe(
             page, HC_SELECTORS["number_of_cases"]["value"],
             HC_SELECTORS["number_of_cases"]["by"], timeout=5000
         )
-        case_list = get_table_as_dicts(page, "#dispTable", "css", timeout=5000)
+        raw_list = get_table_as_dicts(page, "#dispTable", "css", timeout=5000)
+        case_list = self._normalize_search_rows(raw_list or [])
         return {
             "number_of_cases_text": num_text or "",
             "case_list": case_list,
         }
+
+    def _normalize_search_rows(self, raw_rows: list[dict]) -> list[dict]:
+        """
+        The HC search table returns raw dicts whose keys are HTML table headers
+        containing non-breaking spaces (\u00a0).  Rows that are bench/section
+        headers look like {"sr_no": "Bench at Dharwad"}.  This method:
+        1. Detects and remembers bench-header rows to attach court_name to data rows.
+        2. Normalises the messy key names into ResultCard-compatible field names.
+        3. Splits the concatenated petitioner+Versus+respondent string.
+        """
+        normalized = []
+        current_bench = ""
+
+        for row in raw_rows:
+            if not row:
+                continue
+
+            # Strip non-breaking spaces from all keys to build a stable lookup
+            clean = {k.replace("\u00a0", " ").strip(): v for k, v in row.items()}
+
+            sr_no = clean.get("sr_no", "").strip()
+
+            # Bench / section header row: only key is sr_no and value is not a digit
+            if not sr_no.isdigit():
+                if sr_no:
+                    current_bench = sr_no
+                continue
+
+            # Find the case number field (header varies: "case type / case number / case year")
+            case_number = ""
+            for key, val in clean.items():
+                key_lower = key.lower()
+                if "case" in key_lower and ("number" in key_lower or "year" in key_lower):
+                    case_number = str(val).strip()
+                    break
+
+            if not case_number:
+                continue  # skip rows with no case identifier
+
+            # Split petitioner vs respondent from the combined parties string
+            parties_raw = clean.get(
+                "petitioner name versus respondent name",
+                clean.get("petitioner_name_versus_respondent_name", ""),
+            ).strip()
+
+            if "Versus" in parties_raw:
+                parts = parties_raw.split("Versus", 1)
+                petitioner = parts[0].strip()
+                respondent = parts[1].strip()
+            else:
+                petitioner = parties_raw
+                respondent = ""
+
+            case_title = f"{petitioner} vs {respondent}" if respondent else petitioner
+
+            # The "view" field contains an internal case ref, not a proper CNR.
+            # HC party-search does not return CNR numbers on the results page.
+            view_text = clean.get("view", "")
+
+            normalized.append({
+                "sr_no": sr_no,
+                "case_number": case_number,
+                "case_title": case_title,
+                "petitioner": petitioner,
+                "respondent": respondent,
+                "court_name": current_bench,
+                "status": "Pending",
+                "view": view_text,
+            })
+
+        return normalized
 
     # ------------------------------------------------------------------
     # Validation

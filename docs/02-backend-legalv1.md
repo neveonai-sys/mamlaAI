@@ -24,7 +24,7 @@ The backend is a **Django 5.x** project under `Legalv1/`. It exposes REST-style 
 | `api/todaysupdates/` | `todaysupdates.urls` |
 | `api/talkdoc/` | `talkdoc.urls` |
 | `api/brain/` | `mamla_brain.urls` |
-| `api/ecourts/` | `ecourts_api.urls` (direct partner API; scraper disabled) |
+| `api/ecourts/` | `ecourts_scraper.urls` (scraper-first runtime) |
 
 All user-facing API base path is effectively **`/api/`** (e.g. full path `https://<host>/api/users/check-auth/`).
 
@@ -71,8 +71,8 @@ All user-facing API base path is effectively **`/api/`** (e.g. full path `https:
 | **todaysupdates** | Court subscriptions, fetch updates (lawyer + paralegal) | MongoDB |
 | **talkdoc** | RAG: upload docs, sessions, messages | MongoDB / OpenSearch (see talkdoc app) |
 | **mamla_brain** | API-first domain reasoning framework on top of TalkDoc primitives. Supports tiered LLM routing, reusable domain prompts, external API-key auth, knowledge-base retrieval, document Q&A, and Case Companion-style structured reasoning for legal plus other configured domains such as banking or markets. | MongoDB: brain_api_keys, brain_sessions, brain_messages; OpenSearch knowledge-base indexes per domain; reuses rag_documents for uploaded source docs |
-| **ecourts_scraper** | eCourts live data via browser automation: case by CNR, search, cause list, court structure. **Currently disabled** (CAPTCHA issues). | MongoDB: ecourts_cache, ecourts_scrape_jobs, ecourts_selectors; Celery queues ecourts_realtime, ecourts_background |
-| **ecourts_api** | **Active.** Drop-in replacement for ecourts_scraper. Calls eCourts partner API directly (synchronous, no Celery). Caches in ecourts_cache. | MongoDB: ecourts_cache (shared); no Celery. Env: `ECOURT_TOKEN`. |
+| **ecourts_scraper** | **Active.** Scraper-first eCourts runtime with async jobs, Mongo cache, stored reference datasets for stitched terminal dropdowns, and Capsolver-backed CAPTCHA solving. | MongoDB: ecourts_cache, ecourts_scrape_jobs, ecourts_selectors, ecourts_reference_data; Celery queues ecourts_realtime, ecourts_background |
+| **ecourts_api** | **Deprecated reference only.** Previous partner-API implementation retained in the repo for rollback/debugging comments, not wired into runtime. | No active runtime usage. Do not depend on `ECOURT_TOKEN`. |
 | **core** | Health check view, init_clients, response_utils | N/A |
 
 See **06-ecourts-scraper.md** for eCourts architecture, APIs, and conventions.
@@ -91,6 +91,8 @@ User-related **URLs** are in `Legalv1/users/urls.py`; each path points to either
 ## Environment and Configuration
 
 - **Env file:** Project root `legalenv` (loaded via `load_dotenv(BASE_DIR / 'legalenv')` in `Legalv1/Legalv1/settings.py`).
+- Backend start scripts now fail fast if `Legalv1/legalenv` is missing or if `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`, and Mongo configuration are empty, so runtime bootstrap errors are surfaced before Django/Celery are launched in the background.
+- Env aliases currently accepted for compatibility with the checked-in `legalenv` file: `CAPSOLVER_API` is treated the same as `CAPSOLVER_API_KEY` for the scraper runtime, and TalkDoc search accepts either `RAG_OS_*` or `OPENSEARCH_*` names for OpenSearch connectivity.
 - **Important settings (names to look for in settings.py):**
   - `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`
   - `MONGO_URI`, `FRONTEND_URL` (used for redirects and Celery callbacks; default `https://mamla.ai`)

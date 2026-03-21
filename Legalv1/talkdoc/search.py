@@ -2,18 +2,21 @@ import os
 from datetime import datetime
 from opensearchpy import OpenSearch
 
-OS_HOST = os.getenv("RAG_OS_HOST", "localhost")
-OS_PORT = int(os.getenv("RAG_OS_PORT", "9200"))
-OS_USER = os.getenv("RAG_OS_USER", "admin")
-OS_PASS = os.getenv("RAG_OS_PASS", "admin")
+OS_HOST = os.getenv("RAG_OS_HOST") or os.getenv("OPENSEARCH_HOST", "localhost")
+OS_PORT = int(os.getenv("RAG_OS_PORT") or os.getenv("OPENSEARCH_PORT", "9200"))
+OS_USER = (os.getenv("RAG_OS_USER") or os.getenv("OPENSEARCH_USERNAME") or "").strip()
+OS_PASS = (os.getenv("RAG_OS_PASS") or os.getenv("OPENSEARCH_PASSWORD") or "").strip()
 INDEX = os.getenv("RAG_OS_INDEX", "rag_chunks_v1")
 
 def os_client() -> OpenSearch:
-    return OpenSearch(
-        hosts=[{'host': OS_HOST, 'port': OS_PORT}],
-        http_auth=(OS_USER, OS_PASS),
-        use_ssl=False, verify_certs=False
-    )
+    kwargs = {
+        "hosts": [{"host": OS_HOST, "port": OS_PORT}],
+        "use_ssl": False,
+        "verify_certs": False,
+    }
+    if OS_USER or OS_PASS:
+        kwargs["http_auth"] = (OS_USER, OS_PASS)
+    return OpenSearch(**kwargs)
 
 MAPPING = {
     "settings": {"index": {"knn": True}},

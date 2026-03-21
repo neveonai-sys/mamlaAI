@@ -2,6 +2,8 @@
 
 ## Overview
 
+The **scraper is the live eCourts runtime again**. `/api/ecourts/` now resolves to `ecourts_scraper`, not the older partner-token `ecourts_api` path.
+
 The **eCourts scraper** is a Django app (`ecourts_scraper`) that fetches live case data, cause lists, order PDFs, and court information from Indian government eCourts websites (High Courts and District Courts) via browser automation. It uses an **agentic architecture**: a deterministic state machine (ScrapeAgent) with CAPTCHA solving, proxy rotation, rate limiting, LLM-based self-healing, and MongoDB caching. All scraping runs asynchronously via Celery; the API returns cached data when available or queues a job and returns a `job_id` for polling.
 
 **Use this doc when:** Working on eCourts APIs, scrapers, Celery tasks for court data, cache/job collections, or frontend that consumes eCourts (case lookup, cause list, court tree, order PDFs).
@@ -36,14 +38,17 @@ Base path: **`/api/ecourts/`**. All require **Supabase** auth unless noted.
 | GET | `case/<cnr>/orders/` | Orders list from cached case data. |
 | GET | `case/<cnr>/orders/<idx>/download/` | Download order PDF (base64). Cache-first; else 202 + `job_id`. |
 | GET | `jobs/<job_id>/` | Poll async job status. When `status === "completed"`, `result` contains scraped data. |
-| POST | `search/` | Search by advocate/party. Cache-first with pagination (`page`, `page_size`). Returns 200 if cached; else 202 + `job_id`. |
-| GET | `causelist/` | Cause list for HC + date. Params: `date`, `high_court_id`, `bench_code`, optional `causelist_type`, `query`, `court_no`. Cache-first; else 202 + `job_id`. |
+| POST | `search/` | Search by advocate on HC/DC, or by party name on High Court. Cache-first with pagination (`page`, `page_size`). Returns 200 if cached; else 202 + `job_id`. |
+| GET | `causelist/` | Daily cause list for HC + date. Params: `date`, `high_court_id`, `bench_code`, optional `causelist_type=daily`. Cache-first; else 202 + `job_id`. Unsupported non-daily types return `400`. |
 | GET | `causelist/dates/` | Cached cause list dates for a court. Params: `high_court_id`, `bench_code`. |
+| GET | `reference/<section>/` | Stored module reference data for the stitched terminal UI (`case-status`, `court-orders`, `cause-list`, `caveat`). |
 | GET | `court-structure/` | Top-level tree: high courts (with benches) + district court states. Pure DB read. |
 | GET | `court-structure/high-courts/` | All high courts with benches (from constants). |
 | GET | `court-structure/district/states/` | District court states. |
 | GET | `court-structure/district/states/<state>/districts/` | Districts within a state. |
+| GET | `court-structure/district/states/<state>/districts/<district>/complexes/` | Stored or synthetic district-court complexes for dropdown cascades. |
 | GET | `court-structure/district/states/<state>/districts/<district>/courts/` | Courts within a district (with `platform_id`). |
+| GET | `court-structure/district/states/<state>/districts/<district>/complexes/<complex>/courts/` | Courts scoped to the selected complex. |
 
 Response shapes and request bodies are described in **04-api-reference.md** (eCourts section). Frontend should poll `jobs/<job_id>/` every 3-5 seconds until `status` is `completed` or `failed`.
 
@@ -55,7 +60,7 @@ Response shapes and request bodies are described in **04-api-reference.md** (eCo
 - **Layer 2 -- ScrapeAgent:** Deterministic state machine in `agent/state_machine.py`. States: CHECK_CACHE -> ACQUIRE_BROWSER -> SELECT_PROXY -> NAVIGATE -> SOLVE_CAPTCHA -> FILL_FORM -> SUBMIT -> PARSE -> VALIDATE -> CACHE_RESULT -> RETURN_RESULT. Recovery: ROTATE_PROXY, RETRY_CAPTCHA, BACKOFF, SELF_HEAL.
 - **Layer 3 -- Self-heal:** LLM-based selector recovery in `agent/self_heal.py`. When repeated selector failures occur, captures page HTML + screenshot, sends to OpenAI (`gpt-4o-mini` by default via `ECOURTS_SELF_HEAL_MODEL`), receives replacement selector, upserts into `ecourts_selectors` collection. `get_selector()` function reads from DB with fallback to `constants.py`. Up to `SELF_HEAL_MAX_RETRIES` (default 2) attempts before failing. Controlled by `ECOURTS_SELF_HEAL_ENABLED` env var.
 
-Scrapers implement `BaseScraper` in `scrapers/base.py`. Concrete: `HighCourtScraper` (hcservices.ecourts.gov.in), `DistrictCourtScraper` (services.ecourts.gov.in), `CauseListScraper` (HC cause lists). They are responsible for: `navigate`, `solve_captcha`, `refresh_captcha`, `fill_form`, `submit_and_check`, `parse_results`, `validate_result`, plus `build_cache_key` and `get_data_type`.
+Scrapers implement `BaseScraper` in `scrapers/base.py`. Concrete: `HighCourtScraper` (hcservices.ecourts.gov.in), `DistrictCourtScraper` (services.ecourts.gov.in), `CauseListScraper` (HC daily cause lists via the main HC menu plus captcha). They are responsible for: `navigate`, `solve_captcha`, `refresh_captcha`, `fill_form`, `submit_and_check`, `parse_results`, `validate_result`, plus `build_cache_key` and `get_data_type`.
 
 **Court structure** endpoints (`court-structure/`) are pure MongoDB reads from the existing `state_district_court_data` collection (populated by `update_state_district_court_data` task in `utilities/tasks.py`). High court data comes from `HIGH_COURT_CODES` in `constants.py`. No scraping involved -- reuses existing APIs and data.
 
@@ -78,6 +83,7 @@ Indexes and helpers: `ecourts_scraper/cache/collections.py`, `ensure_ecourts_ind
 - **Tasks:**
   - `scrape_case_by_cnr` -- realtime, 10/m
   - `scrape_advocate_search` -- realtime, 5/m
+  - `scrape_party_search` -- realtime, 5/m (High Court only)
   - `scrape_cause_list` -- realtime, 5/m
   - `download_order_pdf_task` -- realtime, 5/m
   - `refresh_subscribed_causelists` -- background, 2/m
@@ -99,8 +105,9 @@ Indexes and helpers: `ecourts_scraper/cache/collections.py`, `ensure_ecourts_ind
 
 - **Optional at Django import time:** `playwright`, `easyocr`, `opencv-python-headless`, `httpx`, `openai` are used only when Celery runs scraping/self-heal tasks (lazy imports). Django can start without them.
 - **Env (in project root `legalenv`):**
-  - `ECOURTS_CAPTCHA_SERVICE` -- `easyocr` (default) or `2captcha`
-  - `ECOURTS_2CAPTCHA_API_KEY` -- Required if using 2Captcha
+  - `ECOURTS_CAPTCHA_SERVICE` -- `capsolver` (preferred runtime), `easyocr`, or `2captcha`
+  - `ECOURTS_CAPSOLVER_API_KEY` / `CAPSOLVER_API_KEY` -- Active CAPTCHA secret for scraper runtime
+  - `ECOURTS_2CAPTCHA_API_KEY` -- Legacy fallback only
   - `ECOURTS_MAX_CONCURRENT_BROWSERS` -- Default 3
   - `ECOURTS_PROXY_POOL_URL` -- Optional; comma-separated or HTTP URL to proxy list
   - `ECOURTS_HC_RATE_LIMIT_PER_MIN`, `ECOURTS_DC_RATE_LIMIT_PER_MIN` -- Default 10
@@ -109,6 +116,10 @@ Indexes and helpers: `ecourts_scraper/cache/collections.py`, `ensure_ecourts_ind
   - `ECOURTS_SELF_HEAL_MODEL` -- OpenAI model for self-heal (default `gpt-4o-mini`)
   - `OPENAI_API_KEY` -- Required for self-heal (shared with TalkDoc)
   - `PLAYWRIGHT_BROWSERS_PATH` -- Optional custom browser path
+
+- **Runtime note:** keep `easyocr` installed in the active backend env even when `ECOURTS_CAPTCHA_SERVICE=capsolver`. Capsolver `ImageToTextTask` returns the OCR solution directly from `createTask`; it should not be polled with `getTaskResult`. The scraper now logs task creation details and treats the direct `createTask` response as authoritative, while EasyOCR remains the immediate local fallback when Capsolver does not return a usable result. On the High Court site, case-status and cause-list share the same page, so case-status submits must use method-specific buttons instead of the generic `.Gobtn` selector or they can collide with the visible cause-list submit control.
+
+- **Background refresh note:** the beat-driven `refresh_subscribed_causelists` task runs independently of user-triggered case-status searches. Legacy `subscribed_courts` entries that do not carry scraper ids (`high_court_id`, `bench_code`) are now skipped instead of queueing invalid cause-list scrapes that only expose hidden captcha controls and add noisy logs.
 
 ---
 
@@ -136,8 +147,8 @@ Indexes and helpers: `ecourts_scraper/cache/collections.py`, `ensure_ecourts_ind
 - **Case by CNR:** GET `case/<cnr>/`. If 200, use `data`; if 202, poll `jobs/<job_id>/` until completed then use `result`.
 - **Refresh:** POST `case/<cnr>/refresh/`, then poll `jobs/<job_id>/`.
 - **Orders:** GET `case/<cnr>/orders/` for order list. GET `case/<cnr>/orders/<idx>/download/` for PDF (base64); if 202, poll job.
-- **Search:** POST `search/` with body (include `page`, `page_size`). If 200, use `data.case_list` (paginated). If 202, poll `jobs/<job_id>/`; subsequent requests to same search will be paginated from cache.
-- **Cause list:** GET `causelist/?date=2025-03-03&high_court_id=5&bench_code=1`. If 200, use `data.entries`. If 202, poll job. Use `causelist/dates/` to show available cached dates.
+- **Search:** POST `search/` with body (include `page`, `page_size`). Advocate search works on both high courts and district courts. Party-name search currently works on High Court only and additionally requires `registration_year`; optional `case_status` accepts `pending`, `disposed`, or `both`. If 200, use `data.case_list` (paginated). If 202, poll `jobs/<job_id>/`; subsequent requests to same search will be paginated from cache.
+- **Cause list:** GET `causelist/?date=2025-03-03&high_court_id=5&bench_code=1&causelist_type=daily`. If 200, use `data.entries`. If 202, poll job. Use `causelist/dates/` to show available cached dates. The live High Court flow is daily-only for now; non-daily types return `400`.
 - **Court tree:** GET `court-structure/` for top-level; lazy-load districts/courts via nested endpoints. Use for court selector dropdowns.
 - Use existing patterns: `AxiosInstance`, Bearer token, loading state while polling, Snackbar/Alert on error.
 
@@ -212,9 +223,9 @@ Use this section to continue work without losing context. Tick off or update sta
 
 ---
 
-## eCourts Direct API (`ecourts_api`) — Temporary Replacement
+## eCourts Direct API (`ecourts_api`) — Deprecated Historical Reference
 
-The **scraper is temporarily disabled** due to CAPTCHA issues. A drop-in replacement app `ecourts_api` calls the [eCourts partner API](https://webapi.ecourtsindia.com) directly (no browser automation).
+`ecourts_api` remains in the repository only as historical fallback/reference code. It is no longer installed in Django, no longer scheduled in Celery Beat, and no longer owns `/api/ecourts/`.
 
 ### Where It Lives
 
@@ -277,7 +288,7 @@ path('api/ecourts/', include('ecourts_scraper.urls')),  # restore
 | `/ecourts/case/:cnr` | `CaseDetail` | Full case view — parties, history, orders, IAs. Back button (`navigate(-1)`). Order download via Axios blob. |
 | `/ecourts/lawyers` | `LawyerSearch` | Advocate search. Same blank-mount defaults flow (`defaults/lawyers/`). |
 | `/ecourts/litigants` | `LitigantSearch` | Litigant/party search. Same blank-mount defaults flow (`defaults/litigants/`). |
-| `/ecourts/cause-list` | `CauseListBrowser` | Hierarchy-driven cause-list search in the active MamlaAI frontend. Uses `states → districts → complexes → court numbers`, optional query modes (`q`, `advocate`, `litigant`, `judge`), and available-date chips from `causelist/dates/`. |
+| `/ecourts/cause-list` | `CauseListTerminal` | High-court daily cause-list terminal in the active MamlaAI frontend. Uses `high_court_id`, `bench_code`, and `date`, plus cached-date hints from `causelist/dates/`. Non-daily stitched modes remain visible as staged UI only. |
 
 **Blank-mount fallback priority (CaseSearch / LawyerSearch / LitigantSearch):**
 1. URL has `?q=` param → call search API directly

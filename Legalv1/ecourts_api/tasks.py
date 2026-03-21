@@ -1,5 +1,5 @@
 """
-Celery tasks for pre-populating eCourts default search results.
+Deprecated historical Celery tasks for pre-populating direct-API eCourts defaults.
 
 These tasks run on a schedule (via Celery Beat) and store one page of
 "latest" results for each eCourts section in MongoDB so that users

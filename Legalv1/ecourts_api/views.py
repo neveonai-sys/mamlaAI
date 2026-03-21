@@ -1,5 +1,5 @@
 """
-API views for eCourts direct-API integration.
+Deprecated historical API views for the eCourts direct partner integration.
 
 Drop-in replacement for ecourts_scraper views.  All responses are synchronous
 (no job polling) because the external partner API returns data immediately.

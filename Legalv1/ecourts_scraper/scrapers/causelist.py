@@ -1,18 +1,17 @@
 """
 Cause list scraper for High Court eCourts services.
-Navigates to HC cause list page, selects daily list / advocate-wise,
-and parses the resulting tables.
-
-HC cause list URL pattern:
-  https://hcservices.ecourts.gov.in/hcservices/causelist_main.php
-  (varies by high court -- some use /hcservices/causelist/ or similar)
+Navigates through the main HC services menu to the live cause-list form,
+solves the visible CAPTCHA, and parses the resulting tables.
 """
+from __future__ import annotations
+
 import time
 import logging
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import TYPE_CHECKING
 
 from ecourts_scraper.scrapers.base import BaseScraper
-from ecourts_scraper.constants import HC_CAUSELIST_BASE, HC_SELECTORS
+from ecourts_scraper.constants import HC_BASE_URL
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -23,8 +22,6 @@ from ecourts_scraper.infra.captcha import (
 )
 from ecourts_scraper.infra.parsers import (
     get_text_safe,
-    get_table_data,
-    get_table_as_dicts,
     element_exists,
     click_element,
     fill_input,
@@ -33,24 +30,29 @@ from ecourts_scraper.infra.parsers import (
 
 logger = logging.getLogger("django")
 
-CAUSELIST_URL = "https://hcservices.ecourts.gov.in/hcservices/causelist_main.php"
-
 CAUSELIST_SELECTORS = {
+    "menu": {"by": "id", "value": "leftPaneMenuCL"},
     "state_select": {"by": "id", "value": "sess_state_code"},
     "court_complex_select": {"by": "id", "value": "court_complex_code"},
-    "daily_list_radio": {"by": "xpath", "value": "//input[@value='DAILY LIST']"},
-    "advocate_wise_radio": {"by": "xpath", "value": "//input[@value='ADVOCATE WISE']"},
-    "courtroom_wise_radio": {"by": "xpath", "value": "//input[@value='COURT NO WISE']"},
     "date_input": {"by": "id", "value": "causelist_date"},
-    "advocate_input": {"by": "id", "value": "svalue"},
-    "court_no_input": {"by": "id", "value": "courtno"},
-    "search_button": {"by": "xpath", "value": '//div[@id="advsearch"]/input[2]'},
-    "result_tables": {"by": "xpath", "value": "//table"},
+    "captcha_image": {"by": "id", "value": "captcha_image"},
+    "captcha_input": {"by": "id", "value": "captcha"},
+    "refresh_captcha": {"by": "css", "value": "img.refresh-btn"},
+    "search_button": {"by": "id", "value": "butCivil"},
 }
 
 
+def _format_causelist_date(value: str) -> str:
+    if not value:
+        return ""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%d-%m-%Y")
+    except ValueError:
+        return value
+
+
 class CauseListScraper(BaseScraper):
-    """Scraper for High Court cause lists."""
+    """Scraper for High Court daily cause lists."""
 
     def get_source_site(self) -> str:
         return "hcservices.ecourts.gov.in"
@@ -62,13 +64,15 @@ class CauseListScraper(BaseScraper):
         court = params.get("high_court_id", "")
         bench = params.get("bench_code", "")
         date = params.get("date", "")
-        search_type = params.get("causelist_type", "daily")
-        query = params.get("query", "").lower().replace(" ", "_")
-        return f"hc:causelist:{court}:{bench}:{date}:{search_type}:{query}"
+        return f"hc:causelist:{court}:{bench}:{date}:daily:"
 
     def navigate(self, page: "Page", params: dict):
-        page.goto(CAUSELIST_URL, wait_until="domcontentloaded")
+        page.goto(HC_BASE_URL, wait_until="domcontentloaded")
         time.sleep(2)
+
+        menu = CAUSELIST_SELECTORS["menu"]
+        click_element(page, menu["value"], menu["by"])
+        time.sleep(1)
 
         self._dismiss_dialog(page)
 
@@ -85,62 +89,68 @@ class CauseListScraper(BaseScraper):
             select_option(page, sel["value"], bench_code, sel["by"])
             time.sleep(1)
 
+        self._dismiss_dialog(page)
+
+        # Fill date NOW — before solve_captcha — because the HC cause-list
+        # section only renders its #captcha_image after the date field is
+        # populated (JS event on the date input triggers the captcha block).
+        formatted_date = _format_causelist_date(params.get("date", ""))
+        if formatted_date:
+            sel = CAUSELIST_SELECTORS["date_input"]
+            fill_input(page, sel["value"], formatted_date, sel["by"])
+            time.sleep(1)
+
+        self._dismiss_dialog(page)
+
+    def fill_form(self, page: "Page", params: dict):
+        # Date is already filled in navigate() so the captcha renders on time.
+        # Nothing left to fill here.
+        pass
+
     def solve_captcha(self, page: "Page", attempt: int) -> bool:
-        # HC cause list pages typically don't require CAPTCHA
+        self._dismiss_dialog(page)
+        sel = CAUSELIST_SELECTORS["captcha_image"]
+        try:
+            image_bytes = extract_captcha_image_from_page(page, sel["value"], sel["by"])
+        except Exception as error:
+            logger.warning("Cause-list CAPTCHA extraction failed: %s", error)
+            return False
+
+        solution = solve_captcha(image_bytes, attempt=attempt)
+        if not solution:
+            return False
+
+        input_sel = CAUSELIST_SELECTORS["captcha_input"]
+        fill_input(page, input_sel["value"], solution, input_sel["by"])
         return True
 
     def refresh_captcha(self, page: "Page"):
-        pass
-
-    def fill_form(self, page: "Page", params: dict):
-        causelist_type = params.get("causelist_type", "daily")
-
-        if causelist_type == "advocate":
-            sel = CAUSELIST_SELECTORS["daily_list_radio"]
-            click_element(page, sel["value"], sel["by"])
-            time.sleep(1)
-
-            sel = CAUSELIST_SELECTORS["advocate_wise_radio"]
-            click_element(page, sel["value"], sel["by"])
-            time.sleep(1)
-
-            query = params.get("query", "")
-            if query:
-                sel = CAUSELIST_SELECTORS["advocate_input"]
-                fill_input(page, sel["value"], query, sel["by"])
-
-        elif causelist_type == "courtroom":
-            sel = CAUSELIST_SELECTORS["daily_list_radio"]
-            click_element(page, sel["value"], sel["by"])
-            time.sleep(1)
-
-            sel = CAUSELIST_SELECTORS["courtroom_wise_radio"]
-            click_element(page, sel["value"], sel["by"])
-            time.sleep(1)
-
-            court_no = params.get("court_no", "")
-            if court_no:
-                sel = CAUSELIST_SELECTORS["court_no_input"]
-                fill_input(page, sel["value"], court_no, sel["by"])
-
-        else:
-            sel = CAUSELIST_SELECTORS["daily_list_radio"]
-            click_element(page, sel["value"], sel["by"])
-            time.sleep(1)
-
-    def submit_and_check(self, page: "Page") -> str:
-        sel = CAUSELIST_SELECTORS["search_button"]
+        sel = CAUSELIST_SELECTORS["refresh_captcha"]
         try:
             click_element(page, sel["value"], sel["by"])
         except Exception:
             pass
+        time.sleep(1)
+
+    def submit_and_check(self, page: "Page") -> str:
+        self._dismiss_dialog(page)
+
+        sel = CAUSELIST_SELECTORS["search_button"]
+        click_element(page, sel["value"], sel["by"])
         time.sleep(3)
 
+        modal_text = self._dismiss_dialog(page)
+        if modal_text and "captcha" in modal_text.lower():
+            return "captcha_error"
+
         body_text = get_text_safe(page, "body", "css", timeout=3000) or ""
-        if "no list available" in body_text.lower():
+        lower_body = body_text.lower()
+        if "please enter captcha text" in lower_body or "invalid captcha" in lower_body:
+            return "captcha_error"
+        if "no list available" in lower_body or "no record found" in lower_body:
             return "not_found"
 
-        if element_exists(page, "table", "css", timeout=5000):
+        if element_exists(page, "#showList table, #showList2 table", "css", timeout=5000):
             return "success"
 
         return "error"
@@ -149,12 +159,12 @@ class CauseListScraper(BaseScraper):
         return self._parse_cause_list_tables(page)
 
     def _parse_cause_list_tables(self, page: "Page") -> dict:
-        """Parse cause list tables grouped by bench/court number."""
+        """Parse cause list tables grouped by bench or courtroom heading."""
         entries = []
         current_bench = None
 
         try:
-            tables = page.locator("table").all()
+            tables = page.locator("#showList table, #showList2 table").all()
         except Exception:
             return {"entries": [], "total_entries": 0}
 
@@ -166,12 +176,11 @@ class CauseListScraper(BaseScraper):
                     cells = row.locator("td").all()
 
                     if headers and len(headers) == 1:
-                        header_text = headers[0].text_content().strip()
+                        header_text = (headers[0].text_content() or "").strip()
                         if header_text:
                             current_bench = header_text
-
                     elif cells:
-                        cell_texts = [c.text_content().strip() for c in cells]
+                        cell_texts = [(cell.text_content() or "").strip() for cell in cells]
                         if any(cell_texts):
                             entry = {
                                 "bench": current_bench or "",
@@ -188,11 +197,9 @@ class CauseListScraper(BaseScraper):
                 continue
 
         grouped = {}
-        for e in entries:
-            bench = e.get("bench", "Unknown")
-            if bench not in grouped:
-                grouped[bench] = []
-            grouped[bench].append(e)
+        for entry in entries:
+            bench = entry.get("bench", "Unknown")
+            grouped.setdefault(bench, []).append(entry)
 
         result_entries = []
         for bench_name, items in grouped.items():
@@ -208,14 +215,22 @@ class CauseListScraper(BaseScraper):
         }
 
     def validate_result(self, result: dict) -> bool:
-        if not result:
-            return False
-        if "entries" in result:
-            return True
-        return False
+        return bool(result and "entries" in result)
 
-    def _dismiss_dialog(self, page: "Page"):
+    def _dismiss_dialog(self, page: "Page") -> str:
         try:
-            page.locator("button.close, .modal .close, button:has-text('OK')").first.click(timeout=2000)
+            modal = page.locator("#bs_alert")
+            if modal.count() and modal.is_visible():
+                text = (modal.inner_text(timeout=2000) or "").strip()
+                page.locator("#bs_alert button.btn-primary").click(timeout=2000)
+                time.sleep(0.5)
+                return text
         except Exception:
             pass
+
+        try:
+            page.locator("button.close, .modal .close, button:has-text('OK')").first.click(timeout=2000)
+            time.sleep(0.5)
+        except Exception:
+            pass
+        return ""

@@ -17,7 +17,16 @@ DC_CAUSELIST_BASE = "https://services.ecourts.gov.in/ecourtindia_v6/"
 # ---------------------------------------------------------------------------
 # Environment-driven configuration
 # ---------------------------------------------------------------------------
-CAPTCHA_SERVICE = os.getenv("ECOURTS_CAPTCHA_SERVICE", "easyocr")
+CAPTCHA_CAPSOLVER_KEY = (
+    os.getenv("ECOURTS_CAPSOLVER_API_KEY", "")
+    or os.getenv("CAPSOLVER_API_KEY", "")
+    or os.getenv("CAPSOLVER_API", "")
+    or os.getenv("CAPSOLVER_TOKEN", "")
+)
+CAPTCHA_SERVICE = os.getenv(
+    "ECOURTS_CAPTCHA_SERVICE",
+    "capsolver" if CAPTCHA_CAPSOLVER_KEY else "easyocr",
+)
 CAPTCHA_2CAPTCHA_KEY = os.getenv("ECOURTS_2CAPTCHA_API_KEY", "")
 MAX_CONCURRENT_BROWSERS = int(os.getenv("ECOURTS_MAX_CONCURRENT_BROWSERS", "3"))
 PROXY_POOL_URL = os.getenv("ECOURTS_PROXY_POOL_URL", "")
@@ -66,6 +75,12 @@ HC_SELECTORS = {
     "case_status_menu": {"by": "id", "value": "leftPaneMenuCS"},
     "state_select": {"by": "id", "value": "sess_state_code"},
     "court_complex_select": {"by": "id", "value": "court_complex_code"},
+    "party_name_link": {"by": "id", "value": "CSpartyName"},
+    "party_name_input": {"by": "id", "value": "petres_name"},
+    "party_year_input": {"by": "id", "value": "rgyearP"},
+    "party_status_pending": {"by": "id", "value": "radP"},
+    "party_status_disposed": {"by": "id", "value": "radD"},
+    "party_status_both": {"by": "id", "value": "radB"},
     "advocate_name_link": {"by": "id", "value": "CSAdvName"},
     "advocate_name_input": {
         "by": "xpath",

@@ -1,14 +1,16 @@
 """
 CAPTCHA solving pipeline.
-Primary: EasyOCR with image preprocessing.
-Fallback: 2Captcha API (if configured).
+Primary: Capsolver image-to-text when configured.
+Fallbacks: EasyOCR and then 2Captcha.
 """
 import base64
 import re
 import io
 import logging
+import time
 from ecourts_scraper.constants import (
     CAPTCHA_SERVICE,
+    CAPTCHA_CAPSOLVER_KEY,
     CAPTCHA_2CAPTCHA_KEY,
     CAPTCHA_LENGTH,
     CAPTCHA_MAX_OCR_RETRIES,
@@ -17,6 +19,12 @@ from ecourts_scraper.constants import (
 logger = logging.getLogger("django")
 
 _easyocr_reader = None
+
+
+def _capsolver_key_hint() -> str:
+    if not CAPTCHA_CAPSOLVER_KEY:
+        return "unset"
+    return f"...{CAPTCHA_CAPSOLVER_KEY[-6:]}"
 
 
 def _get_easyocr_reader():
@@ -121,11 +129,77 @@ def solve_captcha_2captcha(image_bytes: bytes) -> str | None:
         return None
 
 
+def solve_captcha_capsolver(image_bytes: bytes) -> str | None:
+    """Solve CAPTCHA via Capsolver image-to-text API."""
+    if not CAPTCHA_CAPSOLVER_KEY:
+        return None
+    try:
+        import requests as req
+
+        payload = {
+            "clientKey": CAPTCHA_CAPSOLVER_KEY,
+            "task": {
+                "type": "ImageToTextTask",
+                "module": "common",
+                "body": base64.b64encode(image_bytes).decode("utf-8"),
+            },
+        }
+        create_resp = req.post(
+            "https://api.capsolver.com/createTask",
+            json=payload,
+            timeout=30,
+        )
+        create_data = create_resp.json()
+        task_id = create_data.get("taskId")
+        if create_data.get("errorId"):
+            logger.warning("Capsolver createTask failed: %s", create_data)
+            return None
+
+        # ImageToTextTask returns the OCR result directly from createTask.
+        if create_data.get("status") == "ready":
+            solution = (create_data.get("solution") or {}).get("text", "")
+            solution = re.sub(r"[^A-Za-z0-9]", "", solution or "")
+            logger.info(
+                "Capsolver createTask returned direct result task_id=%s key=%s text_len=%s",
+                task_id,
+                _capsolver_key_hint(),
+                len(solution),
+            )
+            if len(solution) == CAPTCHA_LENGTH:
+                return solution
+            return solution or None
+
+        if not task_id:
+            logger.warning("Capsolver createTask returned no task_id: %s", create_data)
+            return None
+
+        logger.info(
+            "Capsolver createTask accepted task_id=%s key=%s",
+            task_id,
+            _capsolver_key_hint(),
+        )
+
+        logger.warning(
+            "Capsolver createTask did not return a direct OCR result task_id=%s response=%s",
+            task_id,
+            create_data,
+        )
+        return None
+    except Exception as e:
+        logger.warning("Capsolver solve failed: %s", e)
+        return None
+
+
 def solve_captcha(image_bytes: bytes, attempt: int = 0) -> str | None:
     """
     Unified CAPTCHA solver. Uses EasyOCR first; falls back to 2Captcha
     after CAPTCHA_MAX_OCR_RETRIES failures.
     """
+    if CAPTCHA_SERVICE == "capsolver":
+        result = solve_captcha_capsolver(image_bytes)
+        if result:
+            return result
+
     if CAPTCHA_SERVICE == "2captcha" or attempt >= CAPTCHA_MAX_OCR_RETRIES:
         result = solve_captcha_2captcha(image_bytes)
         if result:
@@ -147,6 +221,23 @@ def extract_captcha_image_from_page(page, selector_value: str, selector_by: str 
         locator = page.locator(selector_value)
     else:
         locator = page.locator(f"#{selector_value}")
+
+    # The HC website renders ALL menu sections into one DOM simultaneously,
+    # so the same element ID (e.g. #captcha_image) can match multiple elements
+    # with only one visible.  Pick the visible match to avoid strict-mode crashes
+    # and to avoid extracting bytes from a hidden/wrong section.
+    count = locator.count()
+    if count > 1:
+        for i in range(count):
+            candidate = locator.nth(i)
+            try:
+                if candidate.is_visible():
+                    locator = candidate
+                    break
+            except Exception:
+                pass
+        else:
+            locator = locator.first  # last resort: use first element
 
     locator.wait_for(state="visible", timeout=10_000)
 

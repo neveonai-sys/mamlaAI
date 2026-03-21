@@ -36,8 +36,8 @@ urlpatterns = [
     path('api/todaysupdates/', include('todaysupdates.urls')),
     path('api/talkdoc/', include('talkdoc.urls')),
     path('api/brain/', include('mamla_brain.urls')),
-    # Scraper disabled (CAPTCHA issues); using direct eCourts partner API instead.
-    # To revert: uncomment the scraper line and comment out ecourts_api.
-    # path('api/ecourts/', include('ecourts_scraper.urls')),
-    path('api/ecourts/', include('ecourts_api.urls')),
+    # Live eCourts runtime is now scraper-first and uses local CAPTCHA solving.
+    path('api/ecourts/', include('ecourts_scraper.urls')),
+    # Deprecated reference only: third-party partner API path retired from runtime.
+    # path('api/ecourts/', include('ecourts_api.urls')),
 ]

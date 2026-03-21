@@ -103,7 +103,6 @@ INSTALLED_APPS = [
     'talkdoc',
     'mamla_brain',
     'ecourts_scraper',
-    'ecourts_api',
     'corsheaders',
 ]
 
@@ -155,7 +154,7 @@ OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 
 # Default provider: 'openai' | 'openrouter'
 # Override per-deployment without touching code.
-LLM_DEFAULT_PROVIDER = os.getenv('LLM_DEFAULT_PROVIDER', 'openai')
+LLM_DEFAULT_PROVIDER = os.getenv('LLM_DEFAULT_PROVIDER')
 
 # TalkDoc flag (kept for backwards compatibility)
 TALKDOC_ENABLE_LLM = os.getenv('TALKDOC_ENABLE_LLM', '1').strip() not in ('0', 'false', 'False')
@@ -254,8 +253,9 @@ LOGGING = {
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://mamla.ai')
 
 #supabse details
-SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+SUPABASE_URL = (os.getenv('SUPABASE_URL') or '').strip()
+SUPABASE_SERVICE_ROLE_KEY = (os.getenv('SUPABASE_SERVICE_ROLE_KEY') or '').strip()
+ENCRYPTION_KEY = (os.getenv('ENCRYPTION_KEY') or '').strip()
 
 # Twilio credentials (optional if using Twilio)
 TWILIO_ACCOUNT_SID = 'your_account_sid'
@@ -291,8 +291,20 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # MONGODB
-url = f"""mongodb+srv://{os.getenv('MONGO_HOSTNAME')}:{os.getenv('MONGO_PWD')}@userdata.cshoz.mongodb.net/?retryWrites=true&w=majority&appName={os.getenv('MONGO_APPNAME')}"""
-MONGO_URI = os.getenv("MONGO_URI",url)
+mongo_uri_env = (os.getenv('MONGO_URI') or '').strip()
+mongo_hostname = (os.getenv('MONGO_HOSTNAME') or '').strip()
+mongo_password = (os.getenv('MONGO_PWD') or '').strip()
+mongo_appname = (os.getenv('MONGO_APPNAME') or '').strip()
+
+if mongo_uri_env:
+    MONGO_URI = mongo_uri_env
+elif all([mongo_hostname, mongo_password, mongo_appname]):
+    MONGO_URI = (
+        f"mongodb+srv://{mongo_hostname}:{mongo_password}"
+        f"@userdata.cshoz.mongodb.net/?retryWrites=true&w=majority&appName={mongo_appname}"
+    )
+else:
+    MONGO_URI = ''
 
 
 # Celery Configuration
@@ -356,20 +368,9 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'whatsapp_module.tasks.notify_clients_end_of_day',
         'schedule': crontab(hour=18, minute=0),
     },
-    # Pre-populate default results for eCourts landing pages
-    'ecourts-populate-case-defaults-daily': {
-        'task': 'ecourts_api.tasks.populate_case_defaults',
-        'schedule': crontab(hour=6, minute=30),  # Daily 06:30 UTC
-        'options': {'queue': 'ecourts_background'},
-    },
-    'ecourts-populate-litigant-defaults-daily': {
-        'task': 'ecourts_api.tasks.populate_litigant_defaults',
-        'schedule': crontab(hour=6, minute=35),  # Daily 06:35 UTC
-        'options': {'queue': 'ecourts_background'},
-    },
-    'ecourts-populate-lawyer-defaults-weekly': {
-        'task': 'ecourts_api.tasks.populate_lawyer_defaults',
-        'schedule': crontab(day_of_week='monday', hour=6, minute=40),  # Weekly Monday 06:40 UTC
+    'ecourts-seed-reference-data': {
+        'task': 'ecourts_scraper.tasks.seed_reference_data',
+        'schedule': crontab(hour=1, minute=15),
         'options': {'queue': 'ecourts_background'},
     },
     'ecourts-cleanup-expired-cache': {

@@ -29,8 +29,50 @@ if [ ! -x "$PYTHON_BIN" ]; then
     PYTHON_BIN=$(command -v python3 || command -v python)
 fi
 
+LEGALENV_PATH="$PROJECT_ROOT/Legalv1/legalenv"
+
 if ! "$PYTHON_BIN" -c "import django, celery" >/dev/null 2>&1; then
     echo "Error: Python environment '$PYTHON_BIN' does not have required Django/Celery modules."
+    exit 1
+fi
+
+validate_backend_env() {
+    "$PYTHON_BIN" - <<PY
+from dotenv import dotenv_values
+from pathlib import Path
+import sys
+
+cfg = dotenv_values(Path(r"$LEGALENV_PATH"))
+missing = []
+
+for key in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "ENCRYPTION_KEY"):
+    if not (cfg.get(key) or "").strip():
+        missing.append(key)
+
+mongo_uri = (cfg.get("MONGO_URI") or "").strip()
+mongo_parts = [
+    (cfg.get("MONGO_HOSTNAME") or "").strip(),
+    (cfg.get("MONGO_PWD") or "").strip(),
+    (cfg.get("MONGO_APPNAME") or "").strip(),
+]
+if not mongo_uri and not all(mongo_parts):
+    missing.append("MONGO_URI (or MONGO_HOSTNAME + MONGO_PWD + MONGO_APPNAME)")
+
+if missing:
+    print("Error: backend configuration is incomplete in Legalv1/legalenv.")
+    print("Missing or empty values:")
+    for item in missing:
+        print(f"  - {item}")
+    sys.exit(1)
+PY
+}
+
+if [ ! -f "$LEGALENV_PATH" ]; then
+    echo "Error: missing env file at $LEGALENV_PATH"
+    exit 1
+fi
+
+if ! validate_backend_env; then
     exit 1
 fi
 

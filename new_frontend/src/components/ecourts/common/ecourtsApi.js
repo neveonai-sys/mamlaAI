@@ -1,3 +1,7 @@
+// Deprecated helper surface: this file reflects the older direct-API-shaped
+// eCourts screens. New work should target the scraper-first terminal flow
+// under src/components/ecourt_scrapper and the scraper runtime at /api/ecourts/.
+
 import apiClient from '../../../services/api';
 
 const BASE = 'ecourts';

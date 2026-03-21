@@ -43,8 +43,8 @@
 | Utilities (email, state/district/court) | `Legalv1/utilities/views.py` · `Legalv1/utilities/urls.py` |
 | TalkDoc (RAG) views + URLs | `Legalv1/talkdoc/views.py` · `Legalv1/talkdoc/urls.py` |
 | Mamla Brain framework app | `Legalv1/mamla_brain/` |
-| eCourts API (ACTIVE) views + URLs | `Legalv1/ecourts_api/views.py` · `Legalv1/ecourts_api/urls.py` |
-| eCourts Scraper (DISABLED) | `Legalv1/ecourts_scraper/` — do not enable without resolving CAPTCHA |
+| eCourts Scraper (ACTIVE) views + URLs | `Legalv1/ecourts_scraper/views.py` · `Legalv1/ecourts_scraper/urls.py` |
+| eCourts direct API (DEPRECATED reference only) | `Legalv1/ecourts_api/` — keep commented/out of runtime |
 | Search views + URLs | `Legalv1/search_facility/views.py` · `Legalv1/search_facility/urls.py` |
 | Today's Updates views + URLs | `Legalv1/todaysupdates/views.py` · `Legalv1/todaysupdates/urls.py` |
 | WhatsApp webhook (do not touch) | `Legalv1/whatsapp_module/views.py` · `Legalv1/whatsapp_module/urls.py` |
@@ -61,7 +61,8 @@
 | `draft_content_data` · `user_draft_data` | create_drafts app |
 | `signup_tokens` · `feedback` | users app |
 | `state_district_court_data` | utilities app |
-| `ecourts_cache` | ecourts_api + ecourts_scraper (shared). Keys: `api:case:<cnr>`, `api:search:<hash>`, `defaults:cases`, `defaults:litigants`, `defaults:lawyers` |
+| `ecourts_cache` | ecourts_scraper cache entries (`hc:*`, `dc:*`) |
+| `ecourts_reference_data` | ecourts_scraper terminal dropdown/reference datasets |
 | `ecourts_scrape_jobs` | ecourts_scraper (disabled) |
 | `whatsapp_chat_sessions` · `service_orders` | whatsapp_module |
 
@@ -83,7 +84,7 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | `/api/todaysupdates/` | `todaysupdates` |
 | `/api/talkdoc/` | `talkdoc` |
 | `/api/brain/` | `mamla_brain` |
-| `/api/ecourts/` | `ecourts_api` (active) |
+| `/api/ecourts/` | `ecourts_scraper` (active) |
 | `/api/webhook/` | `whatsapp_module` |
 | (root) | `calendersetup` (Google Calendar OAuth) |
 
@@ -188,7 +189,7 @@ Active frontend first. `frontend_webpack/` is the previous UI only.
 | `MONGO_URI` | Backend settings | MongoDB connection string |
 | `FRONTEND_URL` | Backend settings | Used in email links, redirects (never hardcode `mamla.ai`) |
 | `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` | Backend settings | Supabase project config |
-| `ECOURT_TOKEN` | `ecourts_api` | eCourts partner API auth token |
+| `ECOURTS_CAPSOLVER_API_KEY` / `CAPSOLVER_API_KEY` | `ecourts_scraper` | Capsolver token for CAPTCHA solving |
 | `BRAIN_T1_MODEL` · `BRAIN_T2_MODEL` · `BRAIN_T3_MODEL` | Backend settings | Mamla Brain tiered model routing |
 | `BRAIN_MONTHLY_FREE_QUOTA` | Backend settings | Default external Brain API-key quota |
 | `REDIS_URL` | Backend settings | Redis broker + cache |
@@ -226,7 +227,7 @@ Frontend env is injected by Webpack DefinePlugin in `webpack.prod.js`.
 
 Beat tasks (in `Legalv1/Legalv1/settings.py`):
 - `ecourts_scraper`: cache cleanup (4AM), health-check selectors (3AM), refresh causelists (6:30/12:30/18:30), refresh tracked cases (2AM)
-- `ecourts_api.tasks`: `populate_case_defaults` (daily 6:30AM), `populate_litigant_defaults` (daily 6:35AM), `populate_lawyer_defaults` (weekly Monday 6:40AM)
+- `ecourts_scraper.tasks`: `seed_reference_data` (daily 1:15AM), cache cleanup (4AM), health-check selectors (3AM), refresh causelists (6:30/12:30/18:30), refresh tracked cases (2AM)
 - `utilities.tasks`: fetch today's meetings (6AM), hourly reminders, cleanup previous-day index (23:59), consolidated reminders (6PM)
 - `users.tasks`: cleanup/invalidate sessions (every 5min/15min/weekly)
 - `whatsapp_module.tasks`: assign orders (9PM), paralegal reminders (every 2h), notify clients (6PM)
@@ -237,7 +238,7 @@ Beat tasks (in `Legalv1/Legalv1/settings.py`):
 
 | Thing | Status | Reason |
 |-------|--------|--------|
-| `ecourts_scraper` app | **Disabled** | CAPTCHA blocking browser automation. `ecourts_api` is the active replacement. |
+| `ecourts_api` app | **Deprecated reference only** | Keep code for historical rollback/debugging, but do not wire it into runtime, Beat, or frontend helpers. |
 | WhatsApp module | **Unchanged** | Low priority; to be refactored later. Do not touch. |
 | `src/components/unused/` | **Not in routes** | Deprecated; safe to delete but kept for reference. |
 | `models.py` files in apps | **Commented out** | Apps use raw MongoDB. Do not add ORM models. |

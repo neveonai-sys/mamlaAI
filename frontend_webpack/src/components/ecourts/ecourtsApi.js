@@ -1,3 +1,7 @@
+// Deprecated helper surface: legacy frontend_webpack eCourts integration.
+// Keep only as historical reference while the active app moves to the
+// scraper-first terminal flow and drops the retired partner API path.
+
 import AxiosInstance from '../common/AxiosInstance';
 
 const BASE = 'ecourts';

@@ -12,6 +12,7 @@ DB_NAME = "legaldb"
 COLLECTION_ECOURTS_CACHE = "ecourts_cache"
 COLLECTION_SCRAPE_JOBS = "ecourts_scrape_jobs"
 COLLECTION_SELECTORS = "ecourts_selectors"
+COLLECTION_REFERENCE_DATA = "ecourts_reference_data"
 
 
 def get_db():
@@ -28,6 +29,10 @@ def get_jobs_collection():
 
 def get_selectors_collection():
     return get_db()[COLLECTION_SELECTORS]
+
+
+def get_reference_collection():
+    return get_db()[COLLECTION_REFERENCE_DATA]
 
 
 def ensure_ecourts_indexes():
@@ -59,6 +64,13 @@ def ensure_ecourts_indexes():
             sel_col.create_index(
                 [("site", 1), ("page", 1), ("element", 1)], unique=True
             )
+
+        ref_col = db[COLLECTION_REFERENCE_DATA]
+        existing = ref_col.index_information()
+        if "reference_key_1" not in existing:
+            ref_col.create_index([("reference_key", 1)], unique=True)
+        if "scope_1_refreshed_at_-1" not in existing:
+            ref_col.create_index([("scope", 1), ("refreshed_at", -1)])
 
         logger.info("eCourts indexes created/verified")
     except Exception as e:
