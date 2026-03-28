@@ -1,32 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { getReferenceSection } from './api';
+const CAVEAT_MODES = [
+  { id: 'petitioner', label: 'Caveat by Petitioner' },
+  { id: 'case_number', label: 'Caveat by Case Number' },
+  { id: 'advocate', label: 'Caveat by Advocate' },
+];
 
 export default function CaveatTerminal() {
   const navigate = useNavigate();
-  const [reference, setReference] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadReference() {
-      try {
-        const response = await getReferenceSection('caveat');
-        if (!active) return;
-        setReference(response.data?.data || null);
-      } catch (requestError) {
-        if (!active) return;
-        setError(requestError.response?.data?.error || 'Unable to load caveat terminal metadata.');
-      }
-    }
-
-    loadReference();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   return (
     <div className="p-8 max-w-5xl">
@@ -48,15 +30,11 @@ export default function CaveatTerminal() {
           </button>
         </div>
 
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-        ) : null}
-
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {(reference?.search_modes || []).map((mode) => (
+          {CAVEAT_MODES.map((mode) => (
             <div key={mode.id} className="rounded-[24px] border border-primary/10 bg-background-light p-5">
               <p className="text-lg font-black text-ink">{mode.label}</p>
-              <p className="mt-2 text-sm text-slate-500">Reference mode id: {mode.id}</p>
+              <p className="mt-2 text-sm text-slate-500">Mode: {mode.id}</p>
             </div>
           ))}
         </div>

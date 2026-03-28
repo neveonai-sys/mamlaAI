@@ -16,6 +16,10 @@ hiredis>=2.2.3
 # Search
 opensearch-py>=2.0.0
 
+# Agentic workflow
+langgraph>=1.1.0
+langchain-core>=1.2.0
+
 # Async
 celery[redis]>=5.2.7
 gevent>=21.12.0

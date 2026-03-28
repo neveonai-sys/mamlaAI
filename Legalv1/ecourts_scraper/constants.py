@@ -9,7 +9,13 @@ import os
 # Target site URLs
 # ---------------------------------------------------------------------------
 HC_BASE_URL = "https://hcservices.ecourts.gov.in/hcservices/main.php"
+
+# DC_BASE_URL is the homepage; CNR form is the DEFAULT view here (no menu click).
+# ?p=cnr_status/searchByCNR/ is the AJAX submission endpoint only — not a page.
+# Clicking #leftPaneMenuCS opens the Case Status / advocate panel (replaces CNR form).
 DC_BASE_URL = "https://services.ecourts.gov.in/ecourtindia_v6/"
+# Dedicated CNR search page — has the CNR form directly, no tab/menu clicks needed
+DC_CNR_URL = "https://services.ecourts.gov.in/ecourtindia_v6/?p=cnr_status/searchByCNR/"
 
 HC_CAUSELIST_BASE = "https://hcservices.ecourts.gov.in/hcservices/"
 DC_CAUSELIST_BASE = "https://services.ecourts.gov.in/ecourtindia_v6/"
@@ -135,10 +141,10 @@ DC_SELECTORS = {
     "cnr_input": {"by": "id", "value": "cino"},
     "cnr_captcha_image": {
         "by": "xpath",
-        "value": '//div[@id="div_captcha_cino"]//img[@id="captcha_image"]',
+        "value": '//div[@id="div_captcha_cnr"]//img[@id="captcha_image"]',
     },
-    "cnr_captcha_input": {"by": "id", "value": "cino_captcha_code"},
-    "cnr_submit": {"by": "id", "value": "searchCino"},
+    "cnr_captcha_input": {"by": "id", "value": "fcaptcha_code"},
+    "cnr_submit": {"by": "id", "value": "searchbtn"},
     "invalid_captcha_dialog": {
         "by": "xpath",
         "value": '/html/body/div[9]/div/div/div[1]/button',

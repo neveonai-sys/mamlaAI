@@ -208,10 +208,42 @@ def solve_captcha(image_bytes: bytes, attempt: int = 0) -> str | None:
     return solve_captcha_ocr(image_bytes)
 
 
+def _fetch_captcha_via_src(page, locator) -> bytes | None:
+    """
+    Fetch captcha bytes by reading the img src attribute and downloading it
+    using the browser's current cookies.  Works even when the img element
+    is inside a hidden container (display:none ancestor).
+    Returns None if src is unavailable or fetch fails.
+    """
+    try:
+        src = locator.get_attribute("src", timeout=5_000)
+        if not src:
+            return None
+        # Resolve relative URLs against the current page origin
+        abs_url = page.evaluate(
+            "(src) => new URL(src, document.location.href).href", src
+        )
+        # Use the browser context's request so it carries the page's session cookies.
+        # page.request is a global unauthenticated context; page.context.request shares cookies.
+        response = page.context.request.get(abs_url, timeout=10_000)
+        if response.ok:
+            return response.body()
+    except Exception as e:
+        logger.debug("captcha src-fetch failed: %s", e)
+    return None
+
+
 def extract_captcha_image_from_page(page, selector_value: str, selector_by: str = "id") -> bytes:
     """
     Extract CAPTCHA image bytes from a Playwright page element.
-    Uses canvas rendering to get the actual displayed image.
+
+    Strategy:
+    1. Try to locate the element (attached, not necessarily visible).
+    2. Attempt canvas-render (requires visibility).
+    3. Fall back to fetching the image via its src URL using the page's cookies.
+       This works even when the img is inside a display:none ancestor, which
+       happens on DC pages where the captcha div is hidden until a tab click
+       that the scraper may not have triggered yet.
     """
     if selector_by == "id":
         locator = page.locator(f"#{selector_value}")
@@ -224,8 +256,7 @@ def extract_captcha_image_from_page(page, selector_value: str, selector_by: str 
 
     # The HC website renders ALL menu sections into one DOM simultaneously,
     # so the same element ID (e.g. #captcha_image) can match multiple elements
-    # with only one visible.  Pick the visible match to avoid strict-mode crashes
-    # and to avoid extracting bytes from a hidden/wrong section.
+    # with only one visible.  Pick the visible match where possible.
     count = locator.count()
     if count > 1:
         for i in range(count):
@@ -237,18 +268,35 @@ def extract_captcha_image_from_page(page, selector_value: str, selector_by: str 
             except Exception:
                 pass
         else:
-            locator = locator.first  # last resort: use first element
+            locator = locator.first
 
-    locator.wait_for(state="visible", timeout=10_000)
+    # Wait for the element to be attached to the DOM (not necessarily visible).
+    # We handle the hidden case via src-fetch below.
+    locator.wait_for(state="attached", timeout=10_000)
 
-    b64_data = page.evaluate(
-        """(el) => {
-            const cnv = document.createElement('canvas');
-            cnv.width = el.width + 100;
-            cnv.height = el.height + 100;
-            cnv.getContext('2d').drawImage(el, 0, 0);
-            return cnv.toDataURL('image/png').split(',')[1];
-        }""",
-        locator.element_handle(),
+    # Try canvas render first (only works when element is visible)
+    if locator.is_visible():
+        try:
+            b64_data = page.evaluate(
+                """(el) => {
+                    const cnv = document.createElement('canvas');
+                    cnv.width = el.width + 100;
+                    cnv.height = el.height + 100;
+                    cnv.getContext('2d').drawImage(el, 0, 0);
+                    return cnv.toDataURL('image/png').split(',')[1];
+                }""",
+                locator.element_handle(),
+            )
+            return base64.b64decode(b64_data)
+        except Exception as e:
+            logger.debug("canvas captcha render failed, falling back to src-fetch: %s", e)
+
+    # Element is hidden — fetch via src URL using the page's cookie session
+    data = _fetch_captcha_via_src(page, locator)
+    if data:
+        return data
+
+    raise RuntimeError(
+        f"Could not extract captcha image for selector '{selector_value}': "
+        "element is hidden and src-fetch also failed"
     )
-    return base64.b64decode(b64_data)

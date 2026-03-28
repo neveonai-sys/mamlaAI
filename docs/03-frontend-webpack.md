@@ -115,12 +115,18 @@ The active scraper-first eCourts shell lives under `mamlaAI_ground_zero/frontend
 | `/ecourts` | `EcourtsTerminal` | Terminal landing with scraper/runtime status, module entry cards, and an actionable quick CNR lookup |
 | `/ecourts/case-status` | `CaseStatusTerminal` | New stitched case-status surface. CNR open + advocate search are live on both courts; High Court party-name search is also live; the remaining stitched tabs are explicitly staged |
 | `/ecourts/case-search` | `CaseStatusTerminal` | Compatibility alias for the new case-status surface |
-| `/ecourts/court-orders` | `CourtOrdersTerminal` | CNR-driven order access from cached scraper case data |
+| `/ecourts/court-orders` | `CourtOrdersTerminal` | Court-order terminal with party/case-number/court-number/order-date modes and authenticated PDF download from returned `pdf_params` |
 | `/ecourts/cause-list` | `CauseListTerminal` | High-court daily cause-list flow. Non-daily stitched variants remain staged until the current selectors are re-verified |
 | `/ecourts/caveat` | `CaveatTerminal` | Terminal placeholder for caveat modes; reference data is live, scraper selectors are pending |
 | `/ecourts/case/:cnr` | `CaseDetail` | Existing case-detail screen reused against the scraper runtime |
 | `/ecourts/lawyers` | `LawyerSearch` | Older screen retained temporarily as deprecated reference UI |
 | `/ecourts/litigants` | `LitigantSearch` | Older screen retained temporarily as deprecated reference UI |
+
+### eCourts terminal behavior notes
+
+- In `CourtOrdersTerminal`, by-order-date sends browser date values and relies on backend normalization to eCourts-compatible `DD-MM-YYYY`.
+- Back/forward navigation now restores the location cascade state (`state`, `district`, `complex`, `establishment`) in `CaseStatusTerminal`, `CauseListTerminal`, and `CourtOrdersTerminal` from sessionStorage.
+- Court-order PDF download should use backend-provided `session_cookies` and `pdf_params`; if partner-side file hosting is unavailable, backend returns a clear `404` message.
 
 ## Theme Direction
 

@@ -284,10 +284,74 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 
 ## eCourts (`/api/ecourts/`)
 
-**Currently active module:** `ecourts_scraper/views.py`. All `@supabase_required`.  
-**Deprecated reference only:** `ecourts_api/` (partner API).  
-**URL config:** `Legalv1/ecourts_scraper/urls.py`.  
-**Detail doc:** See **06-ecourts-scraper.md** for both modules.
+**Active v2 module:** `ecourt_scrapped/views.py` — registered at `/api/ecourts/v2/`. All `@supabase_required`.  
+**URL config:** `Legalv1/ecourt_scrapped/urls.py`.  
+**Master data** (states/districts/…) cached in MongoDB `ecourts_master_data`. Seed via `POST /api/ecourts/v2/seed/` or `python manage.py seed_ecourts_hierarchy`.  
+**Deprecated (old v1):** `ecourts_scraper/views.py` at `/api/ecourts/` — do not add new features here.
+
+### v2 Dropdown / Master Data
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET  | `v2/health/` | Supabase | FastAPI scraper connectivity check |
+| GET  | `v2/states/` | Supabase | All 37 states `[{name, code}]` — read-through cache in MongoDB |
+| POST | `v2/districts/` | Supabase | Districts for a state `{state_code}` |
+| POST | `v2/complexes/` | Supabase | Court complexes `{state_code, dist_code}` |
+| POST | `v2/establishments/` | Supabase | Establishments `{state_code, dist_code, court_complex_code}` |
+| POST | `v2/courts/` | Supabase | Courts `{state_code, dist_code, court_complex_code, est_code}` |
+| POST | `v2/police-stations/` | Supabase | Police stations (FIR search) |
+| POST | `v2/order-case-types/` | Supabase | Case types for court-order search |
+| POST | `v2/order-court-numbers/` | Supabase | Court numbers for court-order search |
+| POST | `v2/seed/` | Supabase | Seed states immediately; enqueue district seeding if `seed_districts: true` |
+
+### v2 Case Search (Flow C)
+
+| Method | Path | Body fields | Description |
+|--------|------|-------------|-------------|
+| POST | `v2/casestatus/by-party/` | state_code, dist_code, court_complex_code, est_code, party_name | Search by party name |
+| POST | `v2/casestatus/by-filing/` | + filing_number, registration_year, case_type | By filing number |
+| POST | `v2/casestatus/by-advocate/` | + advocate_name / advocate_code / enrollment_number | By advocate |
+| POST | `v2/casestatus/by-fir/` | + police_station_code, fir_year, fir_number | By FIR |
+
+### v2 Cause List (Flow B)
+
+| Method | Path | Body fields | Description |
+|--------|------|-------------|-------------|
+| POST | `v2/causelist/fetch/` | state_code, dist_code, court_complex_code, est_code, court_no, court_name, date, list_type (civil|criminal) | Fetch cause list |
+
+### v2 Court Orders (Flow D)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `v2/courtorder/by-party/` | Orders by party name |
+| POST | `v2/courtorder/by-case-number/` | Orders by case number + case type |
+| POST | `v2/courtorder/by-court-number/` | Orders by court number |
+| POST | `v2/courtorder/by-order-date/` | Orders by date range |
+
+#### v2 Court Orders Contract Notes
+
+- `est_code` is optional for `v2/courtorder/by-court-number/` and `v2/courtorder/by-order-date/`.
+- `from_date` and `to_date` can be sent as `YYYY-MM-DD` (frontend date input) or `DD-MM-YYYY`; the scraper normalizes to eCourts-compatible `DD-MM-YYYY`.
+- For `v2/courtorder/by-order-date/`, the upstream eCourts form contract uses `fradorderdt` + `orderflagvalorderdt` and captcha field `order_date_captcha_code`.
+- For `v2/courtorder/by-court-number/`, use the encoded value returned by `POST v2/order-court-numbers/` (example format: `4$1^2015-10-05^2016-08-31`).
+- Court-order PDF download behavior: partner-side "file not uploaded" responses are surfaced as HTTP `404`; expired/invalid partner sessions return `422` and require re-running search.
+
+### v2 Direct Lookup (Flow A / Shared)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `v2/cnr/search/` | Case by CNR (16-char) |
+| POST | `v2/case/by-cino/` | Case by CINO |
+| POST | `v2/case/from-url/` | Case from eCourts URL |
+| POST | `v2/case/history/` | Case history |
+| POST | `v2/case/detail/` | Case detail |
+| GET  | `v2/case/order-pdf/` | Download order PDF |
+
+---
+
+### Legacy: Scraper-first Runtime (`ecourts_scraper`) — deprecated
+
+Registered at `/api/ecourts/` (no v2 prefix). Do **not** add new features here.
 
 ### Active: Scraper-first Runtime (`ecourts_scraper`)
 

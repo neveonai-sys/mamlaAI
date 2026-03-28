@@ -77,17 +77,30 @@ def element_exists(page: "Page", selector: str, by: str = "css", timeout: int = 
 
 
 def click_element(page: "Page", selector: str, by: str = "css", timeout: int = 10_000):
-    """Click an element, scrolling into view first."""
+    """Click an element. Falls back to force-click if scroll_into_view fails (hidden ancestor)."""
     locator = _get_locator(page, selector, by)
-    locator.scroll_into_view_if_needed()
-    locator.click(timeout=timeout)
+    try:
+        locator.scroll_into_view_if_needed(timeout=5_000)
+        locator.click(timeout=timeout)
+    except Exception:
+        # Element exists but has a hidden ancestor — use force so Playwright
+        # skips actionability checks (scroll, visibility, stable).
+        locator.click(force=True, timeout=timeout)
 
 
 def fill_input(page: "Page", selector: str, value: str, by: str = "css", timeout: int = 10_000):
-    """Clear and fill an input field."""
+    """Clear and fill an input field. Falls back to force-fill if element has hidden ancestor."""
     locator = _get_locator(page, selector, by)
-    locator.wait_for(state="visible", timeout=timeout)
-    locator.fill(value)
+    try:
+        locator.wait_for(state="visible", timeout=5_000)
+        locator.fill(value)
+    except Exception:
+        # Element exists but not visible — fill via evaluate to bypass checks.
+        locator.evaluate(
+            "(el, v) => { el.value = v; el.dispatchEvent(new Event('input', {bubbles:true})); "
+            "el.dispatchEvent(new Event('change', {bubbles:true})); }",
+            value,
+        )
 
 
 def select_option(page: "Page", selector: str, value: str, by: str = "css", timeout: int = 10_000):

@@ -25,6 +25,7 @@ The backend is a **Django 5.x** project under `Legalv1/`. It exposes REST-style 
 | `api/talkdoc/` | `talkdoc.urls` |
 | `api/brain/` | `mamla_brain.urls` |
 | `api/ecourts/` | `ecourts_scraper.urls` (scraper-first runtime) |
+| `api/ecourts/v2/` | `ecourt_scrapped.urls` (Django proxy to FastAPI scraper) |
 
 All user-facing API base path is effectively **`/api/`** (e.g. full path `https://<host>/api/users/check-auth/`).
 
@@ -71,11 +72,21 @@ All user-facing API base path is effectively **`/api/`** (e.g. full path `https:
 | **todaysupdates** | Court subscriptions, fetch updates (lawyer + paralegal) | MongoDB |
 | **talkdoc** | RAG: upload docs, sessions, messages | MongoDB / OpenSearch (see talkdoc app) |
 | **mamla_brain** | API-first domain reasoning framework on top of TalkDoc primitives. Supports tiered LLM routing, reusable domain prompts, external API-key auth, knowledge-base retrieval, document Q&A, and Case Companion-style structured reasoning for legal plus other configured domains such as banking or markets. | MongoDB: brain_api_keys, brain_sessions, brain_messages; OpenSearch knowledge-base indexes per domain; reuses rag_documents for uploaded source docs |
+| **ecourt_scrapped** | **Active for eCourts v2 in MamlaAI terminals.** Django proxy layer for dropdown/master-data APIs and court-order/case-status/cause-list requests forwarded to the standalone FastAPI scraper service. | MongoDB: ecourts_master_data, ecourts_states, ecourts_districts; service modules in `services/scraper_client.py`, `services/master_data.py`, `services/ecourts_crawler.py` |
 | **ecourts_scraper** | **Active.** Scraper-first eCourts runtime with async jobs, Mongo cache, stored reference datasets for stitched terminal dropdowns, and Capsolver-backed CAPTCHA solving. | MongoDB: ecourts_cache, ecourts_scrape_jobs, ecourts_selectors, ecourts_reference_data; Celery queues ecourts_realtime, ecourts_background |
 | **ecourts_api** | **Deprecated reference only.** Previous partner-API implementation retained in the repo for rollback/debugging comments, not wired into runtime. | No active runtime usage. Do not depend on `ECOURT_TOKEN`. |
 | **core** | Health check view, init_clients, response_utils | N/A |
 
 See **06-ecourts-scraper.md** for eCourts architecture, APIs, and conventions.
+
+### eCourts v2 Notes (Current)
+
+- `ecourt_scrapped` is the Django API surface used by MamlaAI eCourts terminal screens under `/api/ecourts/v2/`.
+- FastAPI scraper requests are proxied through `services/scraper_client.py`; dropdown hierarchy data is read-through cached in Mongo via `services/master_data.py`.
+- Court-order-by-date now uses the original eCourts POST parameter names (`fradorderdt`, `orderflagvalorderdt`, `order_date_captcha_code`) and the per-tab captcha namespace.
+- Court-order-by-date input accepts browser `YYYY-MM-DD` and forwards normalized `DD-MM-YYYY` to eCourts.
+- `est_code` is optional for v2 order-date and court-number flows.
+- Court-number options for order search are sourced from the FastAPI `courtorder/court-numbers` endpoint to preserve the required encoded value format (for example `4$1^from^to`).
 
 ---
 

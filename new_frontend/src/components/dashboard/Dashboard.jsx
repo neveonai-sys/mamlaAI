@@ -323,9 +323,9 @@ export default function Dashboard() {
                   </tr>
                 ))
               ) : recentDrafts.length > 0 ? (
-                recentDrafts.map((draft) => (
+                recentDrafts.map((draft, i) => (
                   <tr
-                    key={draft.session_id || draft.draft_name}
+                    key={draft.session_id || draft.draft_name || i}
                     className="hover:bg-primary/5 cursor-pointer transition-colors"
                     onClick={() => navigate(draft.session_id ? `/drafting/${draft.session_id}` : '/drafting')}
                   >

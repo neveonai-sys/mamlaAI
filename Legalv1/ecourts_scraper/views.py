@@ -353,6 +353,8 @@ def get_case_orders(request, cnr):
     """
     GET /api/ecourts/case/<cnr>/orders/
     Returns the orders list from cached case data.
+    If the case is not cached, queues a scrape job (same as /case/<cnr>/) and returns 202.
+    Orders are embedded in the case result by the scraper; no separate scrape needed.
     """
     try:
         cnr = cnr.strip().upper()
@@ -370,9 +372,29 @@ def get_case_orders(request, cnr):
                 break
 
         if not case_data:
+            # Case not cached yet — reuse an already-running job or create a new one.
+            # Deduplicates: CaseDetail fires getCaseByCnr + getCaseOrders simultaneously;
+            # without this check both would spawn separate browser scrapes for the same CNR.
+            supa_user = request.supabase_user
+            user_id = supa_user.get("user_id", "")
+            from ecourts_scraper.tasks import scrape_case_by_cnr
+            jm = JobManager()
+            existing = jm._col.find_one(
+                {"user_id": user_id, "type": "case_by_cnr", "params.cnr": cnr,
+                 "status": {"$in": ["queued", "processing"]}},
+                sort=[("created_at", -1)],
+            )
+            if existing:
+                job_id = existing["_id"]
+            else:
+                job_id = jm.create_job(user_id, "case_by_cnr", {"cnr": cnr})
+                scrape_case_by_cnr.delay(job_id, cnr, user_id)
             return JsonResponse({
-                "error": "Case not found in cache. Fetch the case first via GET /api/ecourts/case/<cnr>/",
-            }, status=404)
+                "status": "pending",
+                "job_id": job_id,
+                "message": "Case not cached yet. Scrape queued — poll /api/ecourts/jobs/<job_id>/ then retry.",
+                "estimated_seconds": 30,
+            }, status=202)
 
         orders = case_data.get("orders", [])
         return JsonResponse({

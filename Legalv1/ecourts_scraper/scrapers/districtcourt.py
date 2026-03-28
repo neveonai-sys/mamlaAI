@@ -1,6 +1,47 @@
 """
-District Court scraper for services.ecourts.gov.in.
-Implements case lookup by CNR and advocate name search.
+District Court scraper — services.ecourts.gov.in
+
+=== VERIFIED PAGE STRUCTURE (do NOT change without re-verifying live) ===
+
+Base URL: https://services.ecourts.gov.in/ecourtindia_v6/
+
+--- CNR SEARCH ---
+• The CNR search form is the DEFAULT view on the base URL (homepage).
+  No menu click is needed — div#div_captcha_cnr is already in the DOM.
+• DO NOT click #leftPaneMenuCS before CNR search — that opens the
+  Case Status / advocate panel and REPLACES the CNR form.
+• Captcha container  : div#div_captcha_cnr  (may have hidden ancestor)
+• Captcha image      : img#captcha_image inside div#div_captcha_cnr
+• Captcha input      : input#fcaptcha_code
+• Submit button      : button#searchbtn  (calls funViewCinoHistory() via JS)
+• CNR input          : input#cino
+• AJAX endpoint only : ?p=cnr_status/searchByCNR/ — NOT a page with a form
+• Outcome detection  : URL does not change; results inject into DOM via AJAX.
+  Use wait_for_load_state('networkidle') after clicking #searchbtn.
+
+--- ADVOCATE / PARTY SEARCH ---
+• Click #leftPaneMenuCS to open Case Status panel (advocate form).
+• Select state → wait for district dropdown populated (>1 option)
+• Select district  → wait for court complex dropdown populated (>1 option)
+• Select court complex → wait_for_load_state('networkidle') — heavy AJAX reload
+• Then click #advname-tabMenu to switch to advocate tab
+• Captcha container  : div#div_captcha_adv  (verify live if broken)
+• Captcha image      : img#captcha_image inside div#div_captcha_adv
+• Captcha input      : input#adv_captcha_code
+• Submit button      : .Gobtn (CSS)
+
+--- CAPTCHA IMAGE EXTRACTION ---
+• Canvas-render approach requires the img to be visible.
+• If the img is hidden (display:none ancestor), use _fetch_captcha_via_src():
+  reads img.src attribute, fetches bytes via page.request.get() (shares cookies).
+  This is implemented in ecourts_scraper/infra/captcha.py.
+
+--- CNR/ADVOCATE DETECTION AT RUNTIME ---
+• page._mamla_is_cnr flag is set in navigate() before any form interaction.
+  This is the single source of truth for which flow is active — do not use
+  URL inspection or DOM probing, both are unreliable after AJAX navigation.
+
+=== END VERIFIED STRUCTURE ===
 """
 from __future__ import annotations
 
@@ -62,29 +103,39 @@ class DistrictCourtScraper(BaseScraper):
     # Navigation
     # ------------------------------------------------------------------
 
+    def _is_cnr_page(self, page: Page) -> bool:
+        """True when this browser session is doing a CNR lookup.
+        We store a flag on the page object to avoid URL-parsing after AJAX
+        navigation changes page.url to the submission endpoint.
+        """
+        return getattr(page, "_mamla_is_cnr", False)
+
     def navigate(self, page: Page, params: dict):
+        method = params.get("_method", "case_by_cnr")
         page.goto(DC_BASE_URL, wait_until="domcontentloaded")
         time.sleep(2)
-
         self._dismiss_dialog(page)
 
-        method = params.get("_method", "case_by_cnr")
         if method == "case_by_cnr":
+            page._mamla_is_cnr = True
             self._setup_cnr_form(page, params)
-        elif method == "search_advocate":
+        else:
+            page._mamla_is_cnr = False
             self._setup_advocate_form(page, params)
 
     def _setup_cnr_form(self, page: Page, params: dict):
-        val, by = _sel("case_status_menu")
-        click_element(page, val, by)
-        time.sleep(1)
-        self._dismiss_dialog(page)
-
+        # The CNR search form (div#div_captcha_cnr) is the DEFAULT view on the
+        # base URL — it is already visible without any menu click.
+        # Clicking #leftPaneMenuCS opens the Case Status / advocate panel and
+        # REPLACES the CNR form, so we must NOT click any menu here.
         try:
-            click_element(page, DC_SELECTORS["cnr_tab"]["value"], DC_SELECTORS["cnr_tab"]["by"], timeout=5000)
+            page.wait_for_selector(
+                '#div_captcha_cnr img#captcha_image',
+                state="attached",
+                timeout=20_000,
+            )
         except Exception:
-            pass
-        time.sleep(0.5)
+            time.sleep(2)
 
     def _setup_advocate_form(self, page: Page, params: dict):
         val, by = _sel("case_status_menu")
@@ -94,34 +145,62 @@ class DistrictCourtScraper(BaseScraper):
 
         state_val, state_by = _sel("state_select")
         select_option(page, state_val, params["state_id"], state_by)
-        time.sleep(2)
+        # Wait for district dropdown to be populated by state-change AJAX
+        try:
+            page.wait_for_function(
+                "() => document.querySelector('#sess_dist_code') && document.querySelector('#sess_dist_code').options.length > 1",
+                timeout=10_000,
+            )
+        except Exception:
+            time.sleep(2)
 
         dist_val, dist_by = _sel("district_select")
         select_option(page, dist_val, "1", dist_by)
-        time.sleep(1)
+        time.sleep(0.5)
         select_option(page, dist_val, params["district_id"], dist_by)
-        time.sleep(1)
+        # Wait for court complex dropdown to be populated by district-change AJAX
+        try:
+            page.wait_for_function(
+                "() => document.querySelector('#court_complex_code') && document.querySelector('#court_complex_code').options.length > 1",
+                timeout=10_000,
+            )
+        except Exception:
+            time.sleep(2)
 
         court_val, court_by = _sel("court_complex_select")
         select_option(page, court_val, params["court_complex_id"], court_by)
-        time.sleep(1)
+        # After selecting a court complex the site fires an AJAX that reloads the
+        # case-search panel (with tabs + captcha).  Wait for networkidle so the
+        # panel is fully rendered before we try to click the advocate tab.
+        try:
+            page.wait_for_load_state("networkidle", timeout=15_000)
+        except Exception:
+            time.sleep(3)
 
         adv_val, adv_by = _sel("advocate_tab")
         click_element(page, adv_val, adv_by)
-        time.sleep(1)
+
+        # Wait for the advocate captcha image to be rendered by JS after tab click.
+        try:
+            page.wait_for_selector(
+                '#div_captcha_adv img#captcha_image',
+                state="visible",
+                timeout=20_000,
+            )
+        except Exception:
+            # Fallback: plain sleep so solve_captcha still gets a chance
+            time.sleep(3)
 
     # ------------------------------------------------------------------
     # CAPTCHA
     # ------------------------------------------------------------------
 
     def solve_captcha(self, page: Page, attempt: int) -> bool:
-        method = page.evaluate("() => document.querySelector('#cino') !== null")
-        if method:
-            cap_val, cap_by = _sel("cnr_captcha_image")
-            inp_val, inp_by = _sel("cnr_captcha_input")
+        # Use the flag set during navigate() to pick the right captcha elements.
+        if self._is_cnr_page(page):
+            cap_val, cap_by = _sel("cnr_captcha_image")  # div_captcha_cnr img
         else:
-            cap_val, cap_by = _sel("captcha_image")
-            inp_val, inp_by = _sel("captcha_input")
+            cap_val, cap_by = _sel("captcha_image")      # div_captcha_adv img
 
         try:
             image_bytes = extract_captcha_image_from_page(page, cap_val, cap_by)
@@ -133,8 +212,23 @@ class DistrictCourtScraper(BaseScraper):
         if not solution:
             return False
 
-        click_element(page, inp_val, inp_by, timeout=5000)
-        fill_input(page, inp_val, solution, inp_by)
+        if self._is_cnr_page(page):
+            # CNR form elements have hidden ancestors — use JS directly,
+            # no Playwright actionability checks (click/scroll/visible).
+            page.evaluate(
+                "(sol) => {"
+                "  var el = document.getElementById('fcaptcha_code');"
+                "  if (!el) return;"
+                "  el.value = sol;"
+                "  el.dispatchEvent(new Event('input',  {bubbles:true}));"
+                "  el.dispatchEvent(new Event('change', {bubbles:true}));"
+                "}",
+                solution,
+            )
+        else:
+            inp_val, inp_by = _sel("captcha_input")      # adv_captcha_code
+            click_element(page, inp_val, inp_by, timeout=5000)
+            fill_input(page, inp_val, solution, inp_by)
         return True
 
     def refresh_captcha(self, page: Page):
@@ -152,8 +246,17 @@ class DistrictCourtScraper(BaseScraper):
     def fill_form(self, page: Page, params: dict):
         method = params.get("_method", "case_by_cnr")
         if method == "case_by_cnr":
-            cnr_val, cnr_by = _sel("cnr_input")
-            fill_input(page, cnr_val, params["cnr"], cnr_by)
+            # CNR input has hidden ancestor — set via JS.
+            page.evaluate(
+                "(cnr) => {"
+                "  var el = document.getElementById('cino');"
+                "  if (!el) return;"
+                "  el.value = cnr;"
+                "  el.dispatchEvent(new Event('input',  {bubbles:true}));"
+                "  el.dispatchEvent(new Event('change', {bubbles:true}));"
+                "}",
+                params["cnr"],
+            )
         elif method == "search_advocate":
             adv_val, adv_by = _sel("advocate_name_input")
             fill_input(page, adv_val, params["advocate_name"], adv_by)
@@ -164,14 +267,18 @@ class DistrictCourtScraper(BaseScraper):
     # ------------------------------------------------------------------
 
     def submit_and_check(self, page: Page) -> str:
-        is_cnr = page.evaluate("() => document.querySelector('#cino') !== null")
-        if is_cnr:
-            sub_val, sub_by = _sel("cnr_submit")
+        if self._is_cnr_page(page):
+            # CNR submit button has hidden ancestor — call the onclick JS directly.
+            page.evaluate("() => funViewCinoHistory()")
         else:
             sub_val, sub_by = _sel("submit_button")
+            click_element(page, sub_val, sub_by)
 
-        click_element(page, sub_val, sub_by)
-        time.sleep(2)
+        # Wait for AJAX response to land before inspecting the DOM.
+        try:
+            page.wait_for_load_state("networkidle", timeout=15_000)
+        except Exception:
+            time.sleep(3)
 
         # Check for invalid captcha dialog
         try:

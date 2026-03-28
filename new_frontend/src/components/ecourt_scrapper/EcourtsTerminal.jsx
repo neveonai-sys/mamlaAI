@@ -1,41 +1,41 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import apiClient from '../../services/api';
+import { scraperHealth, getStates, cnrSearch } from './apiV2';
 
 const MODULES = [
   {
     key: 'cnr',
     title: 'CNR Lookup',
-    description: 'Direct case fetch through the scraper runtime with cached detail and order access.',
+    description: 'Direct case fetch via the FastAPI scraper with CAPTCHA solving and full case detail.',
     status: 'live',
     href: null,
   },
   {
     key: 'case-status',
     title: 'Case Status',
-    description: 'Stitched case-status flow, with the advocate path live on the scraper and staged modes shown explicitly.',
+    description: 'Search by party name, filing number, advocate, or FIR with the full district court cascade.',
     status: 'live',
     href: '/ecourts/case-status',
   },
   {
     key: 'court-orders',
     title: 'Court Orders',
-    description: 'Scraper-first court orders via CNR-backed case cache and parsed order rows.',
+    description: 'Search court orders by party, case number, court number, or date range. Direct PDF download.',
     status: 'live',
     href: '/ecourts/court-orders',
   },
   {
     key: 'cause-list',
     title: 'Cause List',
-    description: 'High-court cause lists are live now, with district-court reference data already stored in Mongo.',
+    description: 'Browse daily cause lists for any district court with the full five-step cascade.',
     status: 'live',
     href: '/ecourts/cause-list',
   },
   {
     key: 'caveat',
     title: 'Caveat',
-    description: 'Mapped into the terminal with reference data and a staged scraper implementation notice.',
+    description: 'Caveat search — implementation pending on the scraper side.',
     status: 'migration',
     href: '/ecourts/caveat',
   },
@@ -70,27 +70,20 @@ export default function EcourtsTerminal() {
       setLoading(true);
       setError('');
       try {
-        const [courtStructure, districtStates, caseStatusRef, orderRef, causeListRef, caveatRef] = await Promise.all([
-          apiClient.get('ecourts/court-structure/'),
-          apiClient.get('ecourts/court-structure/district/states/'),
-          apiClient.get('ecourts/reference/case-status/'),
-          apiClient.get('ecourts/reference/court-orders/'),
-          apiClient.get('ecourts/reference/cause-list/'),
-          apiClient.get('ecourts/reference/caveat/'),
+        const [healthRes, statesRes] = await Promise.all([
+          scraperHealth(),
+          getStates(),
         ]);
 
         if (!active) return;
 
-        const structureData = courtStructure.data?.data || {};
-        const districtStateRows = districtStates.data?.data || [];
-        const references = [caseStatusRef, orderRef, causeListRef, caveatRef].filter(
-          (response) => Array.isArray(response.data?.data?.tabs) || Array.isArray(response.data?.data?.search_modes) || Array.isArray(response.data?.data?.list_types),
-        );
+        const statesList = statesRes.data || [];
+        const scraperStatus = healthRes.data?.status || 'unknown';
 
         setStats({
-          districtStates: districtStateRows.length,
-          highCourts: (structureData.high_courts || []).length,
-          referencesReady: references.length,
+          districtStates: statesList.length,
+          highCourts: 0,
+          referencesReady: scraperStatus === 'ok' ? 1 : 0,
         });
       } catch (err) {
         if (!active) return;
@@ -131,16 +124,16 @@ export default function EcourtsTerminal() {
 
           <div className="grid min-w-[280px] gap-3 sm:grid-cols-3 lg:w-[420px]">
             <div className="rounded-2xl border border-primary/10 bg-background-light px-4 py-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">District States</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">States Loaded</p>
               <p className="mt-2 text-2xl font-black text-ink">{loading ? '...' : stats.districtStates || '0'}</p>
             </div>
             <div className="rounded-2xl border border-primary/10 bg-background-light px-4 py-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">High Courts</p>
-              <p className="mt-2 text-2xl font-black text-ink">{loading ? '...' : stats.highCourts || '0'}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Scraper</p>
+              <p className="mt-2 text-2xl font-black text-ink">{loading ? '...' : stats.referencesReady ? '✓' : '—'}</p>
             </div>
             <div className="rounded-2xl border border-primary/10 bg-background-light px-4 py-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Reference Sets</p>
-              <p className="mt-2 text-2xl font-black text-ink">{loading ? '...' : stats.referencesReady || '0'}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Live Modules</p>
+              <p className="mt-2 text-2xl font-black text-ink">{readyModules}</p>
             </div>
           </div>
         </div>

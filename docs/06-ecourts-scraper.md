@@ -8,6 +8,28 @@ The **eCourts scraper** is a Django app (`ecourts_scraper`) that fetches live ca
 
 **Use this doc when:** Working on eCourts APIs, scrapers, Celery tasks for court data, cache/job collections, or frontend that consumes eCourts (case lookup, cause list, court tree, order PDFs).
 
+### eCourts v2 Proxy Runtime (MamlaAI terminals)
+
+Alongside `ecourts_scraper`, the active MamlaAI terminal flows also use `ecourt_scrapped` at `/api/ecourts/v2/` as a Django proxy layer in front of the standalone FastAPI scraper service.
+
+- Django proxy app: `Legalv1/ecourt_scrapped/`
+- URL prefix: `/api/ecourts/v2/`
+- FastAPI bridge: `ecourt_scrapped/services/scraper_client.py`
+- Master data cache: `ecourt_scrapped/services/master_data.py` (Mongo collection `ecourts_master_data`)
+- Live fallback crawler: `ecourt_scrapped/services/ecourts_crawler.py`
+
+The v2 layer is used by the stitched terminal UI for location cascades and court-order search workflows.
+
+### Recent v2 Stability Fixes (Mar 2026)
+
+- Court-order-by-date now uses original eCourts field names (`fradorderdt`, `orderflagvalorderdt`, `order_date_captcha_code`) instead of shorthand aliases.
+- Court-order-by-date date inputs are normalized from browser `YYYY-MM-DD` to eCourts `DD-MM-YYYY` before submit.
+- Court-order captcha namespace is pinned per tab (`div_captcha_order_party`, `div_captcha_order_case`, `div_captcha_court_no`, `div_captcha_order_date`).
+- Captcha image requests preserve existing securimage query strings and do not append extra cache-busting params to namespace-hash URLs.
+- `est_code` validation was relaxed for v2 order-date and court-number paths.
+- Order-court-number options now come from FastAPI `courtorder/court-numbers` so encoded value format stays compatible with submit APIs.
+- Court-order PDF fallback now prioritizes `CO_HOME_URL` when session cookies are present; partner-side "file not uploaded" now returns `404` instead of a generic session-expired `422`.
+
 ---
 
 ## Where It Lives

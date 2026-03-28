@@ -1,7 +1,12 @@
 """
 Celery tasks for eCourts scraping.
 These are the entry points that the ScrapeAgent state machine runs inside.
+
+Feature flag: set ECOURTS_USE_LANGGRAPH=true in the environment to route
+scrape_* tasks through the LangGraph master graph instead of ScrapeAgent.
+The old ScrapeAgent path is kept intact for safe rollback.
 """
+import os
 import logging
 import traceback
 from celery import shared_task
@@ -11,6 +16,11 @@ from ecourts_scraper.constants import HC_RATE_LIMIT_PER_MIN, DC_RATE_LIMIT_PER_M
 from ecourts_scraper.reference_data import EcourtsReferenceDataManager
 
 logger = logging.getLogger("django")
+
+# ---------------------------------------------------------------------------
+# Feature flag — set ECOURTS_USE_LANGGRAPH=true to enable the new graph path
+# ---------------------------------------------------------------------------
+USE_LANGGRAPH = os.getenv("ECOURTS_USE_LANGGRAPH", "false").lower() == "true"
 
 
 def _get_rate_limiters():
@@ -54,6 +64,16 @@ def scrape_case_by_cnr(job_id: str, cnr: str, user_id: str = ""):
     else:
         scraper = DistrictCourtScraper()
         rate_limiter = dc_rate_limiter
+
+    if USE_LANGGRAPH:
+        from ecourts_scraper.agent.graph.graph_runner import run_graph_task
+        return run_graph_task(
+            job_id=job_id,
+            user_id=user_id,
+            search_type="cnr",
+            params={"cnr": cnr, "_method": "case_by_cnr"},
+            rate_limiter=rate_limiter,
+        )
 
     agent = ScrapeAgent(scraper, jm)
     ctx = AgentContext(
@@ -110,6 +130,16 @@ def scrape_advocate_search(
     else:
         scraper = DistrictCourtScraper()
         rate_limiter = dc_rate_limiter
+
+    if USE_LANGGRAPH:
+        from ecourts_scraper.agent.graph.graph_runner import run_graph_task
+        return run_graph_task(
+            job_id=job_id,
+            user_id=user_id,
+            search_type="case_status",
+            params=params,
+            rate_limiter=rate_limiter,
+        )
 
     agent = ScrapeAgent(scraper, jm)
     ctx = AgentContext(
@@ -172,6 +202,17 @@ def scrape_party_search(
     params.update(court_params)
 
     scraper = HighCourtScraper()
+
+    if USE_LANGGRAPH:
+        from ecourts_scraper.agent.graph.graph_runner import run_graph_task
+        return run_graph_task(
+            job_id=job_id,
+            user_id=user_id,
+            search_type="case_status",
+            params=params,
+            rate_limiter=hc_rate_limiter,
+        )
+
     agent = ScrapeAgent(scraper, jm)
     ctx = AgentContext(
         job_id=job_id,
@@ -340,6 +381,17 @@ def scrape_cause_list(
     }
 
     scraper = CauseListScraper()
+
+    if USE_LANGGRAPH:
+        from ecourts_scraper.agent.graph.graph_runner import run_graph_task
+        return run_graph_task(
+            job_id=job_id,
+            user_id=user_id,
+            search_type="causelist",
+            params=params,
+            rate_limiter=hc_rate_limiter,
+        )
+
     agent = ScrapeAgent(scraper, jm)
     ctx = AgentContext(
         job_id=job_id,

@@ -102,7 +102,8 @@ INSTALLED_APPS = [
     'core',
     'talkdoc',
     'mamla_brain',
-    'ecourts_scraper',
+    # 'ecourts_scraper',
+    'ecourt_scrapped',
     'corsheaders',
 ]
 

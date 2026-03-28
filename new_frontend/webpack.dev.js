@@ -13,6 +13,9 @@ module.exports = merge(common, {
     hot: true,
     historyApiFallback: true,
     allowedHosts: 'auto',
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    },
     proxy: [
       {
         context: ['/api'],
@@ -32,17 +35,4 @@ module.exports = merge(common, {
       'process.env.REACT_APP_SUPABASE_ANON_KEY': JSON.stringify(process.env.REACT_APP_SUPABASE_ANON_KEY || ''),
     }),
   ],
-
-  module: {
-    rules: [
-      {
-        test: /\.(js|jsx)$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: { plugins: ['react-refresh/babel'] },
-        },
-      },
-    ],
-  },
 });

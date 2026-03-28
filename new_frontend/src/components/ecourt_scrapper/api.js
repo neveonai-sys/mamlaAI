@@ -15,15 +15,35 @@ export function unwrapTerminalPayload(payload) {
   return payload;
 }
 
+/**
+ * Poll a scraper job until it completes, fails, or times out.
+ *
+ * options:
+ *   intervalMs  — poll interval in milliseconds (default 2500)
+ *   maxAttempts — give-up after this many polls (default 36 ≈ 90 s)
+ *   onProgress  — callback(step: string) called each poll when the backend
+ *                 reports a new current_step / agent_state value; useful for
+ *                 rendering a StepIndicator while the job is running.
+ */
 export async function waitForEcourtsJob(jobId, options = {}) {
   const {
     intervalMs = 2500,
     maxAttempts = 36,
+    onProgress = null,
   } = options;
+
+  let lastStep = null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const response = await apiClient.get(`${BASE}/jobs/${jobId}/`);
     const payload = response.data || {};
+
+    // Fire onProgress when the backend reports a step transition
+    const step = payload.agent_state || payload.progress_step || payload.current_step || null;
+    if (onProgress && step && step !== lastStep) {
+      lastStep = step;
+      try { onProgress(step); } catch (_) { /* never let UI callback crash the poll */ }
+    }
 
     if (payload.status === 'completed') {
       return payload;
@@ -39,9 +59,9 @@ export async function waitForEcourtsJob(jobId, options = {}) {
   throw new Error('The scraper job timed out before completing.');
 }
 
-export async function resolveEcourtsResponse(response) {
+export async function resolveEcourtsResponse(response, jobOptions = {}) {
   if (response?.status === 202 && response?.data?.job_id) {
-    const jobPayload = await waitForEcourtsJob(response.data.job_id);
+    const jobPayload = await waitForEcourtsJob(response.data.job_id, jobOptions);
     return {
       jobId: response.data.job_id,
       fromJob: true,
@@ -70,17 +90,17 @@ export const searchCases = (payload) => apiClient.post(`${BASE}/search/`, payloa
 export const getCauseList = (params) => apiClient.get(`${BASE}/causelist/`, { params });
 export const getCauseListDates = (params) => apiClient.get(`${BASE}/causelist/dates/`, { params });
 
-export async function ensureCaseLoaded(cnr) {
+export async function ensureCaseLoaded(cnr, jobOptions = {}) {
   const response = await getCaseByCnr(cnr);
-  return resolveEcourtsResponse(response);
+  return resolveEcourtsResponse(response, jobOptions);
 }
 
-export async function runCaseSearch(payload) {
+export async function runCaseSearch(payload, jobOptions = {}) {
   const response = await searchCases(payload);
-  return resolveEcourtsResponse(response);
+  return resolveEcourtsResponse(response, jobOptions);
 }
 
-export async function runCauseListSearch(params) {
+export async function runCauseListSearch(params, jobOptions = {}) {
   const response = await getCauseList(params);
-  return resolveEcourtsResponse(response);
+  return resolveEcourtsResponse(response, jobOptions);
 }

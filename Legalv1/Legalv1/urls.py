@@ -37,7 +37,9 @@ urlpatterns = [
     path('api/talkdoc/', include('talkdoc.urls')),
     path('api/brain/', include('mamla_brain.urls')),
     # Live eCourts runtime is now scraper-first and uses local CAPTCHA solving.
-    path('api/ecourts/', include('ecourts_scraper.urls')),
+    # path('api/ecourts/', include('ecourts_scraper.urls')),
+    # New eCourts integration: FastAPI scraper proxy with MongoDB caching.
+    path('api/ecourts/v2/', include('ecourt_scrapped.urls')),
     # Deprecated reference only: third-party partner API path retired from runtime.
     # path('api/ecourts/', include('ecourts_api.urls')),
 ]

@@ -3,18 +3,27 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/Django-3.2%2B-green)](https://www.djangoproject.com/)
-[![React](https://img.shields.io/badge/React-17.0%2B-61DAFB)](https://reactjs.org/)
+[![React](https://img.shields.io/badge/React-18.0%2B-61DAFB)](https://reactjs.org/)
 
 ## Overview
 Mamla.AI is a comprehensive legal technology platform designed to bring legal services to your fingertips. The platform connects lawyers with clients, streamlines case management, and provides AI-powered legal assistance.
 
 ## Features
 
+### eCourts Intelligence (Active)
+- eCourts v2 terminal flows for case status, cause list, caveat (staged), and court orders
+- Court-order search modes: by party, case number, court number, and order date
+- CAPTCHA-assisted scraping via FastAPI bridge with Django proxy APIs
+- Authenticated order PDF download with session-cookie forwarding and clear 404/422 handling
+- Hierarchical location cascade (state → district → complex → establishment) with session restore on back/forward navigation
+
 ### AI-Powered Legal Assistance
 - AI-driven document generation and review
 - Legal research assistance
 - Document template management
 - Automated legal drafting
+- TalkDoc document chat with session-scoped retrieval and quota-aware usage
+- Mamla Brain framework (domain reasoning, document QA, case companion, API-key mode)
 
 ### User Management
 - Secure authentication with Supabase
@@ -27,6 +36,7 @@ Mamla.AI is a comprehensive legal technology platform designed to bring legal se
 - Document organization
 - Calendar and deadline management
 - Client communication portal
+- Recurring legal calendar workflows with conflict checks and series-aware updates
 
 ### Search & Discovery
 - Advanced legal document search
@@ -158,6 +168,8 @@ CELERY_BROKER_URL=redis://localhost:6379/0
 
 API paths and auth are documented in **docs/04-api-reference.md**; the list there is the source of truth for current endpoints.
 
+For eCourts architecture and terminal-flow behavior, see **docs/06-ecourts-scraper.md**.
+
 ## Project Structure
 
 ```
@@ -185,21 +197,23 @@ mamlaAI/
 └── docker/                  # Docker configuration
 ```
 
-## API Documentation
+## API Notes
 
-API documentation is available at `/api/docs/` when running the development server.
+- Primary API base path: `/api/`
+- Authentication model: **Supabase-only** (Bearer token and/or `access_token` cookie)
+- eCourts v2 proxy paths: `/api/ecourts/v2/...`
+- Full endpoint list and request contracts: `docs/04-api-reference.md`
 
-### Authentication
-- `POST /api/auth/login/` - User login
-- `POST /api/auth/signup/` - User registration
-- `POST /api/auth/refresh/` - Refresh access token
+Representative active endpoints:
 
-### Documents
-- `GET /api/documents/` - List documents
-- `POST /api/documents/` - Create new document
-- `GET /api/documents/{id}/` - Get document details
-- `PUT /api/documents/{id}/` - Update document
-- `DELETE /api/documents/{id}/` - Delete document
+- `GET /api/health/`
+- `GET /api/users/check-auth/`
+- `GET /api/users/entitlements/summary/`
+- `POST /api/aidrafts/start_session`
+- `GET/POST /api/calendar/events/`
+- `POST /api/talkdoc/query/`
+- `POST /api/ecourts/v2/courtorder/by-order-date/`
+- `POST /api/ecourts/v2/order-court-numbers/`
 
 ## Testing
 

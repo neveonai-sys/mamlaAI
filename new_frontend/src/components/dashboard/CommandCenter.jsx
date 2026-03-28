@@ -61,7 +61,15 @@ export default function CommandCenter() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
 
-  const drafts = data?.drafts?.results ?? [];
+  const drafts = (() => {
+    const seen = new Set();
+    return (data?.drafts?.results ?? []).filter((d) => {
+      const id = d.session_id || d.id;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  })();
   const events = data?.events?.results ?? [];
   const updates = data?.updates?.results ?? [];
 
