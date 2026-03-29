@@ -17,6 +17,7 @@
 | Big picture / repo layout | `docs/01-architecture-overview.md` |
 | What was last changed / what to do next | `docs/05-changelog-and-improvements.md` |
 | Mamla Brain framework (RAG+LLM, Case Companion, external API) | `docs/07-mamla-brain-framework.md` |
+| **One-stop lawyer workflow plan (case registry, agents, hearing prep, client portal)** | `docs/08-lawyer-workflow-plan.md` |
 
 ---
 
