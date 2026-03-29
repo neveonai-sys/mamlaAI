@@ -607,45 +607,6 @@ export default function CaseDetail() {
             </div>
           </Section>
         ) : null}
-
-        {/* 8. Continue Research */}
-        {(cd.petitioners?.length > 0 || cd.petitioner_advocates?.length > 0 || cd.respondent_advocates?.length > 0) ? (
-          <Section label="Continue Research">
-            <div className="p-4 grid gap-3 sm:grid-cols-2 font-sans">
-              {cd.petitioners?.slice(0, 2).map((party, i) => (
-                <button
-                  key={`pet-s-${i}`}
-                  type="button"
-                  onClick={() => navigate(`/ecourts/litigants?q=${encodeURIComponent(party)}`)}
-                  className="flex items-center justify-between rounded border bg-white px-4 py-3 text-left transition hover:bg-blue-50"
-                  style={{ borderColor: `${COURT_BLUE}33` }}
-                >
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Litigant Search</p>
-                    <p className="mt-0.5 text-sm font-medium truncate" style={{ color: COURT_BLUE }}>{party}</p>
-                  </div>
-                  <span className="material-symbols-outlined text-slate-300 text-sm flex-shrink-0">north_east</span>
-                </button>
-              ))}
-              {[...(cd.petitioner_advocates || []), ...(cd.respondent_advocates || [])].slice(0, 2).map((adv, i) => (
-                <button
-                  key={`adv-s-${i}`}
-                  type="button"
-                  onClick={() => navigate(`/ecourts/lawyers?q=${encodeURIComponent(adv)}`)}
-                  className="flex items-center justify-between rounded border bg-white px-4 py-3 text-left transition hover:bg-blue-50"
-                  style={{ borderColor: `${COURT_BLUE}33` }}
-                >
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Lawyer Search</p>
-                    <p className="mt-0.5 text-sm font-medium truncate" style={{ color: COURT_BLUE }}>{adv}</p>
-                  </div>
-                  <span className="material-symbols-outlined text-slate-300 text-sm flex-shrink-0">north_east</span>
-                </button>
-              ))}
-            </div>
-          </Section>
-        ) : null}
-
       </main>
     </div>
   );

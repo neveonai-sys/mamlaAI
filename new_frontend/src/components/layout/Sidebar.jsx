@@ -8,14 +8,13 @@ import clsx from 'clsx';
 // ─── Navigation items ────────────────────────────────────────────────────────
 const LAWYER_NAV = [
   { label: 'Dashboard',          path: '/dashboard',      icon: 'dashboard' },
-  { label: 'Command Center',     path: '/command-center', icon: 'gavel' },
   { label: 'AI Drafting',        path: '/drafting',       icon: 'edit_note' },
   { label: 'Document Intel',     path: '/documents',      icon: 'description' },
   { label: 'Calendar & Events',  path: '/calendar',       icon: 'calendar_month' },
-  { label: 'Court Updates',      path: '/court-updates',  icon: 'account_balance' },
+  // { label: 'Court Updates',      path: '/court-updates',  icon: 'account_balance' },
   { label: 'eCourts',            path: '/ecourts',        icon: 'search' },
   { label: 'Clients',            path: '/clients',        icon: 'people' },
-  { label: 'Sessions',           path: '/sessions',       icon: 'forum' },
+  // { label: 'Sessions',           path: '/sessions',       icon: 'forum' },
   { label: 'Feedback',           path: '/feedback',       icon: 'rate_review' },
 ];
 
@@ -23,7 +22,7 @@ const CLIENT_NAV = [
   { label: 'Dashboard',          path: '/dashboard',      icon: 'dashboard' },
   { label: 'Document Intel',     path: '/documents',      icon: 'description' },
   { label: 'Calendar & Events',  path: '/calendar',       icon: 'calendar_month' },
-  { label: 'Sessions',           path: '/sessions',       icon: 'forum' },
+  // { label: 'Sessions',           path: '/sessions',       icon: 'forum' },
   { label: 'Feedback',           path: '/feedback',       icon: 'rate_review' },
 ];
 

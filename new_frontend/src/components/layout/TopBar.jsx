@@ -14,13 +14,6 @@ const SEARCH_ITEMS = [
     keywords: ['home', 'overview', 'summary', 'agenda'],
   },
   {
-    label: 'Command Center',
-    path: '/command-center',
-    icon: 'gavel',
-    description: 'Priority drafts, events, and updates',
-    keywords: ['priority', 'updates', 'control', 'alerts'],
-  },
-  {
     label: 'AI Drafting',
     path: '/drafting',
     icon: 'edit_note',
@@ -41,13 +34,13 @@ const SEARCH_ITEMS = [
     description: 'Hearings, deadlines, and scheduling',
     keywords: ['calendar', 'events', 'hearing', 'deadline', 'schedule'],
   },
-  {
-    label: 'Court Updates',
-    path: '/court-updates',
-    icon: 'account_balance',
-    description: 'Recent court notices and subscribed feeds',
-    keywords: ['court', 'notices', 'updates', 'orders'],
-  },
+  // {
+  //   label: 'Court Updates',
+  //   path: '/court-updates',
+  //   icon: 'account_balance',
+  //   description: 'Recent court notices and subscribed feeds',
+  //   keywords: ['court', 'notices', 'updates', 'orders'],
+  // },
   {
     label: 'eCourts',
     path: '/ecourts',
@@ -347,13 +340,6 @@ export default function TopBar({ onToggleSidebar, title }) {
         onClick: () => navigate('/feedback'),
       },
       {
-        id: 'help-command-center',
-        title: 'Open command center',
-        description: 'See the highest-priority drafts and updates.',
-        icon: 'gavel',
-        onClick: () => navigate('/command-center'),
-      },
-      {
         id: 'help-sessions',
         title: 'Review sessions',
         description: 'Inspect active logins and sign out stale devices.',
@@ -585,10 +571,10 @@ export default function TopBar({ onToggleSidebar, title }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate('/command-center')}
+                  onClick={() => navigate('/dashboard')}
                   className="text-xs font-semibold text-primary transition-colors hover:text-primary-dark"
                 >
-                  Open command center
+                  View dashboard
                 </button>
               </div>
 

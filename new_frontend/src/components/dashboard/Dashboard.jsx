@@ -63,23 +63,30 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const [savedDrafts, setSavedDrafts] = useState([]);
+
   useEffect(() => {
-    // Single aggregation call — GET /api/dashboard/home/
-    apiClient.get('dashboard/home/')
-      .then((r) => setData(r.data))
-      .catch(() => setData({}))
-      .finally(() => setLoading(false));
+    // Fetch dashboard summary and actual saved drafts in parallel
+    Promise.allSettled([
+      apiClient.get('dashboard/home/'),
+      apiClient.get('aidrafts/get_user_saved_drafts_v2?page_size=5'),
+    ]).then(([homeRes, draftsRes]) => {
+      setData(homeRes.status === 'fulfilled' ? homeRes.value.data : {});
+      if (draftsRes.status === 'fulfilled') {
+        setSavedDrafts(draftsRes.value.data?.saved_drafts ?? []);
+      }
+    }).finally(() => setLoading(false));
   }, []);
 
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
-  const draftCount = data?.pending_drafts ?? '—';
+  const draftCount = savedDrafts.length || data?.pending_drafts || '—';
   const agendaItems = data?.upcoming_events_list ?? [];
   const agendaCount = data?.upcoming_events ?? 0;
   const updateItems = data?.recent_updates ?? [];
-  const recentDrafts = data?.recent_drafts ?? [];
+  const recentDrafts = savedDrafts;
   const brainQuota = features?.brain_doc_analysis;
   const legalChatQuota = features?.general_legal_chat;
   const draftingQuota = features?.brain_drafting_actions;
@@ -117,9 +124,9 @@ export default function Dashboard() {
             subColor="text-emerald-600"
           />
           <MetricCard
-            label="AI Efficiency"
-            value="84%"
-            sub="↑ 12%"
+            label="Wallet Credits"
+            value={loading ? '…' : (wallet?.balance ?? '—')}
+            sub="Available"
             subColor="text-emerald-600"
           />
         </div>
@@ -307,9 +314,8 @@ export default function Dashboard() {
             <thead>
               <tr className="table-header">
                 <th className="px-6 py-3 text-left">Document</th>
-                <th className="px-6 py-3 text-left hidden md:table-cell">Type</th>
-                <th className="px-6 py-3 text-left hidden lg:table-cell">Modified</th>
-                <th className="px-6 py-3 text-left">Status</th>
+                <th className="px-6 py-3 text-left hidden md:table-cell">Client</th>
+                <th className="px-6 py-3 text-left hidden lg:table-cell">Last Updated</th>
                 <th className="px-6 py-3 text-right"></th>
               </tr>
             </thead>
@@ -317,36 +323,40 @@ export default function Dashboard() {
               {loading ? (
                 [1, 2, 3].map((i) => (
                   <tr key={i}>
-                    <td colSpan={5} className="px-6 py-4">
+                    <td colSpan={4} className="px-6 py-4">
                       <div className="h-4 bg-slate-100 rounded animate-pulse w-3/4" />
                     </td>
                   </tr>
                 ))
               ) : recentDrafts.length > 0 ? (
-                recentDrafts.map((draft, i) => (
+                recentDrafts.map((draft, i) => {
+                    const clientName = Array.isArray(draft.draft_for) && draft.draft_for.length > 0
+                      ? draft.draft_for.map((c) => c.client_name).filter(Boolean).join(', ')
+                      : '—';
+                    const displayName = draft.draft_name || 'Untitled Draft';
+                    const updatedOn = draft.last_updated_on || draft.created_on;
+                    return (
                   <tr
-                    key={draft.session_id || draft.draft_name || i}
+                    key={draft.draft_id || draft.session_id || i}
                     className="hover:bg-primary/5 cursor-pointer transition-colors"
                     onClick={() => navigate(draft.session_id ? `/drafting/${draft.session_id}` : '/drafting')}
                   >
                     <td className="px-6 py-4">
-                      <span className="font-medium text-ink">{draft.draft_name || 'Untitled Draft'}</span>
+                      <span className="font-medium text-ink">{displayName}</span>
                     </td>
-                    <td className="px-6 py-4 text-slate-500 hidden md:table-cell">{draft.status || '—'}</td>
+                    <td className="px-6 py-4 text-slate-500 hidden md:table-cell">{clientName}</td>
                     <td className="px-6 py-4 text-slate-500 hidden lg:table-cell">
-                      {draft.created_at ? new Date(draft.created_at).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="badge-pending">{draft.status || 'Draft'}</span>
+                      {updatedOn ? new Date(updatedOn).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="material-symbols-outlined text-slate-400 text-lg">chevron_right</span>
                     </td>
                   </tr>
-                ))
+                    );
+                  })
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={4} className="px-6 py-12 text-center">
                     <span className="material-symbols-outlined text-slate-300 text-4xl block mb-2">edit_note</span>
                     <p className="text-sm text-slate-400">No drafts yet.</p>
                     <button

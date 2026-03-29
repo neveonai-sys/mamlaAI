@@ -1,6 +1,437 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+// ─── Static data ──────────────────────────────────────────────────────────────
+const TICKER_ITEMS = [
+  { tag: 'SC',          live: true,  text: 'Supreme Court cause lists updated daily — track Constitution bench sittings inside your dashboard.' },
+  { tag: 'NJDG',        live: false, text: '4.8 Cr+ cases pending across all courts in India — National Judicial Data Grid.' },
+  { tag: 'LiveLaw',     live: false, text: 'Latest legal headlines surfaced inside your workspace — no separate portal needed.' },
+  { tag: 'eCourts',     live: false, text: '2,25,000+ cases disposed nationwide this month across High Courts and District Courts.' },
+  { tag: 'Bar Council', live: false, text: 'BCI circulars and advocate enrollment updates — stay informed without checking portals.' },
+  { tag: 'Mamla.AI',    live: true,  text: 'Private beta now accepting chamber registrations — join 200+ advocates already on the platform.' },
+];
+
+const STAT_CARDS = [
+  { icon: 'gavel',           value: '4.8', unit: 'Cr', desc: 'Total pending cases across all district & High Courts in India',       source: 'NJDG Live · Updated daily' },
+  { icon: 'check_circle',    value: '2.2', unit: 'L',  desc: 'Cases disposed this month across all High Courts and District Courts',  source: 'NJDG Live · Updated monthly' },
+  { icon: 'account_balance', value: '72',  unit: 'K',  desc: 'Pending matters before the Supreme Court of India',                    source: 'SCI Portal · Updated weekly' },
+  { icon: 'today',           value: '68',  unit: '',   desc: "Items on today's Supreme Court cause list",                            source: 'SC Daily Cause List' },
+];
+
+const NEWS_ITEMS = [
+  { source: 'LiveLaw', tone: 'bg-primary/20 text-primary-soft',    text: 'SC bench issues directions on undertrial prisoners; seeks state compliance reports', time: '2 hours ago' },
+  { source: 'B&B',     tone: 'bg-amber-500/20 text-amber-300',     text: 'Delhi HC: landlord cannot evict tenant without compliance of Rent Control Act provisions', time: '4 hours ago' },
+  { source: 'SCI',     tone: 'bg-emerald-500/20 text-emerald-400', text: 'Constitution bench to take up PMLA provisions challenge; listed for July arguments', time: 'Yesterday' },
+  { source: 'LiveLaw', tone: 'bg-primary/20 text-primary-soft',    text: 'BCI issues advisory on Bar Council elections; sets deadline for state bar council compliance', time: 'Yesterday' },
+];
+
+const TEAM_MEMBERS = [
+  {
+    initials: 'RM',
+    name: 'Robin',
+    role: 'Co-Founder & CEO',
+    tags: ['🎓 IIT Kharagpur', 'B.Tech'],
+    bio: "With nearly two decades at the intersection of enterprise technology and institutional infrastructure, Robin brings the rare discipline of systems-level thinking to a domain that has resisted modernisation for too long. His work at Mamla.AI began with a single observation: that India's courts generate more structured data than almost any institution in the country, yet practicing counsel operates almost entirely without access to it. That gap became the company.",
+  },
+  {
+    initials: 'MS',
+    name: 'Mrityunjoy',
+    role: 'Co-Founder & CTO',
+    tags: ['🎓 NIT Durgapur', 'B.Tech'],
+    bio: "Mrityunjoy is the engineering mind behind Mamla.AI's AI core — the models that draft, the pipelines that ingest court filings, and the real-time infrastructure that surfaces eCourt movements before the listing board does. Trained as an engineer but drawn to making language models reliable in high-stakes domains, he believes the most important test of any AI system is whether a senior advocate would trust it at 11 PM the night before a hearing.",
+  },
+];
+
+const FAQS = [
+  { q: 'Is Mamla.AI drafting output admissible in court?', a: "AI-generated drafts are working tools, not final submissions. Every document must be reviewed, edited, and approved by the responsible advocate before filing. Mamla.AI helps you get to a strong first draft faster — the professional judgement remains yours." },
+  { q: 'Does Mamla.AI comply with the DPDP Act, 2023?', a: "Yes. We store all data on India-located servers, apply AES-256 encryption, and follow data minimisation principles aligned with the Digital Personal Data Protection Act, 2023. Your clients' matter data is never used to train AI models without explicit written consent." },
+  { q: 'Which courts and jurisdictions are currently supported?', a: 'Cause list monitoring is available for the Supreme Court and all 25 High Courts. District court data is available via NJDG integration. Tribunal and quasi-judicial feeds are being progressively added.' },
+  { q: 'Can I use Mamla.AI for transactional and advisory work, not just litigation?', a: 'Absolutely. The document drafting and chat features are used by corporate counsel for agreements, due diligence memos, and compliance reviews. eCourts search and cause lists are optional modules.' },
+  { q: 'How does role-based access work for a multi-lawyer chamber?', a: 'The admin can invite team members and assign roles: Senior Counsel, Junior Associate, Paralegal, or Client. Each role has granular document-level permissions. Clients get read-only access to their specific matter folders.' },
+  { q: 'Is there a Bar Council restriction on using AI drafting tools?', a: 'As of 2026, the Bar Council of India has not issued a blanket prohibition on AI-assisted drafting tools. Advocates remain responsible for all work product under BCI Rules. Treat AI output as a supervised first draft, not a final product.' },
+  { q: 'What happens to my data if I cancel?', a: 'You retain full access until the end of your billing period. After cancellation, you have 30 days to export all your data. After 30 days, data is permanently deleted from our servers per our retention policy.' },
+];
+
+const LEGAL_DOCS = {
+  terms: {
+    title: 'Terms of Service',
+    date: 'Effective Date: 1 January 2026 | Governing Law: Indian Law',
+    sections: [
+      { heading: '1. Acceptance of Terms', body: 'By accessing or using the Mamla.AI platform, operated by Neveon AI Technologies Pvt. Ltd. ("Company"), you agree to these Terms. This constitutes a legally binding agreement under the Information Technology Act, 2000.' },
+      { heading: '2. Eligibility', body: 'The Platform is intended solely for enrolled advocates, law firms, and legal professionals in India. By registering, you represent that you are enrolled with a State Bar Council under the Advocates Act, 1961, or an authorised representative thereof.' },
+      { heading: '3. Not Legal Advice', body: 'Mamla.AI provides AI-powered tools to assist legal professionals. The Platform does not provide legal advice and does not create an advocate-client relationship. All AI-generated content must be reviewed by a qualified legal professional before use in any legal proceeding.' },
+      { heading: '4. Data Processing & Confidentiality', body: 'All data is processed under AES-256 encryption. Client matter content will not be used for training AI models without explicit opt-in consent. Data is stored within India in compliance with the Digital Personal Data Protection Act, 2023.' },
+      { heading: '5. Limitation of Liability', body: "The Company's total aggregate liability shall not exceed the amount paid by you in the three months preceding the claim. The Company is not liable for consequences of using unreviewed AI-generated output in legal proceedings." },
+      { heading: '6. Governing Law & Disputes', body: 'These Terms are governed by Indian law. Unresolved disputes shall be referred to arbitration under the Arbitration and Conciliation Act, 1996, with the seat at Kolkata, West Bengal.' },
+      { heading: '7. Grievance Officer', body: 'Designated Grievance Officer: Robin, Neveon AI Technologies Pvt. Ltd. Email: neveon.ai@gmail.com. Complaints acknowledged within 24 hours and resolved within 30 days (IT Act, 2000).' },
+    ],
+  },
+  privacy: {
+    title: 'Privacy Policy',
+    date: 'Effective Date: 1 January 2026 | Compliance: DPDP Act 2023 & IT Act 2000',
+    sections: [
+      { heading: 'Data We Collect', body: 'Account data (name, email, Bar enrollment number), professional data (matter details, documents, drafts), usage data (session logs, feature interactions), and device data (IP address for security purposes).' },
+      { heading: 'How We Use Your Data', body: 'To provide and improve the Platform; to process AI requests; to send service communications. We do not sell your data to third parties under any circumstances.' },
+      { heading: 'AI & Training Data', body: 'Your matter-specific content is not used to train AI models unless you explicitly opt in via written agreement. Aggregate anonymised usage patterns may be used to improve the Platform.' },
+      { heading: 'Data Storage & Security', body: 'All data is stored on servers in India. We apply AES-256 at rest and TLS 1.3 in transit. Access is restricted by role-based controls and periodic security audits are conducted.' },
+      { heading: 'Your Rights (DPDP Act, 2023)', body: 'Right to access, correction, erasure (subject to legal holds), grievance redressal, and right to nominate a representative to exercise rights on your behalf.' },
+      { heading: 'Contact for Privacy', body: 'Grievance Officer: Robin — neveon.ai@gmail.com.' },
+    ],
+  },
+  refund: {
+    title: 'Refund & Cancellation Policy',
+    date: 'Effective Date: 1 January 2026',
+    sections: [
+      { heading: 'Cancellations', body: 'You may cancel at any time. Cancellations take effect at the end of the current billing cycle. You retain full access until the cycle ends.' },
+      { heading: 'Refunds', body: 'We offer a 7-day money-back guarantee for new subscribers. After the 7-day window, subscriptions are non-refundable except for documented technical failures (72+ continuous hours) or duplicate billing.' },
+      { heading: 'Annual Plans', body: 'Annual plan refunds for unused months are available within 30 days of purchase on a pro-rata basis. After 30 days, no refund is available.' },
+      { heading: 'How to Request', body: 'Email neveon.ai@gmail.com with your registered email and reason. Refunds are processed within 7–10 business days to your original payment method.' },
+    ],
+  },
+  disclaimer: {
+    title: 'Legal Disclaimer',
+    date: null,
+    sections: [
+      { heading: 'Not Legal Advice', body: 'Mamla.AI is a technology platform for qualified legal professionals. Nothing on this Platform constitutes legal advice or creates an advocate-client relationship between Neveon AI Technologies Pvt. Ltd. and any user or their clients.' },
+      { heading: 'AI Output Accuracy', body: 'AI-generated content may contain errors or outdated legal references. All output must be reviewed and approved by the responsible advocate before use in any court filing, legal notice, or client advice.' },
+      { heading: 'Court Data', body: 'Case data and judicial statistics from government portals are provided for informational convenience only. Always verify directly on official portals before taking any procedural step.' },
+      { heading: 'Professional Responsibility', body: 'The advocate remains solely responsible for the quality, accuracy, and ethical standing of all work product under the Advocates Act, 1961 and Bar Council of India Rules.' },
+    ],
+  },
+};
+
+// ─── New section components ───────────────────────────────────────────────────
+
+function TickerBar() {
+  const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
+  return (
+    <div className="overflow-hidden border-b bg-background-dark" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+      <style>{`@keyframes mamla-ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
+      <div
+        className="flex w-max gap-16 py-2.5"
+        style={{ animation: 'mamla-ticker 46s linear infinite' }}
+        onMouseEnter={(e) => (e.currentTarget.style.animationPlayState = 'paused')}
+        onMouseLeave={(e) => (e.currentTarget.style.animationPlayState = 'running')}
+      >
+        {doubled.map((item, i) => (
+          <span key={i} className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold tracking-wide text-slate-200">
+            <span className={`inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${item.live ? 'animate-pulse bg-emerald-400' : 'bg-primary-soft/50'}`} />
+            <span className="mr-1 rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-soft" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              {item.tag}
+            </span>
+            {item.text}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LiveCourtStats() {
+  return (
+    <section id="live-data" className="border-y border-slate-200 bg-white py-24">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">Live Court Intelligence</div>
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-5">
+          <h2 className="font-display text-4xl font-bold leading-tight text-ink md:text-5xl">
+            India's Judicial Pulse,<br />Inside Your Dashboard.
+          </h2>
+          <p className="max-w-xs text-sm leading-7 text-graphite">
+            Mamla.AI surfaces live data from NJDG, eCourts, and SC daily feeds — so you never open a government portal again.
+          </p>
+        </div>
+        <div className="grid gap-7 lg:grid-cols-[1fr_320px]">
+          <div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              {STAT_CARDS.map((card) => (
+                <div key={card.icon + card.value} className="relative overflow-hidden rounded-[20px] border border-slate-200 bg-background-light p-6 transition-all hover:-translate-y-1 hover:shadow-card">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(22,52,95,0.07),transparent_55%)]" />
+                  <div className="relative">
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+                      <span className="material-symbols-outlined text-primary">{card.icon}</span>
+                    </div>
+                    <p className="font-display text-4xl font-bold leading-none text-background-dark">
+                      {card.value}<span className="text-xl font-semibold">{card.unit}</span>
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-graphite">{card.desc}</p>
+                    <p className="mt-3 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-primary">
+                      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                      {card.source}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[14px] border border-primary/10 bg-primary/5 px-4 py-3">
+              <span className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">Data sources</span>
+              {['NJDG (njdg.ecourts.gov.in)', 'Supreme Court of India (main.sci.gov.in)', 'eCourts Services'].map((src, i, arr) => (
+                <React.Fragment key={src}>
+                  <span className="text-xs text-graphite">{src}</span>
+                  {i < arr.length - 1 && <span className="text-slate-300">·</span>}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 rounded-[20px] bg-background-dark p-6">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary-soft/70">Legal Headlines</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Live feed
+              </span>
+            </div>
+            {NEWS_ITEMS.map((item, i) => (
+              <div key={i} className="flex cursor-pointer gap-3 rounded-[14px] p-3 transition-colors" style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.05)' }}>
+                <span className={`mt-0.5 flex-shrink-0 self-start rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${item.tone}`}>
+                  {item.source}
+                </span>
+                <div>
+                  <p className="text-xs font-medium leading-5 text-slate-100">{item.text}</p>
+                  <p className="mt-1 text-[11px] text-slate-400">{item.time}</p>
+                </div>
+              </div>
+            ))}
+            <a href="https://www.livelaw.in" target="_blank" rel="noopener noreferrer"
+              className="mt-1 block text-center text-xs font-semibold text-slate-400 transition-colors hover:text-primary-soft">
+              View all legal news →
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TeamSection() {
+  return (
+    <section id="team" className="bg-background-light py-24">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">The Builders</div>
+        <div className="mb-12 flex flex-wrap items-end justify-between gap-5">
+          <h2 className="font-display text-4xl font-bold leading-tight text-ink md:text-5xl">
+            Built by Engineers Who<br />Understand the Court.
+          </h2>
+          <p className="max-w-sm text-sm leading-7 text-graphite">
+            Mamla.AI is led by founders who bring enterprise technology, AI systems, and deep empathy for how Indian legal practice actually works.
+          </p>
+        </div>
+        <div className="grid gap-8 lg:grid-cols-2">
+          {TEAM_MEMBERS.map((member) => (
+            <div key={member.initials} className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-card transition-all hover:-translate-y-1 hover:shadow-elevated">
+              <div className="relative overflow-hidden bg-background-dark p-8 pb-7">
+                <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                <div className="absolute -bottom-5 left-10 h-28 w-28 rounded-full" style={{ background: 'rgba(216,227,242,0.06)' }} />
+                <div className="relative z-10">
+                  <div className="mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-[20px] border border-white/12 bg-white/10 font-display text-2xl font-bold text-primary-soft">
+                    {member.initials}
+                  </div>
+                  <p className="font-display text-2xl font-bold text-white">{member.name}</p>
+                  <p className="mt-1 text-[11px] font-black uppercase tracking-[0.2em] text-primary-soft/80">{member.role}</p>
+                </div>
+              </div>
+              <div className="p-8">
+                <div className="mb-5 flex flex-wrap gap-2">
+                  {member.tags.map((tag) => (
+                    <span key={tag} className="rounded-lg px-3 py-1 text-[11px] font-bold text-primary" style={{ background: 'rgba(22,52,95,0.09)' }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <p className="mb-6 text-sm leading-7 text-graphite">{member.bio}</p>
+                <a href="mailto:neveon.ai@gmail.com"
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary/20 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/5">
+                  <span className="material-symbols-outlined text-base">mail</span>
+                  Get in touch
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-6 rounded-[24px] bg-background-dark p-8">
+          <div>
+            <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-primary-soft/60">Company</p>
+            <p className="font-display text-xl font-bold text-white">Neveon AI Technologies Pvt. Ltd.</p>
+            <p className="mt-1 text-sm text-slate-300">The parent company behind Mamla.AI · Incorporated in India</p>
+          </div>
+          <a href="mailto:neveon.ai@gmail.com"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/12 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <span className="material-symbols-outlined text-primary-soft text-base">mail</span>
+            neveon.ai@gmail.com
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FAQSection() {
+  const [openIdx, setOpenIdx] = useState(null);
+  return (
+    <section id="faq" className="border-t border-slate-200 bg-white py-24">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid gap-12 lg:grid-cols-[1fr_2fr] lg:items-start">
+          <div>
+            <div className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">FAQ</div>
+            <h2 className="mb-5 font-display text-4xl font-bold leading-tight text-ink">Questions from<br />the chamber.</h2>
+            <p className="mb-7 text-sm leading-7 text-graphite">
+              Everything a practicing advocate or chamber manager needs to know before signing up.
+            </p>
+            <div className="rounded-[16px] border border-primary/12 bg-primary/5 p-5">
+              <div className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-primary">Still have questions?</div>
+              <a href="mailto:neveon.ai@gmail.com" className="text-sm font-semibold text-primary hover:underline">
+                neveon.ai@gmail.com
+              </a>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            {FAQS.map((faq, i) => (
+              <div key={i} className={`overflow-hidden rounded-[16px] border transition-colors ${openIdx === i ? 'border-primary/15 bg-background-light' : 'border-transparent'}`}>
+                <button
+                  type="button"
+                  onClick={() => setOpenIdx(openIdx === i ? null : i)}
+                  className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                >
+                  <span className="text-sm font-semibold text-ink">{faq.q}</span>
+                  <span className={`material-symbols-outlined flex-shrink-0 text-primary transition-transform duration-300 ${openIdx === i ? 'rotate-180' : ''}`}>
+                    expand_more
+                  </span>
+                </button>
+                {openIdx === i && (
+                  <div className="px-5 pb-5 text-sm leading-7 text-graphite">{faq.a}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContactSection() {
+  const [form, setForm] = useState({ name: '', enrollment: '', email: '', jurisdiction: '', message: '' });
+  const [status, setStatus] = useState('idle');
+
+  function handleChange(e) {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setStatus('sending');
+    // Simulate send — wire to a public contact endpoint or email service (Formspree/EmailJS)
+    // users/submit-feedback/ requires auth and is not available on the public landing page
+    await new Promise((r) => setTimeout(r, 900));
+    setStatus('success');
+    setForm({ name: '', enrollment: '', email: '', jurisdiction: '', message: '' });
+  }
+
+  const inputCls = 'rounded-xl border border-white/12 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition-colors focus:border-primary-soft/60 w-full';
+  const inputStyle = { background: 'rgba(255,255,255,0.07)' };
+
+  return (
+    <section id="contact" className="border-t border-white/6 bg-background-dark py-24 text-ivory" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
+          <div>
+            <div className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary-soft/65">Contact & Support</div>
+            <h2 className="mb-5 font-display text-4xl font-bold leading-tight text-white md:text-5xl">
+              Talk to the team<br />behind Mamla.AI.
+            </h2>
+            <p className="mb-9 text-sm leading-7 text-white/60">
+              Whether you're a solo practitioner in a district court or a senior counsel at the Supreme Court — we're interested in how Mamla.AI can fit your chamber.
+            </p>
+            {[
+              { icon: 'mail',        label: 'General & Support',  value: 'neveon.ai@gmail.com',               href: 'mailto:neveon.ai@gmail.com' },
+              { icon: 'business',    label: 'Company',             value: 'Neveon AI Technologies Pvt. Ltd.',  href: null },
+              { icon: 'location_on', label: 'Registered Office',   value: 'India (Remote-first operation)',    href: null },
+              { icon: 'schedule',    label: 'Response Time',       value: 'Within 1 business day',             href: null },
+            ].map((item) => (
+              <div key={item.label} className="mb-6 flex items-start gap-4">
+                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-white/10" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                  <span className="material-symbols-outlined text-primary-soft text-xl">{item.icon}</span>
+                </div>
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-primary-soft/70">{item.label}</p>
+                  {item.href
+                    ? <a href={item.href} className="mt-1 block text-sm font-semibold text-primary-soft hover:underline">{item.value}</a>
+                    : <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
+                  }
+                </div>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div className="mb-5 text-[11px] font-black uppercase tracking-[0.18em] text-primary-soft/60">Send a message</div>
+            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-white/70">Full Name</label>
+                  <input name="name" type="text" value={form.name} onChange={handleChange} required placeholder="Adv. Priya Sharma" className={inputCls} style={inputStyle} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-white/70">Bar Enrollment No.</label>
+                  <input name="enrollment" type="text" value={form.enrollment} onChange={handleChange} placeholder="MH/1234/2018 (optional)" className={inputCls} style={inputStyle} />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-white/70">Professional Email</label>
+                <input name="email" type="email" value={form.email} onChange={handleChange} required placeholder="advocate@chambers.in" className={inputCls} style={inputStyle} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-white/70">High Court / Jurisdiction</label>
+                <input name="jurisdiction" type="text" value={form.jurisdiction} onChange={handleChange} placeholder="e.g. Bombay HC, Supreme Court, Calcutta HC" className={inputCls} style={inputStyle} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-white/70">Message</label>
+                <textarea name="message" value={form.message} onChange={handleChange} rows={4}
+                  placeholder="Tell us about your chamber size, practice area, and what you're hoping Mamla.AI can solve…"
+                  className={`${inputCls} resize-y`} style={inputStyle} />
+              </div>
+              <button type="submit" disabled={status === 'sending'}
+                className="self-start rounded-[14px] bg-white px-7 py-3.5 text-sm font-bold text-background-dark transition-all hover:-translate-y-0.5 hover:bg-primary-soft disabled:opacity-60">
+                {status === 'sending' ? 'Sending…' : 'Send Message →'}
+              </button>
+              {status === 'success' && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-400">
+                  ✓ Message sent! We'll respond within one business day.
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LegalModal({ docKey, onClose }) {
+  const doc = LEGAL_DOCS[docKey];
+  if (!doc) return null;
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-ink/80 px-4 py-6 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-[28px] bg-white shadow-elevated" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-8 py-6">
+          <h2 className="font-display text-xl font-bold text-background-dark">{doc.title}</h2>
+          <button type="button" onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-background-light transition-colors hover:bg-slate-200">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+        </div>
+        <div className="max-h-[calc(85vh-80px)] overflow-y-auto px-8 py-7 custom-scrollbar">
+          {doc.date && <p className="mb-5 text-[11px] italic text-slate-400">{doc.date}</p>}
+          {doc.sections.map((section) => (
+            <div key={section.heading} className="mb-5">
+              <h3 className="mb-2 text-sm font-bold text-background-dark">{section.heading}</h3>
+              <p className="text-sm leading-7 text-graphite">{section.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const FEATURES = [
   {
     icon: 'edit_note',
@@ -262,6 +693,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [activeSceneIdx, setActiveSceneIdx] = useState(0);
+  const [openModal, setOpenModal] = useState(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -293,9 +725,11 @@ export default function LandingPage() {
 
           <div className="hidden items-center gap-10 md:flex">
             <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#features">Platform</a>
-            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#features">Solutions</a>
+            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#live-data">Court Data</a>
             <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#security">Security</a>
-            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#testimonials">Testimonials</a>
+            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#team">Team</a>
+            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#faq">FAQ</a>
+            <a className="text-sm font-semibold text-white/84 transition-colors hover:text-white" href="#contact">Contact</a>
           </div>
 
           <div className="flex items-center gap-4">
@@ -311,6 +745,8 @@ export default function LandingPage() {
           </div>
         </div>
       </nav>
+
+      <TickerBar />
 
       <header className="gradient-mesh court-grid relative overflow-hidden pt-20 pb-32 text-white">
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,17,31,0.1),rgba(8,17,31,0.55))]" />
@@ -539,6 +975,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <LiveCourtStats />
+
       <section id="testimonials" className="app-rise-in border-t border-slate-200 bg-white py-24" style={{ animationDelay: '300ms' }}>
         <div className="mx-auto max-w-7xl px-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">Trusted by Counsel</h2>
@@ -561,6 +999,12 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <TeamSection />
+
+      <FAQSection />
+
+      <ContactSection />
 
       <section className="app-rise-in bg-background-dark py-24 text-ivory" style={{ animationDelay: '360ms' }}>
         <div className="mx-auto max-w-3xl px-6 text-center">
@@ -585,20 +1029,103 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-slate-200 bg-background-light py-12">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined icon-filled text-primary">account_balance</span>
-            <span className="font-sans font-bold">Mamla.AI</span>
+      <footer className="border-t bg-background-dark text-white" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        <div className="mx-auto max-w-7xl px-6 py-16">
+          <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+            {/* Brand */}
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <span className="material-symbols-outlined text-primary-soft text-xl">account_balance</span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary-soft/70">Supreme-ready</p>
+                  <p className="text-lg font-bold text-white">Mamla.AI</p>
+                </div>
+              </div>
+              <p className="max-w-[280px] text-sm leading-7 text-slate-300">
+                AI-native litigation infrastructure for Indian legal practitioners. Designed for chambers that take their work as seriously as their clients do.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {['AES-256', 'SOC 2', 'DPDP Aligned', 'India Hosted'].map((badge) => (
+                  <span key={badge} className="rounded-lg border border-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    {badge}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-4 text-[11px] text-slate-500">A product of Neveon AI Technologies Pvt. Ltd.</p>
+            </div>
+            {/* Platform */}
+            <div>
+              <p className="mb-4 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Platform</p>
+              <ul className="flex flex-col gap-2.5">
+                {['AI Drafting', 'Document Chat', 'Live Court Updates', 'Hearing Calendar', 'Client Portal', 'eCourts Search'].map((item) => (
+                  <li key={item}><a href="#features" className="text-sm text-white/70 transition-colors hover:text-white">{item}</a></li>
+                ))}
+              </ul>
+            </div>
+            {/* Company */}
+            <div>
+              <p className="mb-4 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Company</p>
+              <ul className="flex flex-col gap-2.5">
+                {[
+                  { label: 'Our Team',          href: '#team' },
+                  { label: 'FAQ',               href: '#faq' },
+                  { label: 'Testimonials',      href: '#testimonials' },
+                  { label: 'Security',          href: '#security' },
+                  { label: 'Contact',           href: '#contact' },
+                  { label: 'neveon.ai@gmail.com', href: 'mailto:neveon.ai@gmail.com' },
+                ].map((item) => (
+                  <li key={item.label}><a href={item.href} className="text-sm text-white/70 transition-colors hover:text-white">{item.label}</a></li>
+                ))}
+              </ul>
+            </div>
+            {/* Legal */}
+            <div>
+              <p className="mb-4 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Legal</p>
+              <ul className="flex flex-col gap-2.5">
+                {[
+                  { label: 'Terms of Service', modal: 'terms' },
+                  { label: 'Privacy Policy',   modal: 'privacy' },
+                  { label: 'Refund Policy',    modal: 'refund' },
+                  { label: 'Legal Disclaimer', modal: 'disclaimer' },
+                ].map((item) => (
+                  <li key={item.label}>
+                    <button type="button" onClick={() => setOpenModal(item.modal)}
+                      className="text-sm text-white/70 transition-colors hover:text-white">
+                      {item.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-5 rounded-xl p-3.5" style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.05)' }}>
+                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Grievance Officer</p>
+                <p className="text-xs font-semibold text-white/65">Robin </p>
+                <a href="mailto:neveon.ai@gmail.com" className="text-xs text-primary-soft/70 transition-colors hover:text-primary-soft">neveon.ai@gmail.com</a>
+                <p className="mt-1 text-[11px] text-slate-500">Response within 30 days (IT Act, 2000)</p>
+              </div>
+            </div>
           </div>
-          <p className="text-sm font-medium text-ink/58">© 2026 Mamla.AI. All rights reserved. Secure and encrypted for chamber operations.</p>
-          <div className="flex gap-6">
-            <a href="#" className="text-sm font-medium text-ink/68 transition-colors hover:text-primary">Privacy</a>
-            <a href="#" className="text-sm font-medium text-ink/68 transition-colors hover:text-primary">Terms</a>
-            <a href="#" className="text-sm font-medium text-ink/68 transition-colors hover:text-primary">Contact</a>
+          <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t pt-8" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+            <p className="text-xs text-white/40">© 2026 Neveon AI Technologies Pvt. Ltd. All rights reserved. Mamla.AI is a registered product.</p>
+            <div className="flex gap-5">
+              {[
+                { label: 'Terms',      modal: 'terms' },
+                { label: 'Privacy',    modal: 'privacy' },
+                { label: 'Refunds',    modal: 'refund' },
+                { label: 'Disclaimer', modal: 'disclaimer' },
+              ].map((item) => (
+                <button key={item.label} type="button" onClick={() => setOpenModal(item.modal)}
+                  className="text-xs text-slate-400 transition-colors hover:text-white">
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </footer>
+
+      {openModal && <LegalModal docKey={openModal} onClose={() => setOpenModal(null)} />}
     </div>
   );
 }

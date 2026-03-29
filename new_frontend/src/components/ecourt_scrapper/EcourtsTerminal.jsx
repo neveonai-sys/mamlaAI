@@ -7,14 +7,14 @@ const MODULES = [
   {
     key: 'cnr',
     title: 'CNR Lookup',
-    description: 'Direct case fetch via the FastAPI scraper with CAPTCHA solving and full case detail.',
+    description: 'Fetch complete case details using the CNR number — orders, hearings, party information, and case history in one view.',
     status: 'live',
     href: null,
   },
   {
     key: 'case-status',
     title: 'Case Status',
-    description: 'Search by party name, filing number, advocate, or FIR with the full district court cascade.',
+    description: 'Search by party name, filing number, advocate name, or FIR reference across any district court in India.',
     status: 'live',
     href: '/ecourts/case-status',
   },
@@ -28,14 +28,14 @@ const MODULES = [
   {
     key: 'cause-list',
     title: 'Cause List',
-    description: 'Browse daily cause lists for any district court with the full five-step cascade.',
+    description: 'Browse daily cause lists for any district court across all states in India.',
     status: 'live',
     href: '/ecourts/cause-list',
   },
   {
     key: 'caveat',
     title: 'Caveat',
-    description: 'Caveat search — implementation pending on the scraper side.',
+    description: 'Search for caveats filed in any district court. This feature will be available shortly.',
     status: 'migration',
     href: '/ecourts/caveat',
   },
@@ -87,7 +87,7 @@ export default function EcourtsTerminal() {
         });
       } catch (err) {
         if (!active) return;
-        setError(err.response?.data?.error || 'Unable to load scraper terminal metadata right now.');
+        setError(err.response?.data?.error || 'Unable to connect to eCourts services right now. Please try again shortly.');
       } finally {
         if (active) setLoading(false);
       }
@@ -115,10 +115,10 @@ export default function EcourtsTerminal() {
       <div className="rounded-[28px] border border-primary/10 bg-white p-8 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-primary">Scraper-first eCourts</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-ink">New terminal flow is now anchored on the scraper runtime</h1>
+            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-primary">eCourts Case Search</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-ink">Live access to district court records across India</h1>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              The third-party partner API is being retired from runtime. This screen tracks the stitched-module migration while routing live case lookups through the scraper stack and Mongo-backed reference datasets.
+              Search and track cases from district courts across all states in India. Access case status, court orders, cause lists, and CNR lookups — all from a single place.
             </p>
           </div>
 
@@ -128,7 +128,7 @@ export default function EcourtsTerminal() {
               <p className="mt-2 text-2xl font-black text-ink">{loading ? '...' : stats.districtStates || '0'}</p>
             </div>
             <div className="rounded-2xl border border-primary/10 bg-background-light px-4 py-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Scraper</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Service</p>
               <p className="mt-2 text-2xl font-black text-ink">{loading ? '...' : stats.referencesReady ? '✓' : '—'}</p>
             </div>
             <div className="rounded-2xl border border-primary/10 bg-background-light px-4 py-4">
@@ -145,7 +145,7 @@ export default function EcourtsTerminal() {
         ) : null}
 
         <div className="mt-8 rounded-[24px] border border-primary/10 bg-background-light p-5">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Live right now</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">CNR Quick Lookup</p>
           <div className="mt-3 flex flex-col gap-3 md:flex-row">
             <input
               ref={cnrInputRef}
@@ -158,7 +158,7 @@ export default function EcourtsTerminal() {
                   handleLookup();
                 }
               }}
-              placeholder="Enter 16-20 character CNR"
+              placeholder="Enter CNR number (e.g. MHPU010023452024)"
               className="input-base flex-1 font-mono uppercase"
             />
             <button type="button" onClick={handleLookup} className="btn-primary flex items-center justify-center gap-2 md:min-w-[180px]">
@@ -167,7 +167,7 @@ export default function EcourtsTerminal() {
             </button>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            This calls the scraper-backed case lookup and continues into the existing case-detail screen.
+            Enter a valid CNR to view the complete case record including orders, hearings, and party details.
           </p>
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function EcourtsTerminal() {
                 <p className="mt-2 text-sm leading-6 text-slate-600">{module.description}</p>
               </div>
               <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${toneClass(module.status)}`}>
-                {module.status === 'live' ? 'Live' : 'In migration'}
+                {module.status === 'live' ? 'Live' : 'Coming Soon'}
               </span>
             </div>
             {module.href ? (
@@ -206,14 +206,14 @@ export default function EcourtsTerminal() {
       </div>
 
       <div className="mt-8 rounded-[24px] border border-primary/10 bg-background-light p-6">
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Migration notes</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Service Notes</p>
         <ul className="mt-3 space-y-2 text-sm leading-7 text-slate-600">
-          <li>The runtime route has moved to `ecourts_scraper` and no longer consumes `ECOURT_TOKEN`.</li>
-          <li>Reference dropdown payloads are now stored in Mongo under `ecourts_reference_data` for reuse across sessions.</li>
-          <li>The new terminal now routes active stitched screens for case status, court orders, and cause list through scraper-aware UI.</li>
+          <li>Case data is sourced directly from official eCourts records, ensuring accuracy and up-to-date availability.</li>
+          <li>Court and district references are cached for faster load times across all your searches.</li>
+          <li>Case Status, Court Orders, and Cause List are fully active and available for all supported courts.</li>
         </ul>
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          {readyModules} of {MODULES.length} module surfaces are fully live in this first migration slice. The remaining stitched screens are being moved off the old direct-API assumptions next.
+          {readyModules} of {MODULES.length} search modules are currently active. Additional features will be available shortly.
         </div>
       </div>
     </div>

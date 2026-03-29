@@ -998,7 +998,7 @@ export default function CalendarPage() {
 
       <Toast toast={toast} onClose={() => setToast((previous) => ({ ...previous, open: false }))} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_320px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_320px]">
         <aside className="overflow-hidden rounded-[28px] border border-primary/10 bg-[linear-gradient(180deg,#fffdfa_0%,#f7f0e8_100%)] shadow-[0_20px_40px_rgba(49,31,14,0.08)]">
           <div className="flex flex-col gap-6 p-6">
             <div className="flex items-center gap-3">
@@ -1120,7 +1120,7 @@ export default function CalendarPage() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-slate-500">
-                  Advanced legal scheduling with conflict checks, rescheduling support, and case-aware event intake.
+                  Hearings, deadlines, and consultations — all in one place.
                 </p>
               </div>
 
@@ -1261,7 +1261,7 @@ export default function CalendarPage() {
           </div>
         </section>
 
-        <aside className="overflow-hidden rounded-[28px] border border-primary/10 bg-[linear-gradient(180deg,#fffdfa_0%,#f7f0e8_100%)] shadow-[0_20px_40px_rgba(49,31,14,0.08)]">
+        <aside className="hidden xl:block overflow-hidden rounded-[28px] border border-primary/10 bg-[linear-gradient(180deg,#fffdfa_0%,#f7f0e8_100%)] shadow-[0_20px_40px_rgba(49,31,14,0.08)]">
           <div className="flex h-full flex-col gap-5 p-6">
             <div className="flex items-start justify-between gap-4">
               <div>

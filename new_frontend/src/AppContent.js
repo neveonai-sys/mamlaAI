@@ -16,11 +16,10 @@ const ResetPassword      = lazy(() => import('./components/auth/ResetPassword'))
 
 // Protected app screens
 const Dashboard          = lazy(() => import('./components/dashboard/Dashboard'));
-const CommandCenter      = lazy(() => import('./components/dashboard/CommandCenter'));
 const DraftingWorkspace  = lazy(() => import('./components/drafting/DraftingWorkspace'));
 const DocumentWorkspace  = lazy(() => import('./components/documents/DocumentWorkspace'));
 const CalendarPage       = lazy(() => import('./components/calendar/CalendarPage'));
-const CourtUpdates       = lazy(() => import('./components/courts/CourtUpdates'));
+// const CourtUpdates       = lazy(() => import('./components/courts/CourtUpdates'));
 const ClientOnboarding   = lazy(() => import('./components/clients/ClientOnboarding'));
 const Sessions           = lazy(() => import('./components/sessions/Sessions'));
 const Feedback           = lazy(() => import('./components/feedback/Feedback'));
@@ -120,15 +119,15 @@ export default function AppContent() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route path="/dashboard"       element={<Dashboard />} />
-            <Route path="/command-center"  element={<CommandCenter />} />
+            <Route path="/command-center"  element={<Navigate to="/dashboard" replace />} />
             <Route path="/drafting"        element={<DraftingWorkspace />} />
             <Route path="/drafting/:id"    element={<DraftingWorkspace />} />
             <Route path="/documents"       element={<DocumentWorkspace />} />
             <Route path="/documents/:id"   element={<DocumentWorkspace />} />
             <Route path="/calendar"        element={<CalendarPage />} />
-            <Route path="/court-updates"   element={<CourtUpdates />} />
+            {/* <Route path="/court-updates"   element={<CourtUpdates />} /> */}
             <Route path="/clients"         element={<ClientOnboarding />} />
-            <Route path="/sessions"        element={<Sessions />} />
+            {/* <Route path="/sessions"        element={<Sessions />} /> */}
             <Route path="/feedback"        element={<Feedback />} />
 
             {/* eCourts nested */}
