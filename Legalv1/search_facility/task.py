@@ -1,5 +1,6 @@
 from celery import shared_task, group
 # import requests
+import os
 import traceback
 # from io import BytesIO
 # import base64
@@ -93,7 +94,7 @@ def index_documents(doc):
                 }
                 # Index document in OpenSearch
         opensearch_client.index(
-            index="documents",  # The name of the OpenSearch index
+            index=os.getenv("OPENSEARCH_INDEX_PREFIX", "") + "documents",  # The name of the OpenSearch index
             body=document_data,
                 id=doc.get('_id') # Use MongoDB's _id as the document ID
         )

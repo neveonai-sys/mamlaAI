@@ -543,15 +543,16 @@ has the T1→retrieve→T3 multi-step reasoning architecture.
 
 > **Goal:** Give the lawyer a place to create, view, and manage cases before agents exist.
 
-- [ ] **P1-1** Create `Legalv1/cases/` Django app; register in `INSTALLED_APPS` + `urls.py`
-- [ ] **P1-2** Implement case CRUD endpoints (create, list, get, update, close)
-- [ ] **P1-3** Implement `case_notes` endpoints (create, list with visibility filter)
-- [ ] **P1-4** Implement `case_tasks` endpoints (CRUD + status update)
-- [ ] **P1-5** Implement `hearing_notes` endpoints (create prep, create outcome, list)
-- [ ] **P1-6** Build `CaseRegistry` frontend page (`/cases`) — list view with status filter
-- [ ] **P1-7** Build `CaseHub` frontend page (`/cases/:caseId`) — full case detail with tabs
-- [ ] **P1-8** Add `/cases` to Sidebar nav and update AppContent routes
-- [ ] **P1-9** Update `docs/00-agent-quickref.md`, `docs/04-api-reference.md`, `docs/02-backend-legalv1.md`
+- [x] **P1-1** Create `Legalv1/cases/` Django app; register in `INSTALLED_APPS` + `urls.py`
+- [x] **P1-2** Implement case CRUD endpoints (create, list, get, update, close)
+- [x] **P1-3** Implement `case_notes` endpoints (create, list with visibility filter)
+- [x] **P1-4** Implement `case_tasks` endpoints (CRUD + status update)
+- [x] **P1-5** Implement `hearing_notes` endpoints (create prep, create outcome, list)
+- [x] **P1-6** Build `CaseRegistry` frontend page (`/cases`) — list view with status filter
+- [x] **P1-7** Build `CaseHub` frontend page (`/cases/:caseId`) — full case detail with tabs (Hearings, Notes, Tasks)
+- [x] **P1-8** Add `/cases` to Sidebar nav and update AppContent routes
+- [x] **P1-9** Build `HearingWorkspace` frontend page (`/cases/:caseId/hearings/:hearingId`) — prep + outcome recording
+- [x] **P1-10** Update `docs/00-agent-quickref.md`, `docs/04-api-reference.md`, `docs/02-backend-legalv1.md`
 
 ---
 
@@ -559,14 +560,14 @@ has the T1→retrieve→T3 multi-step reasoning architecture.
 
 > **Goal:** Wire AI intelligence into the case lifecycle.
 
-- [ ] **P2-1** Create `Legalv1/agents/` Django app; register in `INSTALLED_APPS` + `urls.py`
-- [ ] **P2-2** Build `BaseAgent` class with shared logging and error handling
-- [ ] **P2-3** Implement `CaseIntakeAgent` + `POST /api/agents/case-intake/`
-- [ ] **P2-4** Implement `DocumentIntelligenceAgent` + `POST /api/agents/document-intel/`
-- [ ] **P2-5** Implement `HearingPrepAgent` + `POST /api/agents/hearing-prep/`
-- [ ] **P2-6** Implement `PostHearingAgent` + `POST /api/agents/post-hearing/`
-- [ ] **P2-7** Implement `DraftContextAgent` + `POST /api/agents/draft-context/`
-- [ ] **P2-8** Implement `CaseClosureAgent` + `POST /api/agents/case-closure/`
+- [x] **P2-1** Create `Legalv1/agents/` Django app; register in `INSTALLED_APPS` + `urls.py`
+- [x] **P2-2** Build `BaseAgent` class with shared logging and error handling
+- [x] **P2-3** Implement `CaseIntakeAgent` + `POST /api/agents/case-intake/`
+- [x] **P2-4** Implement `DocumentIntelligenceAgent` + `POST /api/agents/document-intel/`
+- [x] **P2-5** Implement `HearingPrepAgent` + `POST /api/agents/hearing-prep/`
+- [x] **P2-6** Implement `PostHearingAgent` + `POST /api/agents/post-hearing/`
+- [x] **P2-7** Implement `DraftContextAgent` + `POST /api/agents/draft-context/`
+- [x] **P2-8** Implement `CaseClosureAgent` + `POST /api/agents/case-closure/`
 
 ---
 
@@ -574,10 +575,10 @@ has the T1→retrieve→T3 multi-step reasoning architecture.
 
 > **Goal:** Give the lawyer a dedicated page to prepare for and record hearing outcomes.
 
-- [ ] **P3-1** Build `HearingWorkspace` frontend page (`/cases/:caseId/hearings/:hearingId`)
-- [ ] **P3-2** Wire `HearingPrepAgent` call to "Generate AI Brief" button
-- [ ] **P3-3** Wire `PostHearingAgent` call to "Save Outcome" button
-- [ ] **P3-4** Auto-create calendar event suggestion when next date is set
+- [x] **P3-1** Build `HearingWorkspace` frontend page (`/cases/:caseId/hearings/:hearingId`)
+- [x] **P3-2** Wire `HearingPrepAgent` call to "Generate AI Brief" button
+- [x] **P3-3** Wire `PostHearingAgent` call to "Save Outcome" button
+- [x] **P3-4** Auto-create calendar event suggestion when next date is set
 
 ---
 
@@ -585,10 +586,10 @@ has the T1→retrieve→T3 multi-step reasoning architecture.
 
 > **Goal:** Drafting launched from a case automatically gets case context.
 
-- [ ] **P4-1** Add "Start Draft from Case" button on `CaseHub` drafts tab
-- [ ] **P4-2** Wire `DraftContextAgent` call to pre-fill `DraftingWorkspace`
-- [ ] **P4-3** Build `CaseDrafts` page scoped to a case (`/cases/:caseId/drafts`)
-- [ ] **P4-4** Update `DraftingWorkspace` to accept pre-fill context from agent
+- [x] **P4-1** Add "Start Draft from Case" button on `CaseHub` drafts tab
+- [x] **P4-2** Wire `DraftContextAgent` call to pre-fill `DraftingWorkspace`
+- [x] **P4-3** Build `CaseDrafts` page scoped to a case (`/cases/:caseId/drafts`)
+- [x] **P4-4** Update `DraftingWorkspace` to accept pre-fill context from agent
 
 ---
 
@@ -596,10 +597,10 @@ has the T1→retrieve→T3 multi-step reasoning architecture.
 
 > **Goal:** Clients can log in and see their case — status, shared docs, hearing dates, updates.
 
-- [ ] **P5-1** Add `/my-case` route for client role (shows their case(s))
-- [ ] **P5-2** Filter `case_notes` to `visibility: shared` for client view
-- [ ] **P5-3** Show upcoming hearings from calendar events
-- [ ] **P5-4** Show shared documents (TalkDoc docs where lawyer explicitly shared)
+- [x] **P5-1** Add `/my-case` route for client role (shows their case(s))
+- [x] **P5-2** Filter `case_notes` to `visibility: shared` for client view
+- [x] **P5-3** Show upcoming hearings from calendar events
+- [x] **P5-4** Show shared documents (TalkDoc docs where lawyer explicitly shared)
 
 ---
 
@@ -607,9 +608,9 @@ has the T1→retrieve→T3 multi-step reasoning architecture.
 
 > **Goal:** Clean closure workflow with a final AI-generated case summary.
 
-- [ ] **P6-1** Build case close modal on `CaseHub` (select resolution type, enter summary)
-- [ ] **P6-2** Wire `CaseClosureAgent` on close action
-- [ ] **P6-3** Archive view on `CaseRegistry` (filter: `status=Archived`)
+- [x] **P6-1** Build case close modal on `CaseHub` (select resolution type, enter summary)
+- [x] **P6-2** Wire `CaseClosureAgent` on close action
+- [x] **P6-3** Archive view on `CaseRegistry` (filter: `status=Archived`)
 
 ---
 

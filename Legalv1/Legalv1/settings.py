@@ -20,8 +20,9 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load env file from project root reliably
-load_dotenv(BASE_DIR / 'legalenv')
+# Load env file — pick legalenv.dev when DJANGO_MODE=dev, otherwise legalenv (prod)
+_env_file = 'legalenv.dev' if os.environ.get('DJANGO_MODE') == 'dev' else 'legalenv'
+load_dotenv(BASE_DIR / _env_file)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -50,6 +51,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://mamla.ai',
     'http://www.mamla.ai',
     'http://localhost:3000',
+    'http://localhost:3001',  # dev frontend
 ]
 
 # REST Framework and OpenAPI (Swagger) - schema only when DEBUG=True (see core.views)
@@ -105,6 +107,8 @@ INSTALLED_APPS = [
     # 'ecourts_scraper',
     'ecourt_scrapped',
     'corsheaders',
+    'cases',
+    'agents',
 ]
 
 MIDDLEWARE = [
@@ -145,6 +149,8 @@ OPENSEARCH_HOST = os.getenv('OPENSEARCH_HOST', 'localhost')
 OPENSEARCH_PORT = int(os.getenv('OPENSEARCH_PORT', '9200'))
 OPENSEARCH_USE_SSL = os.getenv('OPENSEARCH_USE_SSL', '0') == '1'
 OPENSEARCH_VERIFY_CERTS = os.getenv('OPENSEARCH_VERIFY_CERTS', '0') == '1'
+# Index name prefix: empty for prod, 'dev_' for dev (set via OPENSEARCH_INDEX_PREFIX in env file)
+OPENSEARCH_INDEX_PREFIX = os.getenv('OPENSEARCH_INDEX_PREFIX', '')
 
 # ---------------------------------------------------------------------------
 # LLM configuration (core.llm_client reads these)
@@ -310,8 +316,9 @@ else:
 
 # Celery Configuration
 # Redis as the broker for Celery
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# DB 0 = prod (default), DB 1 = dev — controlled by CELERY_BROKER_URL in env file
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json', 'pickle']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

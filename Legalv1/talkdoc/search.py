@@ -6,7 +6,8 @@ OS_HOST = os.getenv("RAG_OS_HOST") or os.getenv("OPENSEARCH_HOST", "localhost")
 OS_PORT = int(os.getenv("RAG_OS_PORT") or os.getenv("OPENSEARCH_PORT", "9200"))
 OS_USER = (os.getenv("RAG_OS_USER") or os.getenv("OPENSEARCH_USERNAME") or "").strip()
 OS_PASS = (os.getenv("RAG_OS_PASS") or os.getenv("OPENSEARCH_PASSWORD") or "").strip()
-INDEX = os.getenv("RAG_OS_INDEX", "rag_chunks_v1")
+_OS_INDEX_PREFIX = os.getenv("OPENSEARCH_INDEX_PREFIX", "")
+INDEX = _OS_INDEX_PREFIX + os.getenv("RAG_OS_INDEX", "rag_chunks_v1")
 
 def os_client() -> OpenSearch:
     kwargs = {

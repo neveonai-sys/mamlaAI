@@ -36,6 +36,10 @@ urlpatterns = [
     path('api/todaysupdates/', include('todaysupdates.urls')),
     path('api/talkdoc/', include('talkdoc.urls')),
     path('api/brain/', include('mamla_brain.urls')),
+    # Cases — internal case registry
+    path('api/cases/', include('cases.urls')),
+    # Mamla agents — AI lifecycle agents
+    path('api/agents/', include('agents.urls')),
     # Live eCourts runtime is now scraper-first and uses local CAPTCHA solving.
     # path('api/ecourts/', include('ecourts_scraper.urls')),
     # New eCourts integration: FastAPI scraper proxy with MongoDB caching.

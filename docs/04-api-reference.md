@@ -410,6 +410,53 @@ For district-court advocate search, replace the high-court selectors above with 
 
 ---
 
+## Cases (`/api/cases/`)
+
+**Module:** `cases/views.py`. All `@supabase_required`.  
+**URL config:** `Legalv1/cases/urls.py`.  
+**Collections:** `cases`, `hearing_notes`, `case_notes`, `case_tasks`.  
+**Access rules:** Lawyer sees/edits all cases they own. Paralegal sees cases where their user_id is in `paralegal_ids`. Client sees cases where their user_id is in `client_ids` (notes filtered to `visibility=shared`).
+
+### Case CRUD
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `cases/create/` | Create internal case. Required: `title`. Returns `{case}`. |
+| GET | `cases/list/` | Lawyer's case list. Query: `status`, `stage`, `search`. Returns `{cases: [...]}`. |
+| GET | `cases/<id>/` | Full case detail. Returns `{case}`. |
+| PUT/PATCH | `cases/<id>/update/` | Partial update (lawyer only). Returns `{case}`. |
+| POST | `cases/<id>/close/` | Close/archive. Body: `{resolution_type, summary}`. Returns `{case}`. |
+| GET | `cases/<id>/timeline/` | All hearings + notes + tasks aggregated. Returns `{case, hearings, notes, tasks}`. |
+
+### Hearing Notes
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `cases/<id>/hearing-notes/` | Create hearing note. Required: `hearing_date`, `type` (prep\|outcome). Returns `{hearing_note}`. |
+| GET | `cases/<id>/hearing-notes/list/` | List hearing notes for case. Returns `{hearing_notes: [...]}`. |
+| GET | `cases/<id>/hearing-notes/<note_id>/` | Get hearing note detail. Returns `{hearing_note}`. |
+| PATCH | `cases/<id>/hearing-notes/<note_id>/update/` | Update outcome, next_date, content, ai_brief. Returns `{hearing_note}`. |
+
+### Case Notes
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `cases/<id>/notes/` | Add note. Required: `content`. Optional: `visibility` (internal\|shared). Returns `{note}`. |
+| GET | `cases/<id>/notes/list/` | List notes (clients see shared only). Returns `{notes: [...]}`. |
+| PATCH | `cases/<id>/notes/<note_id>/update/` | Edit note (author only). Returns `{note}`. |
+| DELETE | `cases/<id>/notes/<note_id>/delete/` | Delete note. Returns `{deleted: true}`. |
+
+### Case Tasks
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `cases/<id>/tasks/` | Create task. Required: `title`. Optional: `due_date`, `priority`, `assigned_to`, `source`. Returns `{task}`. |
+| GET | `cases/<id>/tasks/list/` | List tasks. Query: `status`, `assigned_to`. Returns `{tasks: [...]}`. |
+| PATCH | `cases/<id>/tasks/<task_id>/update/` | Update task (not clients). Returns `{task}`. |
+| DELETE | `cases/<id>/tasks/<task_id>/delete/` | Delete task (lawyer only). Returns `{deleted: true}`. |
+
+---
+
 ## Request/Response Conventions
 
 - **Content-Type:** JSON where applicable (`application/json`). Multipart for file uploads (e.g. send-email, uploads).
@@ -425,3 +472,20 @@ For architectural context and where each app lives, see **02-backend-legalv1.md*
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/dashboard/home/` | Supabase | Aggregated home metrics: `pending_drafts` (int), `upcoming_events` (int, next 30 days), `upcoming_events_list` (array of upcoming events: `[{id, title, start, event_type}]` sorted by start), `recent_drafts` (array of 5: session_id / draft_name / status / created_at), `recent_updates` (array of 5: court / update / time). Implemented in `core/views.py`. |
+
+---
+
+## Agents (/api/agents/)
+
+All endpoints: `POST`, `@supabase_required`. Each returns `{"ok": true, ...result}` on success or `{"ok": false, "error": "..."}` on failure.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/agents/case-intake/` | Create case with eCourts enrichment + LLM classification. Body: `title` (req), `case_description`, `cnr`, `court`, `client_ids`, `filing_date`. Returns `{case, enrichment_notes, next_suggested_action}`. |
+| POST | `/api/agents/document-intel/` | Extract structured facts from uploaded TalkDoc documents. Body: `case_id` (req), `document_ids` (req, list). Returns `{facts, brief_updated, chunks_retrieved, next_suggested_action}`. |
+| POST | `/api/agents/hearing-prep/` | Generate AI hearing brief; stored as `hearing_notes` type=prep. Body: `case_id` (req), `hearing_date` (req), `purpose`, `document_ids`, `calendar_event_id`. Returns `{note_id, ai_brief, context_used, next_suggested_action}`. |
+| POST | `/api/agents/post-hearing/` | Record outcome, update case, auto-create follow-up tasks. Body: `case_id` (req), `hearing_notes_id` (req), `outcome_text` (req), `next_date`. Returns `{hearing_status, tasks_created, next_suggested_action}`. |
+| POST | `/api/agents/draft-context/` | Build enriched context for DraftingWorkspace pre-fill. Body: `case_id` (req), `draft_type`, `document_ids`. Returns `{draft_context: {draft_for, location, context_summary, suggested_sections, key_facts}}`. |
+| POST | `/api/agents/case-closure/` | Archive case, generate summary, cancel pending tasks, create shared client note. Body: `case_id` (req), `resolution_type`, `resolution_summary` (req). Returns `{case_summary, stats, client_note_id, next_suggested_action}`. |
+
+**Agent architecture:** Each agent is a deterministic fixed-step Python class in `Legalv1/agents/`. No LangChain/LangGraph — max 2-3 LLM calls per agent via `core/llm_client.chat_complete()`. See `docs/08-lawyer-workflow-plan.md` Section 10.

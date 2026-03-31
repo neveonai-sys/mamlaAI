@@ -34,6 +34,12 @@ const CaseDetail         = lazy(() => import('./components/ecourts/CaseDetail'))
 const LawyerSearch       = lazy(() => import('./components/ecourts/LawyerSearch'));
 const LitigantSearch     = lazy(() => import('./components/ecourts/LitigantSearch'));
 
+// Case Registry (Phase 1)
+const CaseRegistry       = lazy(() => import('./components/cases/CaseRegistry'));
+const CaseHub            = lazy(() => import('./components/cases/CaseHub'));
+const HearingWorkspace   = lazy(() => import('./components/cases/HearingWorkspace'));
+const ClientCasePage     = lazy(() => import('./components/cases/ClientCasePage'));
+
 // ─── Public routes that skip auth check ─────────────────────────────────────
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/reset-password'];
 
@@ -140,6 +146,14 @@ export default function AppContent() {
             <Route path="/ecourts/litigants"    element={<LitigantSearch />} />
             <Route path="/ecourts/cause-list"   element={<CauseListTerminal />} />
             <Route path="/ecourts/caveat"       element={<CaveatTerminal />} />
+
+            {/* Case Registry */}
+            <Route path="/cases"                                        element={<CaseRegistry />} />
+            <Route path="/cases/:caseId"                                element={<CaseHub />} />
+            <Route path="/cases/:caseId/hearings/:hearingId"            element={<HearingWorkspace />} />
+
+            {/* Client portal */}
+            <Route path="/my-case"                                      element={<ClientCasePage />} />
           </Route>
         </Route>
 

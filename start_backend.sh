@@ -1,8 +1,13 @@
 #!/bin/bash
 
 # Enhanced Start Script with Development and Production Modes
-# Usage: ./start.sh [dev|prod]
+# Usage: ./start_backend.sh [dev|prod]
 # Default: prod (production mode)
+#
+# Isolation strategy:
+#   prod — Gunicorn on port 8000, Redis DB 0, named Celery workers prod_worker/prod_ecourts
+#   dev  — Django runserver on port 8100, Redis DB 1, named Celery workers dev_worker/dev_ecourts
+#          NO Celery beat in dev (avoids double emails/scheduled triggers)
 
 # Get the project root directory
 PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
@@ -15,14 +20,33 @@ elif [ "$1" = "prod" ]; then
     MODE="prod"
 elif [ -n "$1" ]; then
     echo "Usage: $0 [dev|prod]"
-    echo "  dev  - Development mode (HMR, source maps, webpack dev server)"
-    echo "  prod - Production mode (optimized build, static serving)"
+    echo "  dev  - Development mode (Django runserver port 8100, Redis DB 1, reduced workers)"
+    echo "  prod - Production mode (Gunicorn port 8000, Redis DB 0, full workers)"
     exit 1
 fi
 
+# ── Mode-specific config ───────────────────────────────────────────────────
+if [ "$MODE" = "dev" ]; then
+    BACKEND_PORT=8100
+    CELERY_WORKER_NAME="dev_worker"
+    CELERY_ECOURTS_NAME="dev_ecourts"
+    CELERY_GEVENT_CONCURRENCY=10
+    CELERY_PREFORK_CONCURRENCY=2
+    CELERY_LOGLEVEL="info"
+    LOG_DIR="$PROJECT_ROOT/logs/dev"
+    RUN_BEAT=false
+else
+    BACKEND_PORT=8000
+    CELERY_WORKER_NAME="prod_worker"
+    CELERY_ECOURTS_NAME="prod_ecourts"
+    CELERY_GEVENT_CONCURRENCY=100
+    CELERY_PREFORK_CONCURRENCY=4
+    CELERY_LOGLEVEL="warning"
+    LOG_DIR="$PROJECT_ROOT/logs"
+    RUN_BEAT=true
+fi
 
-# Create logs directory if it doesn't exist
-mkdir -p "$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
 
 PYTHON_BIN="${PYTHON_BIN:-/home/pronoys/miniconda3/envs/myenv/bin/python}"
 if [ ! -x "$PYTHON_BIN" ]; then
@@ -67,6 +91,10 @@ if missing:
 PY
 }
 
+if [ "$MODE" = "dev" ]; then
+    LEGALENV_PATH="$PROJECT_ROOT/Legalv1/legalenv.dev"
+fi
+
 if [ ! -f "$LEGALENV_PATH" ]; then
     echo "Error: missing env file at $LEGALENV_PATH"
     exit 1
@@ -76,85 +104,97 @@ if ! validate_backend_env; then
     exit 1
 fi
 
-# Function to check if a port is in use
-is_port_in_use() {
-    local port=$1
-    if command -v lsof >/dev/null 2>&1; then
-        lsof -i :"$port" >/dev/null 2>&1
-    else
-        netstat -tuln 2>/dev/null | grep -q ":$port "
-    fi
-    return $?
-}
+# ── Stop only THIS mode's processes (leave the other mode running) ─────────
+echo "Stopping existing $MODE backend processes on port $BACKEND_PORT..."
+lsof -ti:"$BACKEND_PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
 
+echo "Stopping $MODE Celery workers (${CELERY_WORKER_NAME} / ${CELERY_ECOURTS_NAME})..."
+pkill -f "celery.*-n ${CELERY_WORKER_NAME}@" 2>/dev/null || true
+pkill -f "celery.*-n ${CELERY_ECOURTS_NAME}@" 2>/dev/null || true
+if [ "$RUN_BEAT" = "true" ]; then
+    # Only kill beat in prod mode
+    pkill -f "celery.*beat.*Legalv1" 2>/dev/null || true
+fi
+sleep 2
 
-echo "Restarting Backend"
-kill -9 `ps -fu $USER | grep -v grep | grep -E 'runserver|gunicorn' | awk '{print $2}'` 2>/dev/null
+# ── Export DJANGO_MODE so settings.py picks the right env file ──────────────
+export DJANGO_MODE="$MODE"
+export BACKEND_PORT="$BACKEND_PORT"
+
 cd "$PROJECT_ROOT/Legalv1"
 
-# Start backend based on mode
+# ── Start backend ──────────────────────────────────────────────────────────
+LOG_DATE=$(date +%d-%m-%Y)
 if [ "$MODE" = "dev" ]; then
-    echo "🔧 Starting Django Development Server..."
-    nohup "$PYTHON_BIN" manage.py runserver > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
+    echo "🔧 Starting Django Development Server on port $BACKEND_PORT..."
+    nohup "$PYTHON_BIN" manage.py runserver "0.0.0.0:${BACKEND_PORT}" > "$LOG_DIR/backend.log" 2>&1 &
 else
-    echo "🏭 Starting Gunicorn Production Server..."
-    # Use gunicorn_config.py with daily log rotation (keeps 3 days)
+    echo "🏭 Starting Gunicorn Production Server on port $BACKEND_PORT..."
     nohup "$PYTHON_BIN" -m gunicorn Legalv1.wsgi:application \
         --config gunicorn_config.py \
-        > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
+        > "$LOG_DIR/backend.log" 2>&1 &
 fi
 
-# Wait for backend to start
 echo "Waiting for backend to start..."
 sleep 5
 
-echo "Restarting Celery"
-kill -9 `ps -fu $USER | grep -v grep | grep celery | awk '{print $2}'` 2>/dev/null
-cd "$PROJECT_ROOT/Legalv1"
+# ── Start Celery workers ───────────────────────────────────────────────────
+echo "Starting $MODE Celery workers..."
 
-# Use date-based log files for Celery (matching Django's pattern)
-LOG_DATE=$(date +%d-%m-%Y)
-CELERY_LOGLEVEL="warning"
-if [ "$MODE" = "dev" ]; then
-    CELERY_LOGLEVEL="info"
-fi
-nohup "$PYTHON_BIN" -m celery -A Legalv1 worker -P gevent --concurrency=100 --loglevel="$CELERY_LOGLEVEL" -Q celery,audio_processing > "$PROJECT_ROOT/logs/${LOG_DATE}_celery.log" 2>&1 &
-nohup "$PYTHON_BIN" -m celery -A Legalv1 worker -P prefork --concurrency=4 --loglevel="$CELERY_LOGLEVEL" -Q ecourts_realtime,ecourts_background -n ecourts_worker@%h > "$PROJECT_ROOT/logs/${LOG_DATE}_celery_ecourts.log" 2>&1 &
-nohup "$PYTHON_BIN" -m celery -A Legalv1 beat --loglevel="$CELERY_LOGLEVEL" > "$PROJECT_ROOT/logs/${LOG_DATE}_celery_beat.log" 2>&1 &
+nohup "$PYTHON_BIN" -m celery -A Legalv1 worker \
+    -P gevent \
+    --concurrency="$CELERY_GEVENT_CONCURRENCY" \
+    --loglevel="$CELERY_LOGLEVEL" \
+    -Q celery,audio_processing \
+    -n "${CELERY_WORKER_NAME}@%h" \
+    > "$LOG_DIR/${LOG_DATE}_celery.log" 2>&1 &
 
-echo "Starting Redis Monitor..."
-cd "$PROJECT_ROOT/Legalv1/scripts"
-./stop_redis_monitor.sh >/dev/null 2>&1  # Ensure no existing monitor is running
-nohup ./start_redis_monitor.sh > "$PROJECT_ROOT/logs/redis_monitor_startup.log" 2>&1 &
+nohup "$PYTHON_BIN" -m celery -A Legalv1 worker \
+    -P prefork \
+    --concurrency="$CELERY_PREFORK_CONCURRENCY" \
+    --loglevel="$CELERY_LOGLEVEL" \
+    -Q ecourts_realtime,ecourts_background \
+    -n "${CELERY_ECOURTS_NAME}@%h" \
+    > "$LOG_DIR/${LOG_DATE}_celery_ecourts.log" 2>&1 &
 
-# Show service status
-echo -e "\n✅ Services started successfully in $MODE mode!"
-echo "================================================"
-echo "🌐 Backend: http://localhost:8000"
-# echo "🎨 Frontend: http://localhost:3000"
-if [ "$MODE" = "dev" ]; then
-    echo "🔥 Development Features:"
-    echo "   - Hot Module Replacement (HMR)"
-    echo "   - Source Maps for debugging"
-    echo "   - React Refresh"
+if [ "$RUN_BEAT" = "true" ]; then
+    echo "Starting Celery Beat (prod only)..."
+    nohup "$PYTHON_BIN" -m celery -A Legalv1 beat \
+        --loglevel="$CELERY_LOGLEVEL" \
+        > "$LOG_DIR/${LOG_DATE}_celery_beat.log" 2>&1 &
 else
-    echo "🏭 Production Features:"
-    echo "   - Optimized bundle"
-    echo "   - Code splitting"
-    echo "   - Minification"
+    echo "ℹ️  Celery Beat skipped in dev mode (prevents double email/scheduled triggers)"
+fi
+
+# ── Redis Monitor (prod only) ──────────────────────────────────────────────
+if [ "$MODE" = "prod" ]; then
+    echo "Starting Redis Monitor..."
+    cd "$PROJECT_ROOT/Legalv1/scripts"
+    ./stop_redis_monitor.sh >/dev/null 2>&1
+    nohup ./start_redis_monitor.sh > "$PROJECT_ROOT/logs/redis_monitor_startup.log" 2>&1 &
+fi
+
+# ── Summary ────────────────────────────────────────────────────────────────
+echo ""
+echo "✅ Backend services started in $MODE mode!"
+echo "================================================"
+echo "🌐 Backend:  http://localhost:${BACKEND_PORT}"
+echo "📦 Redis DB: $([ "$MODE" = "dev" ] && echo "1 (dev)" || echo "0 (prod)")"
+if [ "$MODE" = "dev" ]; then
+    echo "🔧 Celery:   gevent ×${CELERY_GEVENT_CONCURRENCY}, prefork ×${CELERY_PREFORK_CONCURRENCY} (dev — reduced)"
+    echo "🚫 Beat:     disabled in dev"
+else
+    echo "🏭 Celery:   gevent ×${CELERY_GEVENT_CONCURRENCY}, prefork ×${CELERY_PREFORK_CONCURRENCY} (prod)"
+    echo "⏰ Beat:     running"
 fi
 echo "================================================"
-echo "📋 Logs (auto-rotated daily, 3-day retention):"
-echo "   - Django: $PROJECT_ROOT/logs/$(date +%d-%m-%Y)_django.log"
-echo "   - Gunicorn Access: $PROJECT_ROOT/logs/$(date +%d-%m-%Y)_gunicorn-access.log"
-echo "   - Gunicorn Error: $PROJECT_ROOT/logs/$(date +%d-%m-%Y)_gunicorn-error.log"
-echo "   - Celery Worker: $PROJECT_ROOT/logs/$(date +%d-%m-%Y)_celery.log"
-echo "   - Celery Beat: $PROJECT_ROOT/logs/$(date +%d-%m-%Y)_celery_beat.log"
-# echo "   - Frontend: $PROJECT_ROOT/logs/frontend.log"
-echo "   - Redis Monitor: $PROJECT_ROOT/logs/redis/redis-monitor.log"
-echo ""
-echo "   📁 All logs: $PROJECT_ROOT/logs/"
-echo "   🧹 Cleanup script: ./cleanup_logs.sh (keeps 3 days)"
+echo "📋 Logs: $LOG_DIR/"
+echo "  - Django/Gunicorn: $LOG_DIR/backend.log (or ${LOG_DATE}_gunicorn-*.log)"
+echo "  - Celery Worker:   $LOG_DIR/${LOG_DATE}_celery.log"
+echo "  - Celery eCourts:  $LOG_DIR/${LOG_DATE}_celery_ecourts.log"
+if [ "$RUN_BEAT" = "true" ]; then
+    echo "  - Celery Beat:     $LOG_DIR/${LOG_DATE}_celery_beat.log"
+fi
 echo "================================================"
 
 exit 0

@@ -32,6 +32,8 @@ cd "$FRONTEND_ROOT"
 if [ "$MODE" = "dev" ]; then
     export NODE_ENV=development
     export BABEL_ENV=development
+    export DEV_PORT=3001
+    export DEV_BACKEND_PORT=8100
 else
     export NODE_ENV=production
     export BABEL_ENV=production
@@ -44,9 +46,10 @@ fi
 
 if [ "$MODE" = "dev" ]; then
     echo "🔥 Starting Development Server..."
-    echo "📍 Frontend will be available at: http://localhost:3000"
+    echo "📍 Frontend will be available at: http://localhost:3001"
     echo "🔄 Hot Module Replacement: ENABLED"
     echo "🐛 Source Maps: ENABLED"
+    echo "🔗 API proxy: /api → http://localhost:8100"
     kill -9 $(ps -fu $USER | grep -v grep | grep 'webpack serve' | awk '{print $2}') 2>/dev/null
     kill -9 $(ps -fu $USER | grep -v grep | grep webpack | awk '{print $2}') 2>/dev/null
     nohup npm start > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &

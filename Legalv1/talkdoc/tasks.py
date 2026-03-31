@@ -388,7 +388,7 @@ def ingest_document(self, doc_id: str):
                     "vector": vecs[i],
                     "created_at": datetime.utcnow()
                 }
-                actions.append({"index": {"_index": os.getenv("RAG_OS_INDEX","rag_chunks_v1")}})
+                actions.append({"index": {"_index": os.getenv("OPENSEARCH_INDEX_PREFIX", "") + os.getenv("RAG_OS_INDEX","rag_chunks_v1")}})
                 actions.append(body)
             if actions:
                 cli.bulk(body=actions, refresh=True)

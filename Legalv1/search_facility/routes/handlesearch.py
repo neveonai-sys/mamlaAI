@@ -38,7 +38,7 @@ class Handlesearch:
     def search_document_by_index(self, query_string):
         try:
             response = self.opensearch_client.search(
-            index="documents",
+            index=os.getenv("OPENSEARCH_INDEX_PREFIX", "") + "documents",
             body={
                 "query": {
                     "multi_match": {
@@ -93,7 +93,7 @@ class Handlesearch:
             # logger.info(f"hit found contengt ----- query == {query} ")
             # Execute the search query
             response = self.opensearch_client.search(
-                index="documents",  # Name of your OpenSearch index
+                index=os.getenv("OPENSEARCH_INDEX_PREFIX", "") + "documents",  # Name of your OpenSearch index
                 body=query
             )
 

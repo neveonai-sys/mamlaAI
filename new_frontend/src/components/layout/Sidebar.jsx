@@ -8,6 +8,7 @@ import clsx from 'clsx';
 // ─── Navigation items ────────────────────────────────────────────────────────
 const LAWYER_NAV = [
   { label: 'Dashboard',          path: '/dashboard',      icon: 'dashboard' },
+  { label: 'Cases',              path: '/cases',          icon: 'folder_open' },
   { label: 'AI Drafting',        path: '/drafting',       icon: 'edit_note' },
   { label: 'Document Intel',     path: '/documents',      icon: 'description' },
   { label: 'Calendar & Events',  path: '/calendar',       icon: 'calendar_month' },
@@ -20,6 +21,7 @@ const LAWYER_NAV = [
 
 const CLIENT_NAV = [
   { label: 'Dashboard',          path: '/dashboard',      icon: 'dashboard' },
+  { label: 'My Case',            path: '/my-case',        icon: 'folder_open' },
   { label: 'Document Intel',     path: '/documents',      icon: 'description' },
   { label: 'Calendar & Events',  path: '/calendar',       icon: 'calendar_month' },
   // { label: 'Sessions',           path: '/sessions',       icon: 'forum' },

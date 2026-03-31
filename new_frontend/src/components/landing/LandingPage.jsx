@@ -28,17 +28,17 @@ const NEWS_ITEMS = [
 const TEAM_MEMBERS = [
   {
     initials: 'RM',
-    name: 'Robin',
+    name: 'RM',
     role: 'Co-Founder & CEO',
     tags: ['🎓 IIT Kharagpur', 'B.Tech'],
-    bio: "With nearly two decades at the intersection of enterprise technology and institutional infrastructure, Robin brings the rare discipline of systems-level thinking to a domain that has resisted modernisation for too long. His work at Mamla.AI began with a single observation: that India's courts generate more structured data than almost any institution in the country, yet practicing counsel operates almost entirely without access to it. That gap became the company.",
+    bio: "With nearly two decades at the intersection of enterprise technology and institutional infrastructure, RM brings the rare discipline of systems-level thinking to a domain that has resisted modernisation for too long. His work at Mamla.AI began with a single observation: that India's courts generate more structured data than almost any institution in the country, yet practicing counsel operates almost entirely without access to it. That gap became the company.",
   },
   {
     initials: 'MS',
-    name: 'Mrityunjoy',
+    name: 'MS',
     role: 'Co-Founder & CTO',
     tags: ['🎓 NIT Durgapur', 'B.Tech'],
-    bio: "Mrityunjoy is the engineering mind behind Mamla.AI's AI core — the models that draft, the pipelines that ingest court filings, and the real-time infrastructure that surfaces eCourt movements before the listing board does. Trained as an engineer but drawn to making language models reliable in high-stakes domains, he believes the most important test of any AI system is whether a senior advocate would trust it at 11 PM the night before a hearing.",
+    bio: "MS is the engineering mind behind Mamla.AI's AI core — the models that draft, the pipelines that ingest court filings, and the real-time infrastructure that surfaces eCourt movements before the listing board does. Trained as an engineer but drawn to making language models reliable in high-stakes domains, he believes the most important test of any AI system is whether a senior advocate would trust it at 11 PM the night before a hearing.",
   },
 ];
 
@@ -63,7 +63,7 @@ const LEGAL_DOCS = {
       { heading: '4. Data Processing & Confidentiality', body: 'All data is processed under AES-256 encryption. Client matter content will not be used for training AI models without explicit opt-in consent. Data is stored within India in compliance with the Digital Personal Data Protection Act, 2023.' },
       { heading: '5. Limitation of Liability', body: "The Company's total aggregate liability shall not exceed the amount paid by you in the three months preceding the claim. The Company is not liable for consequences of using unreviewed AI-generated output in legal proceedings." },
       { heading: '6. Governing Law & Disputes', body: 'These Terms are governed by Indian law. Unresolved disputes shall be referred to arbitration under the Arbitration and Conciliation Act, 1996, with the seat at Kolkata, West Bengal.' },
-      { heading: '7. Grievance Officer', body: 'Designated Grievance Officer: Robin, Neveon AI Technologies Pvt. Ltd. Email: neveon.ai@gmail.com. Complaints acknowledged within 24 hours and resolved within 30 days (IT Act, 2000).' },
+      { heading: '7. Grievance Officer', body: 'Designated Grievance Officer: RM, Neveon AI Technologies Pvt. Ltd. Email: neveon.ai@gmail.com. Complaints acknowledged within 24 hours and resolved within 30 days (IT Act, 2000).' },
     ],
   },
   privacy: {
@@ -75,7 +75,7 @@ const LEGAL_DOCS = {
       { heading: 'AI & Training Data', body: 'Your matter-specific content is not used to train AI models unless you explicitly opt in via written agreement. Aggregate anonymised usage patterns may be used to improve the Platform.' },
       { heading: 'Data Storage & Security', body: 'All data is stored on servers in India. We apply AES-256 at rest and TLS 1.3 in transit. Access is restricted by role-based controls and periodic security audits are conducted.' },
       { heading: 'Your Rights (DPDP Act, 2023)', body: 'Right to access, correction, erasure (subject to legal holds), grievance redressal, and right to nominate a representative to exercise rights on your behalf.' },
-      { heading: 'Contact for Privacy', body: 'Grievance Officer: Robin — neveon.ai@gmail.com.' },
+      { heading: 'Contact for Privacy', body: 'Grievance Officer: RM — neveon.ai@gmail.com.' },
     ],
   },
   refund: {
@@ -1100,7 +1100,7 @@ export default function LandingPage() {
               </ul>
               <div className="mt-5 rounded-xl p-3.5" style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.05)' }}>
                 <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Grievance Officer</p>
-                <p className="text-xs font-semibold text-white/65">Robin </p>
+                <p className="text-xs font-semibold text-white/65">RM </p>
                 <a href="mailto:neveon.ai@gmail.com" className="text-xs text-primary-soft/70 transition-colors hover:text-primary-soft">neveon.ai@gmail.com</a>
                 <p className="mt-1 text-[11px] text-slate-500">Response within 30 days (IT Act, 2000)</p>
               </div>

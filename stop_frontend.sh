@@ -47,7 +47,8 @@ kill_processes "node.*Adalatai_ground_zero" "Project Node.js Processes"
 kill_processes "babel-node" "Babel Node"
 kill_processes "nodemon" "Nodemon"
 kill_processes "npm.*$PROJECT_ROOT" "Project NPM Processes"
-kill_by_port 3000 "Frontend"
+kill_by_port 3000 "Frontend (prod dev-server / legacy)"
+kill_by_port 3001 "Frontend (dev server)"
 kill_by_port 8080 "Frontend (alt port)"
 
 # Clean cache

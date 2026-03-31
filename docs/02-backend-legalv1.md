@@ -101,8 +101,56 @@ User-related **URLs** are in `Legalv1/users/urls.py`; each path points to either
 
 ## Environment and Configuration
 
-- **Env file:** Project root `legalenv` (loaded via `load_dotenv(BASE_DIR / 'legalenv')` in `Legalv1/Legalv1/settings.py`).
-- Backend start scripts now fail fast if `Legalv1/legalenv` is missing or if `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`, and Mongo configuration are empty, so runtime bootstrap errors are surfaced before Django/Celery are launched in the background.
+### Dual Environment (dev + prod on same machine)
+
+The backend supports running **prod and dev simultaneously** on the same host without interference.
+
+| Item | Prod | Dev |
+|------|------|-----|
+| Env file | `Legalv1/legalenv` | `Legalv1/legalenv.dev` |
+| Trigger | `DJANGO_MODE=prod` (default) | `DJANGO_MODE=dev` |
+| Django server | Gunicorn on **port 8000** | `runserver` on **port 8100** |
+| Frontend | Nginx (mamla.ai) | webpack-dev-server **port 3001** → proxy `/api` → `:8100` |
+| Redis DB | **0** | **1** |
+| Celery workers | `prod_worker@%h`, `prod_ecourts@%h` | `dev_worker@%h`, `dev_ecourts@%h` |
+| Celery concurrency | gevent × 100, prefork × 4 | gevent × 10, prefork × 2 |
+| Celery beat | ✅ runs | ❌ skipped (no double emails) |
+| OpenSearch prefix | _(empty)_ | `dev_` |
+| Logs | `logs/` | `logs/dev/` |
+
+**How it works:**
+- `settings.py` reads `DJANGO_MODE` env var set by `start_backend.sh` and selects `legalenv` or `legalenv.dev` accordingly.
+- `start_backend.sh prod` kills only port 8000 + prod-named workers — dev keeps running. Same in reverse.
+- `stop.sh [dev|prod|both]` targets only the chosen environment.
+
+**Start commands:**
+```bash
+./start_backend.sh prod    # Gunicorn on :8000, Redis DB 0
+./start_backend.sh dev     # runserver on :8100, Redis DB 1
+./start_frontend.sh prod   # build static → Nginx
+./start_frontend.sh dev    # webpack-dev-server on :3001
+```
+
+**New env vars common to both files:**
+
+| Env var | Purpose | Prod default | Dev value |
+|---------|---------|-------------|-----------|
+| `DJANGO_MODE` | Set by start script; picks env file | `prod` | `dev` |
+| `BACKEND_PORT` | Port for Django/Gunicorn | `8000` | `8100` |
+| `CELERY_BROKER_URL` | Redis broker URL | `redis://localhost:6379/0` | `redis://localhost:6379/1` |
+| `CELERY_RESULT_BACKEND` | Redis result backend URL | `redis://localhost:6379/0` | `redis://localhost:6379/1` |
+| `REDIS_URL` | Django cache Redis URL | `redis://localhost:6379/0` | `redis://localhost:6379/1` |
+| `OPENSEARCH_INDEX_PREFIX` | Prepended to all OpenSearch index names | _(empty)_ | `dev_` |
+| `GUNICORN_WORKERS` | Number of Gunicorn workers | `8` | N/A (runserver in dev) |
+| `GUNICORN_WORKER_CONNECTIONS` | Gunicorn worker connections | `1000` | N/A |
+| `FRONTEND_URL` | Base URL for email links / redirects | `https://mamla.ai` | `http://localhost:3001` |
+
+Both `legalenv` and `legalenv.dev` are in `.gitignore` — never committed.
+
+---
+
+- **Env file:** Project root `legalenv` (loaded via env-file selection in `Legalv1/Legalv1/settings.py`).
+- Backend start scripts now fail fast if the relevant env file is missing or if `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`, and Mongo configuration are empty, so runtime bootstrap errors are surfaced before Django/Celery are launched in the background.
 - Env aliases currently accepted for compatibility with the checked-in `legalenv` file: `CAPSOLVER_API` is treated the same as `CAPSOLVER_API_KEY` for the scraper runtime, and TalkDoc search accepts either `RAG_OS_*` or `OPENSEARCH_*` names for OpenSearch connectivity.
 - **Important settings (names to look for in settings.py):**
   - `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`

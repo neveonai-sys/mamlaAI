@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import apiClient from '../../services/api';
 import DOMPurify from 'dompurify';
@@ -390,6 +390,7 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
 export default function DraftingWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const { user_type } = useSelector((s) => s.user);
   const { trial, wallet, features } = useSelector((s) => s.entitlements);
@@ -400,6 +401,9 @@ export default function DraftingWorkspace() {
   const [sections, setSections] = useState([]);
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
   const [savedDrafts, setSavedDrafts] = useState([]);
+
+  // Pre-fill context from DraftContextAgent (passed via router state)
+  const [caseContext, setCaseContext] = useState(null);
   const [filterData, setFilterData] = useState(null);
   const [aiMessages, setAiMessages] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -729,6 +733,21 @@ export default function DraftingWorkspace() {
       setSelectedTemplateName('');
     }).catch(() => {});
   }, [selectedTemplateType]);
+
+  // ── Consume DraftContextAgent prefill from router state ──
+  useEffect(() => {
+    const prefill = location.state?.prefill;
+    if (!prefill || id) return; // don't override if loading existing draft
+    setCaseContext(prefill);
+    if (prefill.context_summary) setQuery(prefill.context_summary);
+    if (prefill.draft_type) setSelectedDocType(prefill.draft_type);
+    const loc = prefill.location || {};
+    if (loc.state) setSelectedState(loc.state);
+    if (loc.district) setSelectedDistrict(loc.district);
+    if (loc.court) setSelectedCourt(loc.court);
+    const caseId = prefill.draft_for?.case_id;
+    if (caseId) setSelectedCaseId(caseId);
+  }, [location.state, id]);
 
   // ── If launched with an id, load that draft ──
   useEffect(() => {
@@ -1256,6 +1275,25 @@ export default function DraftingWorkspace() {
             {/* ── Tab 0: New Draft ── */}
             {initTab === 0 && (
               <form onSubmit={handleCreateDraft} className="space-y-6">
+                {/* Case context banner — shown when navigated from CaseHub via DraftContextAgent */}
+                {caseContext && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 text-sm text-primary">
+                      <span className="material-symbols-outlined text-base mt-0.5">auto_awesome</span>
+                      <div>
+                        <span className="font-semibold">Case context loaded:</span>{' '}
+                        <span className="text-primary/80">{caseContext.draft_for?.case_title || 'Case'}</span>
+                        {caseContext.context_summary && (
+                          <p className="text-xs text-primary/60 mt-0.5 line-clamp-2">{caseContext.context_summary}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => { setCaseContext(null); setQuery(''); }}
+                      className="text-primary/40 hover:text-primary/70 transition flex-shrink-0">
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                )}
                 {/* Document type selector */}
                 {docCategories.length > 0 && (
                   <div>

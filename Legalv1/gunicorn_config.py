@@ -8,13 +8,15 @@ from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 
 # Server socket
-bind = "0.0.0.0:8000"
+# BACKEND_PORT env var set by start_backend.sh (8000 prod, 8100 dev)
+bind = f"0.0.0.0:{os.getenv('BACKEND_PORT', '8000')}"
 backlog = 2048
 
 # Worker processes
-workers = 8  # 2-4 x CPU cores recommended
+# GUNICORN_WORKERS / GUNICORN_WORKER_CONNECTIONS override via env (useful to limit dev)
+workers = int(os.getenv('GUNICORN_WORKERS', '8'))  # 2-4 x CPU cores recommended
 worker_class = 'gevent'
-worker_connections = 1000
+worker_connections = int(os.getenv('GUNICORN_WORKER_CONNECTIONS', '1000'))
 max_requests = 1000  # Restart workers after N requests (prevents memory leaks)
 max_requests_jitter = 50  # Add randomness to prevent all workers restarting at once
 timeout = 300  # 5 minutes for long AI processing tasks

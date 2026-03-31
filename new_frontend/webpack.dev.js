@@ -8,7 +8,7 @@ module.exports = merge(common, {
   devtool: 'cheap-module-source-map',
 
   devServer: {
-    port: 3000,
+    port: parseInt(process.env.DEV_PORT || '3001', 10),
     host: 'localhost',
     hot: true,
     historyApiFallback: true,
@@ -19,7 +19,7 @@ module.exports = merge(common, {
     proxy: [
       {
         context: ['/api'],
-        target: 'http://127.0.0.1:8000',
+        target: `http://127.0.0.1:${process.env.DEV_BACKEND_PORT || '8100'}`,
         changeOrigin: true,
         secure: false,
       },

@@ -35,7 +35,8 @@ KNOWLEDGE_BASE_MAPPING = {
 
 
 def get_knowledge_index(domain_key='legal'):
-    return get_domain_profile(domain_key)['knowledge_index']
+    prefix = os.getenv('OPENSEARCH_INDEX_PREFIX', '')
+    return prefix + get_domain_profile(domain_key)['knowledge_index']
 
 
 def ensure_knowledge_index(domain_key='legal'):

@@ -46,6 +46,8 @@
 | Mamla Brain framework app | `Legalv1/mamla_brain/` |
 | eCourts Scraper (ACTIVE) views + URLs | `Legalv1/ecourts_scraper/views.py` · `Legalv1/ecourts_scraper/urls.py` |
 | eCourts v2 proxy to FastAPI scraper (ACTIVE) | `Legalv1/ecourt_scrapped/views.py` · `Legalv1/ecourt_scrapped/urls.py` · `Legalv1/ecourt_scrapped/services/scraper_client.py` · `Legalv1/ecourt_scrapped/services/master_data.py` · `Legalv1/ecourt_scrapped/services/ecourts_crawler.py` |
+| Case registry (cases, hearing notes, notes, tasks) | `Legalv1/cases/views.py` · `Legalv1/cases/urls.py` · `Legalv1/cases/routes/` |
+| AI agents (intake, doc-intel, hearing prep, post-hearing, draft context, closure) | `Legalv1/agents/views.py` · `Legalv1/agents/urls.py` · `Legalv1/agents/base_agent.py` · `Legalv1/agents/*.py` |
 | eCourts direct API (DEPRECATED reference only) | `Legalv1/ecourts_api/` — keep commented/out of runtime |
 | Search views + URLs | `Legalv1/search_facility/views.py` · `Legalv1/search_facility/urls.py` |
 | Today's Updates views + URLs | `Legalv1/todaysupdates/views.py` · `Legalv1/todaysupdates/urls.py` |
@@ -69,6 +71,10 @@
 | `ecourts_master_data` | ecourt_scrapped (cached dropdown data for v2 API — live scrape + TTL cache) |
 | `ecourts_states` · `ecourts_districts` | ecourt_scrapped (pre-seeded location data, read by master_data.py first) |
 | `whatsapp_chat_sessions` · `service_orders` | whatsapp_module |
+| `cases` | cases app — internal case registry |
+| `hearing_notes` | cases app — prep + outcome per hearing |
+| `case_notes` | cases app — threaded notes (internal/shared visibility) |
+| `case_tasks` | cases app — tasks per case |
 
 Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_client()`.
 
@@ -88,6 +94,8 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | `/api/todaysupdates/` | `todaysupdates` |
 | `/api/talkdoc/` | `talkdoc` |
 | `/api/brain/` | `mamla_brain` |
+| `/api/cases/` | `cases` (case registry, hearing notes, case notes, tasks) |
+| `/api/agents/` | `agents` (CaseIntake, DocumentIntel, HearingPrep, PostHearing, DraftContext, CaseClosure) |
 | `/api/ecourts/` | `ecourts_scraper` (active) |
 | `/api/ecourts/v2/` | `ecourt_scrapped` (proxy to standalone FastAPI scraper) |
 | `/api/webhook/` | `whatsapp_module` |

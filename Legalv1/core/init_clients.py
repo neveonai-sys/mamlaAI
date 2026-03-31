@@ -190,7 +190,17 @@ def ensure_indexes():
             aidrafts.create_index([
                 ("draft_name", "text")
             ], name="draft_name_text_index")
-        
+
+        # Cases app indexes
+        db["cases"].create_index([("lawyer_id", 1), ("status", 1)])
+        db["cases"].create_index([("client_ids", 1)])
+        db["cases"].create_index([("cnr", 1)])
+        db["hearing_notes"].create_index([("case_id", 1), ("hearing_date", -1)])
+        db["case_notes"].create_index([("case_id", 1), ("created_at", -1)])
+        db["case_notes"].create_index([("case_id", 1), ("visibility", 1)])
+        db["case_tasks"].create_index([("case_id", 1), ("status", 1)])
+        db["case_tasks"].create_index([("assigned_to", 1), ("due_date", 1)])
+
         logger.info("Database indexes created/verified successfully")
     except Exception as e:
         logger.error(f"Error creating database indexes: {e}")
