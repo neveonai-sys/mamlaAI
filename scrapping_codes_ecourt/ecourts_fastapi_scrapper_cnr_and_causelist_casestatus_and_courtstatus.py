@@ -361,13 +361,20 @@ def parse_case_html(html: str, cino: str) -> dict:
     hist_t = next_table(r"^Case History$")
     if hist_t:
         rows = hist_t.find_all("tr")
-        # Header row uses <th> elements
-        header_row = rows[0] if rows else None
-        hdrs = [clean(c) for c in header_row.find_all(["th","td"])] if header_row else []
-        # Clean empty headers
-        hdrs = [h if h else f"col_{i}" for i, h in enumerate(hdrs)]
+        # eCourts district court case history has no <th> header row — all rows are <td> data.
+        # Detect whether the first row is a genuine <th> header; if not, use fixed column names
+        # so the first data row is not consumed as headers.
+        FIXED_HIST_HDRS = ["judge", "business_on_date", "next_date", "purpose"]
+        first_row = rows[0] if rows else None
+        if first_row and first_row.find("th"):
+            hdrs = [clean(c) for c in first_row.find_all(["th", "td"])]
+            hdrs = [h if h else f"col_{i}" for i, h in enumerate(hdrs)]
+            data_rows = rows[1:]
+        else:
+            hdrs = FIXED_HIST_HDRS
+            data_rows = rows  # all rows are data
         hearings = []
-        for row in rows[1:]:
+        for row in data_rows:
             cells = row.find_all("td")
             if not cells: continue
             entry: dict = {}
