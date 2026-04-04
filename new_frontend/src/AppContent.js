@@ -34,6 +34,13 @@ const CaseDetail         = lazy(() => import('./components/ecourts/CaseDetail'))
 const LawyerSearch       = lazy(() => import('./components/ecourts/LawyerSearch'));
 const LitigantSearch     = lazy(() => import('./components/ecourts/LitigantSearch'));
 
+// High Court eCourts sub-routes
+const HCTerminal            = lazy(() => import('./components/ecourt_scrapper/HCTerminal'));
+const HCCaseStatusTerminal  = lazy(() => import('./components/ecourt_scrapper/HCCaseStatusTerminal'));
+const HCCourtOrdersTerminal = lazy(() => import('./components/ecourt_scrapper/HCCourtOrdersTerminal'));
+const HCCauseListTerminal   = lazy(() => import('./components/ecourt_scrapper/HCCauseListTerminal'));
+const HCCaseDetailPage      = lazy(() => import('./components/ecourt_scrapper/HCCaseDetailPage'));
+
 // Case Registry (Phase 1)
 const CaseRegistry       = lazy(() => import('./components/cases/CaseRegistry'));
 const CaseHub            = lazy(() => import('./components/cases/CaseHub'));
@@ -146,6 +153,13 @@ export default function AppContent() {
             <Route path="/ecourts/litigants"    element={<LitigantSearch />} />
             <Route path="/ecourts/cause-list"   element={<CauseListTerminal />} />
             <Route path="/ecourts/caveat"       element={<CaveatTerminal />} />
+
+            {/* High Court eCourts nested */}
+            <Route path="/ecourts/hc"                element={<HCTerminal />} />
+            <Route path="/ecourts/hc/case-status"    element={<HCCaseStatusTerminal />} />
+            <Route path="/ecourts/hc/court-orders"   element={<HCCourtOrdersTerminal />} />
+            <Route path="/ecourts/hc/cause-list"     element={<HCCauseListTerminal />} />
+            <Route path="/ecourts/hc/case/:cino"     element={<HCCaseDetailPage />} />
 
             {/* Case Registry */}
             <Route path="/cases"                                        element={<CaseRegistry />} />

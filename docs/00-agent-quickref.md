@@ -18,6 +18,9 @@
 | What was last changed / what to do next | `docs/05-changelog-and-improvements.md` |
 | Mamla Brain framework (RAG+LLM, Case Companion, external API) | `docs/07-mamla-brain-framework.md` |
 | **One-stop lawyer workflow plan (case registry, agents, hearing prep, client portal)** | `docs/08-lawyer-workflow-plan.md` |
+| **Unified Case Hub + context-aware workflow implementation plan (approved 2026-03-31)** | `docs/10-unified-casehub-plan.md` |
+| **Agentic Guided Drafting Flow (conversational intake → draft generation)** | `docs/11-agentic-guided-drafting-plan.md` |
+| **Pricing, billing plans, user types, payment gateway architecture** | `docs/09-pricing-and-billing-plan.md` |
 
 ---
 

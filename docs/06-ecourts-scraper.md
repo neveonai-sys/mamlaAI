@@ -30,6 +30,21 @@ The v2 layer is used by the stitched terminal UI for location cascades and court
 - Order-court-number options now come from FastAPI `courtorder/court-numbers` so encoded value format stays compatible with submit APIs.
 - Court-order PDF fallback now prioritizes `CO_HOME_URL` when session cookies are present; partner-side "file not uploaded" now returns `404` instead of a generic session-expired `422`.
 
+### HC Scraper v2 (Apr 2026)
+
+A second standalone FastAPI scraper (`hcecourt_fastapi_complete_scrapper.py`) runs at port 8001 and covers all 25 Indian High Courts via `hcservices.ecourts.gov.in`. Unlike the district scraper, the HC scraper is **GET-only** and auto-detects HC/bench from CNR prefix.
+
+- Django proxy app: `Legalv1/ecourt_scrapped/` (same app as district v2)
+- Django views: `ecourt_scrapped/hc_views.py` (14 views)
+- URL config: `ecourt_scrapped/hc_urls.py`, included at `hc/` in `ecourt_scrapped/urls.py`
+- URL prefix: `/api/ecourts/v2/hc/`
+- FastAPI bridge: `ecourt_scrapped/services/hc_scraper_client.py`
+- Env vars: `HC_SCRAPER_BASE_URL` (default `http://localhost:8001`), `HC_SCRAPER_TIMEOUT` (default `120`)
+- No master data MongoDB cache — HC court list is static inside the HC FastAPI scraper
+- HC CAPTCHA solving per request (10–30s response times expected)
+
+**Date format note:** `/orders/by-court` uses `YYYY-MM-DD`; `/orders/by-date` and `/causelist` use `DD-MM-YYYY`. Frontend terminals handle the conversion via `toDmy()` helper.
+
 ---
 
 ## Where It Lives

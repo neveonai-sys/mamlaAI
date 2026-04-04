@@ -3,6 +3,24 @@ import { useNavigate } from 'react-router-dom';
 
 import { scraperHealth, getStates, cnrSearch } from './apiV2';
 
+// Known HC CNR 4-letter prefixes — route these to /ecourts/hc/case/:cino
+const HC_CNR_PREFIX_4 = new Set([
+  'UPHC', 'DLHC', 'MHHC', 'TNHC', 'KRHC', 'KLHC', 'GJHC', 'RJHC', 'MPHC',
+  'APHC', 'TSHC', 'PHHC', 'ORHC', 'AZHC', 'BRHC', 'JHHC', 'CGHC', 'HPHC',
+  'UKHC', 'JKHC', 'MNHC', 'MLHC', 'TRHC', 'SKHC', 'WBHC',
+]);
+const HC_CNR_PREFIX_6 = new Set(['WBCHCJ', 'WBCHCO', 'WBCHCP']);
+
+function isHCCnr(cnr) {
+  const up = cnr.toUpperCase().replace(/[-\s]/g, '');
+  const p4 = up.slice(0, 4);
+  const p6 = up.slice(0, 6);
+  // Explicit known prefixes
+  if (HC_CNR_PREFIX_6.has(p6) || HC_CNR_PREFIX_4.has(p4)) return true;
+  // Heuristic: prefix starts with "HC" or ends with "HC" → likely a HC CNR (e.g. HCBM for Bombay Mumbai bench)
+  return p4.startsWith('HC') || p4.endsWith('HC');
+}
+
 const MODULES = [
   {
     key: 'cnr',
@@ -100,9 +118,13 @@ export default function EcourtsTerminal() {
   }, []);
 
   function handleLookup() {
-    const normalized = cnr.trim().toUpperCase();
+    const normalized = cnr.trim().toUpperCase().replace(/[-\s]/g, '');
     if (!normalized) return;
-    navigate(`/ecourts/case/${encodeURIComponent(normalized)}`);
+    if (isHCCnr(normalized)) {
+      navigate(`/ecourts/hc/case/${encodeURIComponent(normalized)}`);
+    } else {
+      navigate(`/ecourts/case/${encodeURIComponent(normalized)}`);
+    }
   }
 
   function focusQuickLookup() {
@@ -112,6 +134,20 @@ export default function EcourtsTerminal() {
 
   return (
     <div className="p-8 max-w-6xl">
+      {/* District / High Court toggle */}
+      <div className="mb-6 flex gap-2">
+        <span className="rounded-2xl bg-primary px-4 py-2 text-sm font-bold text-white">
+          District Court
+        </span>
+        <button
+          type="button"
+          onClick={() => navigate('/ecourts/hc')}
+          className="rounded-2xl border border-primary/15 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          High Court →
+        </button>
+      </div>
+
       <div className="rounded-[28px] border border-primary/10 bg-white p-8 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
@@ -167,7 +203,7 @@ export default function EcourtsTerminal() {
             </button>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Enter a valid CNR to view the complete case record including orders, hearings, and party details.
+            Enter a valid CNR to view the complete case record. HC CNRs (e.g. UPHC…, DLHC…, MHHC…) are automatically routed to the High Court detail page.
           </p>
         </div>
       </div>

@@ -122,6 +122,20 @@ The active scraper-first eCourts shell lives under `mamlaAI_ground_zero/frontend
 | `/ecourts/lawyers` | `LawyerSearch` | Older screen retained temporarily as deprecated reference UI |
 | `/ecourts/litigants` | `LitigantSearch` | Older screen retained temporarily as deprecated reference UI |
 
+### High Court eCourts Routes (`/ecourts/hc/…`)
+
+All HC routes are lazy-loaded and protected. HC/DC toggle lives in `EcourtsTerminal`. CNR auto-routing: if `isHCCnr()` detects an HC prefix (e.g. `UPHC`, `DLHC`, `WBCHCJ`) the CNR is forwarded to `/ecourts/hc/case/:cino` instead of the district detail page.
+
+| Route | Component | Notes |
+|-------|-----------|-------|
+| `/ecourts/hc` | `HCTerminal` | HC landing: health check, HC CNR quick-lookup, nav cards, DC/HC toggle |
+| `/ecourts/hc/case-status` | `HCCaseStatusTerminal` | 6-tab search (CNR, Party, Advocate, Bar Code, Filing, FIR); location via `HCCourtSelector` |
+| `/ecourts/hc/court-orders` | `HCCourtOrdersTerminal` | 3-tab orders (By Party, By Court, By Date Range); court numbers loaded from API |
+| `/ecourts/hc/cause-list` | `HCCauseListTerminal` | Single date picker (defaults to today); converts ISO→DD-MM-YYYY before submit |
+| `/ecourts/hc/case/:cino` | `HCCaseDetailPage` | Full HC case detail; loaded via CNR GET (10–30s); sections: parties, acts, hearings, orders, linked cases |
+
+**Shared HC components:** `HCCourtSelector.jsx` (HC + bench 2-level dropdown), `apiHC.js` (all HC API functions, base `ecourts/v2/hc`). Both live in `components/ecourt_scrapper/`.
+
 ### eCourts terminal behavior notes
 
 - In `CourtOrdersTerminal`, by-order-date sends browser date values and relies on backend normalization to eCourts-compatible `DD-MM-YYYY`.

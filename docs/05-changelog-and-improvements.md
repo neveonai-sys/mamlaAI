@@ -54,7 +54,9 @@ This document summarizes the **code review outcomes**, **changes already made**,
 
 | Change | Location | Purpose |
 |--------|----------|---------|
-| New Django app `ecourts_scraper` | `Legalv1/ecourts_scraper/` | Live eCourts data: case by CNR, advocate search, cache, async jobs |
+| HC scraper backend proxy | `ecourt_scrapped/hc_views.py`, `ecourt_scrapped/hc_urls.py`, `ecourt_scrapped/services/hc_scraper_client.py`, `ecourt_scrapped/urls.py` | 14 Django views + 15 URL patterns at `/api/ecourts/v2/hc/` proxying the HC FastAPI scraper on port 8001. Auth: `@supabase_required` on all views. Django views accept POST JSON bodies and translate to GET params for the FastAPI layer. |
+| HC frontend terminals | `HCTerminal.jsx`, `HCCaseStatusTerminal.jsx`, `HCCourtOrdersTerminal.jsx`, `HCCauseListTerminal.jsx`, `HCCaseDetailPage.jsx`, `HCCourtSelector.jsx`, `apiHC.js` | 5 new HC search pages (landing, 6-tab case status, 3-tab orders, cause list, case detail) + shared 2-level HC/bench selector + full API client. All use session storage to preserve search state. |
+| DC/HC toggle + smart CNR routing | `EcourtsTerminal.jsx`, `AppContent.js` | District Court / High Court toggle added to eCourts landing. CNR input now auto-routes: 4-char HC prefixes (e.g. `UPHC`, `DLHC`) and 6-char Calcutta codes (e.g. `WBCHCJ`) navigate to `/ecourts/hc/case/:cino`; all others go to `/ecourts/case/:cnr`. 5 new lazy-loaded HC routes registered in `AppContent.js`. |
 | Agentic scrape flow | `agent/state_machine.py`, `scrapers/highcourt.py`, `districtcourt.py` | State machine + HC/DC scrapers; CAPTCHA, rate limit, cache |
 | API under `/api/ecourts/` | `ecourts_scraper/views.py`, `urls.py` | GET case/<cnr>, POST refresh, GET jobs/<job_id>, POST search |
 | Celery queues + beat | `Legalv1/celery.py`, `settings.py` | ecourts_realtime, ecourts_background; cleanup + health-check beat tasks |

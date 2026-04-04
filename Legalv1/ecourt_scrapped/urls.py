@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 
 from ecourt_scrapped import views
 
@@ -53,4 +53,7 @@ urlpatterns = [
     path('data/courts/', views.data_courts),
     path('data/police-stations/', views.data_police_stations),
     path('data/case-types/', views.data_case_types),
+
+    # ── High Court (HC scraper on port 8001) ─────────────────────────────────
+    path('hc/', include('ecourt_scrapped.hc_urls')),
 ]

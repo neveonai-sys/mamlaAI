@@ -368,6 +368,68 @@ Case lookup, search, cause-list, and order-download flows are **async/cache-firs
 | GET | `causelist/` | Supabase | High-court daily cause-list scrape. Requires `date`, `high_court_id`, `bench_code`, and optionally `causelist_type=daily`. Any other `causelist_type` returns `400`. Returns cached data or `202` + `job_id`. |
 | GET | `causelist/dates/` | Supabase | Available cached cause-list dates for a bench. |
 | GET | `reference/<section>/` | Supabase | Stored terminal reference data. Sections: `case-status`, `court-orders`, `cause-list`, `caveat`. |
+
+---
+
+## High Court eCourts (`/api/ecourts/v2/hc/`)
+
+**Module:** `ecourt_scrapped/hc_views.py` — all `@supabase_required`.  
+**URL config:** `Legalv1/ecourt_scrapped/hc_urls.py`, included via `hc/` in `ecourt_scrapped/urls.py`.  
+**Backend proxies to:** HC FastAPI scraper at `HC_SCRAPER_BASE_URL` (default `http://localhost:8001`).  
+**No master data caching** — HC courts list is static (fetched from scraper's in-memory dict).  
+**Date format note:** `/hc/orders/by-court/` expects `YYYY-MM-DD`; `/hc/orders/by-date/` and `/hc/causelist/` expect `DD-MM-YYYY`. The frontend converts automatically.
+
+### HC Info / Metadata
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `v2/hc/health/` | Supabase | HC scraper service reachability check |
+| GET | `v2/hc/courts/` | Supabase | All 25+ HCs + bench slugs + labels. Shape: `{ hc_slug: { name, benches: { bench_slug: label } } }` |
+| GET | `v2/hc/meta/police-stations/?hc=&bench=` | Supabase | Police station list for FIR search `[{code, name}]` |
+| GET | `v2/hc/meta/court-numbers/?hc=&bench=` | Supabase | Judge/court list for orders-by-court `[{court_code, judge_name, ...}]` |
+
+### HC Case Lookup
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `v2/hc/case/cnr/<cino>/` | Supabase | Full `HCCaseDetail` — HC/bench auto-detected from CNR prefix |
+
+### HC Case Status Searches
+
+| Method | Path | Body fields | Description |
+|--------|------|-------------|-------------|
+| POST | `v2/hc/case/party/` | hc, bench, name, year, status | Search by party name (min 3 chars) |
+| POST | `v2/hc/case/advocate/` | hc, bench, query, status | Search by advocate name (min 3 chars) |
+| POST | `v2/hc/case/bar-code/` | hc, bench, bar_code, status | Search by bar registration number |
+| POST | `v2/hc/case/filing/` | hc, bench, filing_number, year | Search by filing/diary number |
+| POST | `v2/hc/case/fir/` | hc, bench, police_station, status, fir_number?, fir_year? | Search FIR cases |
+
+### HC Court Orders
+
+| Method | Path | Body fields | Description |
+|--------|------|-------------|-------------|
+| POST | `v2/hc/orders/search/` | hc, bench, name, year? | Orders by party name — returns PDF URLs |
+| POST | `v2/hc/orders/by-court/` | hc, bench, judge_code, date_from (YYYY-MM-DD), date_to | Orders by judge/court and date range |
+| POST | `v2/hc/orders/by-date/` | hc, bench, date_from (DD-MM-YYYY), date_to | Orders by date range |
+
+### HC Cause List
+
+| Method | Path | Body fields | Description |
+|--------|------|-------------|-------------|
+| POST | `v2/hc/causelist/` | hc, bench, list_date? (DD-MM-YYYY) | Daily bench cause list with PDF links |
+
+### HC `hc` / `bench` Slug Reference
+
+Use `GET /api/ecourts/v2/hc/courts/` to enumerate all valid slugs. Examples:
+
+| `hc` slug | HC Name | Example `bench` slug |
+|---|---|---|
+| `allahabad` | Allahabad High Court | `allahabad`, `lucknow` |
+| `delhi` | High Court of Delhi | `delhi` |
+| `bombay` | Bombay High Court | `bombay`, `nagpur`, `aurangabad`, `goa` |
+| `calcutta` | Calcutta High Court | `calcutta`, `appellate`, `jalpaiguri`, `port_blair` |
+| `madras` | Madras High Court | `madras`, `madurai` |
+| `karnataka` | High Court of Karnataka | `bangalore`, `dharwad`, `kalaburagi` |
 | GET | `court-structure/` | Supabase | Top-level high courts plus district-court states. |
 | GET | `court-structure/high-courts/` | Supabase | High courts from constants. |
 | GET | `court-structure/district/states/` | Supabase | Stored district-court states reference data. |

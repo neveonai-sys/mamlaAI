@@ -38,3 +38,5 @@ Legalv1/celerybeat-schedule.dat
 Legalv1/celerybeat-schedule.dir
 Legalv1/legalenv
 Legalv1/legalenv.dev
+
+new_frontend/public/stitch/*
