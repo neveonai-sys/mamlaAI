@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import apiClient from '../../services/api';
 import {
   getCase,
@@ -62,6 +64,7 @@ function ChecklistItem({ text, checked, onChange }) {
 export default function HearingWorkspace() {
   const { caseId, hearingId } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const isNew = hearingId === 'new';
 
   const [caseData, setCaseData] = useState(null);
@@ -102,6 +105,7 @@ export default function HearingWorkspace() {
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
+    dispatch(beginBlocking({ message: 'Loading hearing details...' }));
     try {
       const [caseRes] = await Promise.all([getCase(caseId)]);
       setCaseData(caseRes.data.case);
@@ -120,6 +124,7 @@ export default function HearingWorkspace() {
       setError(e?.response?.data?.error || 'Failed to load hearing.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }, [caseId, hearingId, isNew]);
 

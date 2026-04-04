@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import HCCourtSelector from './HCCourtSelector';
 import { fetchHCCauseList, downloadHCCauseListPdf } from './apiHC';
 
@@ -83,6 +85,7 @@ function CauseListCard({ item }) {
 
 export default function HCCauseListTerminal() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const saved = loadSession();
 
   const [location, setLocation] = useState(saved?.location || { hc: '', bench: '', isComplete: false });
@@ -104,6 +107,7 @@ export default function HCCauseListTerminal() {
     setStatusText('');
     if (!location.isComplete) { setError('Select a High Court and Bench first.'); return; }
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Fetching High Court cause list...' }));
 
     try {
       const res = await fetchHCCauseList({
@@ -121,6 +125,7 @@ export default function HCCauseListTerminal() {
       setError(err.response?.data?.error || err.response?.data?.detail || 'Failed to fetch cause list. Please try again.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }
 

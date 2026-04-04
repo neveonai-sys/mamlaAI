@@ -118,7 +118,11 @@ _sessions: dict[str, cffi_requests.Session] = {}
 def get_session(home_url: str) -> cffi_requests.Session:
     if home_url not in _sessions:
         s = cffi_requests.Session(impersonate=IMPERSONATE)
-        resp = s.get(home_url, headers=BASE_HEADERS, timeout=20)
+        try:
+            resp = s.get(home_url, headers=BASE_HEADERS, timeout=20)
+        except Exception as e:
+            log.error("get_session: network error reaching %s — %s", home_url, e)
+            raise HTTPException(504, f"eCourts portal unreachable (timeout/network): {e}")
         if resp.status_code != 200:
             log.error("get_session: eCourts returned HTTP %s for %s", resp.status_code, home_url)
             raise HTTPException(502, f"Could not reach eCourts: HTTP {resp.status_code}")
@@ -173,20 +177,29 @@ def fetch_captcha_b64(home_url: str, src: str = "") -> str:
         url = f"{src}?cb={int(time.time())}"
     else:
         url = src  # preserve exact namespace hash, requests won't cache anyway
-    r = session.get(url, headers=BASE_HEADERS, timeout=20)
+    try:
+        r = session.get(url, headers=BASE_HEADERS, timeout=20)
+    except Exception as e:
+        log.error("fetch_captcha_b64: timeout/network error fetching CAPTCHA url=%s — %s", url, e)
+        reset_session(home_url)
+        raise HTTPException(504, f"eCourts CAPTCHA fetch timed out: {e}")
     if r.status_code != 200 or len(r.content) < 100:
         log.error("fetch_captcha_b64: bad response status=%s len=%s url=%s", r.status_code, len(r.content), url)
         raise HTTPException(502, f"CAPTCHA fetch failed: HTTP {r.status_code}")
     return base64.b64encode(r.content).decode().replace("\n", "")
 
 def solve_captcha(b64: str, home_url: str) -> str:
-    r = std_requests.post(
-        "https://api.capsolver.com/createTask",
-        json={"clientKey": CAPSOLVER_API_KEY,
-              "task": {"type": "ImageToTextTask", "websiteURL": home_url,
-                       "module": "common", "body": b64}},
-        timeout=30,
-    )
+    try:
+        r = std_requests.post(
+            "https://api.capsolver.com/createTask",
+            json={"clientKey": CAPSOLVER_API_KEY,
+                  "task": {"type": "ImageToTextTask", "websiteURL": home_url,
+                           "module": "common", "body": b64}},
+            timeout=30,
+        )
+    except Exception as e:
+        log.error("solve_captcha: CapSolver network error — %s", e)
+        raise HTTPException(502, f"CapSolver unreachable: {e}")
     if r.status_code != 200:
         log.error("solve_captcha: CapSolver HTTP %s — %s", r.status_code, r.text[:200])
         raise HTTPException(502, f"CapSolver HTTP {r.status_code}: {r.text[:200]}")

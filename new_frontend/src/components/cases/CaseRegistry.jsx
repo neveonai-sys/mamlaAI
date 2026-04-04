@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import { listCases, createCase } from '../../services/casesApi';
 import apiClient from '../../services/api';
 
@@ -288,6 +290,7 @@ function CreateCaseModal({ onClose, onCreate, prefillClientId, prefillClientName
 export default function CaseRegistry() {
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -309,6 +312,7 @@ export default function CaseRegistry() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Loading cases...' }));
     setError('');
     try {
       const params = {};
@@ -320,6 +324,7 @@ export default function CaseRegistry() {
       setError(e?.response?.data?.error || 'Failed to load cases.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }, [statusFilter, search]);
 

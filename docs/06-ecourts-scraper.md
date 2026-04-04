@@ -32,16 +32,34 @@ The v2 layer is used by the stitched terminal UI for location cascades and court
 
 ### HC Scraper v2 (Apr 2026)
 
-A second standalone FastAPI scraper (`hcecourt_fastapi_complete_scrapper.py`) runs at port 8001 and covers all 25 Indian High Courts via `hcservices.ecourts.gov.in`. Unlike the district scraper, the HC scraper is **GET-only** and auto-detects HC/bench from CNR prefix.
+A second standalone FastAPI scraper (`hcecourt_fastapi_complete_scrapper.py`) covers all 25 Indian High Courts via `hcservices.ecourts.gov.in`. Unlike the district scraper, the HC scraper is **GET-only** and auto-detects HC/bench from CNR prefix.
 
 - Django proxy app: `Legalv1/ecourt_scrapped/` (same app as district v2)
 - Django views: `ecourt_scrapped/hc_views.py` (14 views)
 - URL config: `ecourt_scrapped/hc_urls.py`, included at `hc/` in `ecourt_scrapped/urls.py`
 - URL prefix: `/api/ecourts/v2/hc/`
 - FastAPI bridge: `ecourt_scrapped/services/hc_scraper_client.py`
-- Env vars: `HC_SCRAPER_BASE_URL` (default `http://localhost:8001`), `HC_SCRAPER_TIMEOUT` (default `120`)
+- Env vars: `HC_SCRAPER_BASE_URL` (default `http://localhost:8001/hc`), `HC_SCRAPER_TIMEOUT` (default `120`)
 - No master data MongoDB cache — HC court list is static inside the HC FastAPI scraper
 - HC CAPTCHA solving per request (10–30s response times expected)
+
+### Unified FastAPI Entry Point (Apr 2026)
+
+Both scrapers run in a **single process on port 8001** via `scrapping_codes_ecourt/main.py`.
+Starlette sub-app mounting routes requests to each scraper without modifying either scraper's endpoints, response formats, or internal logic.
+
+| Mount prefix | Scraper file | Sub-app docs |
+|---|---|---|
+| `/dc` | `ecourts_fastapi_scrapper_cnr_and_causelist_casestatus_and_courtstatus.py` | `http://localhost:8001/dc/docs` |
+| `/hc` | `hcecourt_fastapi_complete_scrapper.py` | `http://localhost:8001/hc/docs` |
+
+- Entry point: `scrapping_codes_ecourt/main.py` (`uvicorn main:app`)
+- Root health: `GET http://localhost:8001/health` — polls both sub-apps in parallel
+- Start/stop: `./start_scrapper.sh` / `./stop_scrapper.sh` (log: `logs/{date}_unified_scraper.log`)
+- Env vars in `Legalv1/legalenv`:
+  - `ECOURTS_SCRAPER_BASE_URL=http://localhost:8001/dc`
+  - `HC_SCRAPER_BASE_URL=http://localhost:8001/hc`
+- **Adding a future scraper:** import its `app`, add `app.mount("/prefix", new_app)` in `main.py`, add env var to `legalenv`, add a Django service client. Zero changes to existing scrapers or Django views.
 
 **Date format note:** `/orders/by-court` uses `YYYY-MM-DD`; `/orders/by-date` and `/causelist` use `DD-MM-YYYY`. Frontend terminals handle the conversion via `toDmy()` helper.
 

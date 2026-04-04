@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import HCCourtSelector from './HCCourtSelector';
 import {
   searchHCCnr,
@@ -70,6 +72,7 @@ function CaseCard({ item, onOpen }) {
 
 export default function HCCaseStatusTerminal() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const saved = loadSession();
   const [tab, setTab] = useState(saved?.tab || 'cnr');
@@ -141,17 +144,19 @@ export default function HCCaseStatusTerminal() {
     e.preventDefault();
     clearResults();
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Searching High Court cases...' }));
 
     try {
       let res;
       if (tab === 'cnr') {
         const normalized = cnrInput.trim().toUpperCase().replace(/[-\s]/g, '');
-        if (!normalized) { setError('Enter a CNR number.'); setLoading(false); return; }
+        if (!normalized) { setError('Enter a CNR number.'); setLoading(false); dispatch(stopBlocking()); return; }
         navigate(`/ecourts/hc/case/${encodeURIComponent(normalized)}`);
         setLoading(false);
+        dispatch(stopBlocking());
         return;
       }
-      if (!location.isComplete) { setError('Select a High Court and Bench first.'); setLoading(false); return; }
+      if (!location.isComplete) { setError('Select a High Court and Bench first.'); setLoading(false); dispatch(stopBlocking()); return; }
 
       if (tab === 'party') {
         res = await searchHCParty({ hc: location.hc, bench: location.bench, name: partyName, year: partyYear, status: partyStatus });
@@ -177,6 +182,7 @@ export default function HCCaseStatusTerminal() {
       setError(err.response?.data?.error || err.response?.data?.detail || 'Search failed. Please try again.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }
 

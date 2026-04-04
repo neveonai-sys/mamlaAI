@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import apiClient from '../../services/api';
 
 const USER_TYPE_LABELS = { Client: 'Client', Paralegal: 'Paralegal', Lawyer: 'Lawyer' };
@@ -220,6 +222,7 @@ function EmptyState({ onAdd, onLink }) {
 
 export default function ClientOnboarding() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [clients, setClients] = useState([]);
   const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -233,6 +236,7 @@ export default function ClientOnboarding() {
 
   async function loadClients(preferredId = null) {
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Loading clients...' }));
     try {
       const response = await apiClient.get('users/clients/');
       const nextClients = (response.data?.results ?? response.data ?? []).map(normalizeClient);
@@ -249,6 +253,7 @@ export default function ClientOnboarding() {
       setError(err.response?.data?.error || 'Failed to load clients.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }
 

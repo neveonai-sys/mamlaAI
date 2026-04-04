@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 
 import LocationCascade from './LocationCascade';
 import {
@@ -21,6 +23,7 @@ const MODES = [
 
 export default function CaseStatusTerminal() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const SESSION_KEY = 'caseStatusSearchState';
 
@@ -147,6 +150,7 @@ export default function CaseStatusTerminal() {
         return;
       }
       setLoading(true);
+      dispatch(beginBlocking({ message: 'Looking up CNR on eCourts...' }));
       try {
         const res = await cnrSearch(normalized);
         const data = res.data;
@@ -160,6 +164,7 @@ export default function CaseStatusTerminal() {
         setError(err.response?.data?.error || err.message || 'CNR lookup failed.');
       } finally {
         setLoading(false);
+        dispatch(stopBlocking());
       }
       return;
     }
@@ -178,12 +183,13 @@ export default function CaseStatusTerminal() {
     };
 
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Searching cases on eCourts...' }));
 
     try {
       let res;
 
       if (activeMode === 'party') {
-        if (!partyName.trim()) { setError('Enter a party name.'); setLoading(false); return; }
+        if (!partyName.trim()) { setError('Enter a party name.'); setLoading(false); dispatch(stopBlocking()); return; }
         res = await casestatusByParty({
           ...base,
           party_name: partyName.trim(),
@@ -193,7 +199,7 @@ export default function CaseStatusTerminal() {
       } else if (activeMode === 'filing') {
         if (!filingNumber.trim() || !filingYear.trim()) {
           setError('Enter both filing number and filing year.');
-          setLoading(false);
+          setLoading(false); dispatch(stopBlocking());
           return;
         }
         res = await casestatusByFiling({
@@ -204,12 +210,12 @@ export default function CaseStatusTerminal() {
       } else if (activeMode === 'advocate') {
         if (advocateSearchBy === 'name' && !advocateName.trim()) {
           setError('Enter advocate name.');
-          setLoading(false);
+          setLoading(false); dispatch(stopBlocking());
           return;
         }
         if (advocateSearchBy !== 'name' && !advocateCode.trim()) {
           setError('Enter advocate code.');
-          setLoading(false);
+          setLoading(false); dispatch(stopBlocking());
           return;
         }
         res = await casestatusByAdvocate({
@@ -224,7 +230,7 @@ export default function CaseStatusTerminal() {
       } else if (activeMode === 'fir') {
         if (!policeStationCode) {
           setError('Select a police station.');
-          setLoading(false);
+          setLoading(false); dispatch(stopBlocking());
           return;
         }
         res = await casestatusByFir({
@@ -262,6 +268,7 @@ export default function CaseStatusTerminal() {
       setError(err.response?.data?.error || err.message || 'Case status search failed.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }
 
@@ -556,7 +563,7 @@ export default function CaseStatusTerminal() {
             </table>
           </div>
         </div>
-      ) : searched ? (
+      ) : searched && !loading ? (
         <div className="mt-6 rounded-sm border-2 border-black bg-white px-4 py-6 text-center text-sm text-slate-500 font-sans">
           No results for this search.
         </div>

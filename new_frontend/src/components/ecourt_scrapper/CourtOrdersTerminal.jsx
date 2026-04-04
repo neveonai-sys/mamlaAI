@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 
 import LocationCascade from './LocationCascade';
 import {
@@ -23,6 +25,7 @@ const MODES = [
 
 export default function CourtOrdersTerminal() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const [locationInitialValues] = useState(() => {
     try {
@@ -172,6 +175,7 @@ export default function CourtOrdersTerminal() {
     };
 
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Searching court orders on eCourts...' }));
 
     try {
       let res;
@@ -179,28 +183,28 @@ export default function CourtOrdersTerminal() {
       if (activeMode === 'party') {
         if (!partyName.trim() || !partyYear.trim()) {
           setError('Enter party name and year.');
-          setLoading(false);
+          setLoading(false); dispatch(stopBlocking());
           return;
         }
         res = await courtorderByParty({ ...base, party_name: partyName.trim(), year: partyYear.trim(), order_type: orderType });
       } else if (activeMode === 'case-number') {
         if (!caseType || !caseNumber.trim() || !caseYear.trim()) {
           setError('Select case type and enter case number and year.');
-          setLoading(false);
+          setLoading(false); dispatch(stopBlocking());
           return;
         }
         res = await courtorderByCaseNumber({ ...base, case_type: caseType, case_number: caseNumber.trim(), year: caseYear.trim(), order_type: orderType });
       } else if (activeMode === 'court-number') {
         if (!courtNumber) {
           setError('Select a court number.');
-          setLoading(false);
+          setLoading(false); dispatch(stopBlocking());
           return;
         }
         res = await courtorderByCourtNumber({ ...base, court_number: courtNumber, order_type: orderType });
       } else if (activeMode === 'order-date') {
         if (!fromDate || !toDate) {
           setError('Select both from and to dates.');
-          setLoading(false);
+          setLoading(false); dispatch(stopBlocking());
           return;
         }
         res = await courtorderByOrderDate({ ...base, from_date: fromDate, to_date: toDate, order_type: orderType });
@@ -235,6 +239,7 @@ export default function CourtOrdersTerminal() {
       setError(err.response?.data?.error || err.message || 'Court order search failed.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }
 

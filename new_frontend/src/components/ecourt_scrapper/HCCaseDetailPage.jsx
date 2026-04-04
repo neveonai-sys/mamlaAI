@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import { searchHCCnr, downloadHCOrderPdf } from './apiHC';
 
 // ── Design tokens (matches CaseDetail.jsx) ───────────────────────────────────
@@ -39,8 +41,7 @@ function parseAct(act) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function HCCaseDetailPage() {
   const { cino } = useParams();
-  const navigate = useNavigate();
-
+  const navigate = useNavigate();  const dispatch  = useDispatch();
   const [caseData, setCaseData]             = useState(null);
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState('');
@@ -51,6 +52,7 @@ export default function HCCaseDetailPage() {
     if (!cino) return;
     let active = true;
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Loading case details...' }));
     setError('');
     searchHCCnr(cino)
       .then((res) => { if (active) setCaseData(res.data); })
@@ -62,7 +64,7 @@ export default function HCCaseDetailPage() {
           `Unable to fetch case details for CNR: ${cino}`
         );
       })
-      .finally(() => { if (active) setLoading(false); });
+      .finally(() => { if (active) { setLoading(false); dispatch(stopBlocking()); } });
     return () => { active = false; };
   }, [cino]);
 

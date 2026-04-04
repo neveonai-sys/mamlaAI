@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import HCCourtSelector from './HCCourtSelector';
 import {
   searchHCOrdersByParty,
@@ -81,6 +83,7 @@ function OrderCard({ item, onOpen }) {
 
 export default function HCCourtOrdersTerminal() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const saved = loadSession();
   const [tab, setTab] = useState(saved?.tab || 'party');
@@ -158,6 +161,7 @@ export default function HCCourtOrdersTerminal() {
       if (!courtDateFrom || !courtDateTo) { setError('Date range is required. Please re-select the judge.'); return; }
     }
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Searching High Court orders...' }));
 
     try {
       let res;
@@ -190,6 +194,7 @@ export default function HCCourtOrdersTerminal() {
       setError(err.response?.data?.error || err.response?.data?.detail || 'Search failed. Please try again.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }
 

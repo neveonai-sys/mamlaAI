@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 
 import LocationCascade from './LocationCascade';
 import { getCourts, causelistFetch } from './apiV2';
 
 export default function CauseListTerminal() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const SESSION_KEY = 'causeListSearchState';
@@ -115,6 +118,7 @@ export default function CauseListTerminal() {
     }
 
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Fetching cause list from eCourts...' }));
 
     try {
       const res = await causelistFetch({
@@ -153,6 +157,7 @@ export default function CauseListTerminal() {
       setError(err.response?.data?.error || err.message || 'Cause list fetch failed.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }
 
