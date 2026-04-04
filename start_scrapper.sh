@@ -55,13 +55,13 @@ fi
 #     echo "Stopping any running services..."
 #     "$PROJECT_ROOT/stop.sh"
 # fi
-# ── eCourts FastAPI Scraper (port 8001, localhost only) ──────────────────────
-echo "Starting eCourts FastAPI scraper..."
+# ── Unified eCourts FastAPI Scraper (port 8001, localhost only) ─────────────
+echo "Starting Unified eCourts FastAPI scraper (DC + HC) on 127.0.0.1:8001..."
 LOG_DATE=$(date +%d-%m-%Y)
 UVICORN_BIN="/home/pronoys/miniconda3/envs/py312/bin/uvicorn"
-FASTAPI_MODULE="ecourts_fastapi_scrapper_cnr_and_causelist_casestatus_and_courtstatus"
+FASTAPI_MODULE="main"
 FASTAPI_SCRAPER_DIR="$PROJECT_ROOT/scrapping_codes_ecourt"
-FASTAPI_LOG="$PROJECT_ROOT/logs/${LOG_DATE}_ecourts_scraper.log"
+FASTAPI_LOG="$PROJECT_ROOT/logs/${LOG_DATE}_unified_scraper.log"
 
 # Kill any existing instance on port 8001
 lsof -ti:8001 2>/dev/null | xargs kill -9 2>/dev/null
@@ -83,15 +83,15 @@ else
         > "$FASTAPI_LOG" 2>&1 &
     sleep 2
     if lsof -ti:8001 >/dev/null 2>&1; then
-        echo "  ✅ eCourts FastAPI scraper running on 127.0.0.1:8001"
+        echo "  ✅ Unified scraper running on 127.0.0.1:8001  (DC → /dc  |  HC → /hc)"
     else
-        echo "  ❌ eCourts FastAPI scraper failed to start — check $FASTAPI_LOG"
+        echo "  ❌ Unified scraper failed to start — check $FASTAPI_LOG"
     fi
     cd "$PROJECT_ROOT"
 fi
 
 
-echo "   - eCourts Scraper: $PROJECT_ROOT/logs/$(date +%d-%m-%Y)_ecourts_scraper.log"
+echo "   - Unified Scraper:  $PROJECT_ROOT/logs/$(date +%d-%m-%Y)_unified_scraper.log"
 echo ""
 echo "   📁 All logs: $PROJECT_ROOT/logs/"
 echo "   🧹 Cleanup script: ./cleanup_logs.sh (keeps 3 days)"

@@ -27,7 +27,7 @@ Run:
     uvicorn ecourts_api:app --host 127.0.0.1 --port 8000 --reload
 """
 
-import os, re, time, base64, json
+import os, re, time, base64, json, logging
 from datetime import date as dt
 from typing import Optional
 from urllib.parse import urlparse, parse_qs
@@ -38,6 +38,8 @@ from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+log = logging.getLogger("dc_court")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -118,6 +120,7 @@ def get_session(home_url: str) -> cffi_requests.Session:
         s = cffi_requests.Session(impersonate=IMPERSONATE)
         resp = s.get(home_url, headers=BASE_HEADERS, timeout=20)
         if resp.status_code != 200:
+            log.error("get_session: eCourts returned HTTP %s for %s", resp.status_code, home_url)
             raise HTTPException(502, f"Could not reach eCourts: HTTP {resp.status_code}")
         _sessions[home_url] = s
         print(f"[✓] New session for {home_url.split('?p=')[1]}  cookies={dict(s.cookies)}")
@@ -147,6 +150,7 @@ def ajax_post(home_url: str, p: str, payload: dict) -> dict:
             return {"_raw": r.text}
     except Exception as e:
         reset_session(home_url)
+        log.error("ajax_post: network error on %s — %s", p, e)
         raise HTTPException(502, f"Request to eCourts failed: {e}")
 
 
@@ -171,6 +175,7 @@ def fetch_captcha_b64(home_url: str, src: str = "") -> str:
         url = src  # preserve exact namespace hash, requests won't cache anyway
     r = session.get(url, headers=BASE_HEADERS, timeout=20)
     if r.status_code != 200 or len(r.content) < 100:
+        log.error("fetch_captcha_b64: bad response status=%s len=%s url=%s", r.status_code, len(r.content), url)
         raise HTTPException(502, f"CAPTCHA fetch failed: HTTP {r.status_code}")
     return base64.b64encode(r.content).decode().replace("\n", "")
 
@@ -183,12 +188,15 @@ def solve_captcha(b64: str, home_url: str) -> str:
         timeout=30,
     )
     if r.status_code != 200:
+        log.error("solve_captcha: CapSolver HTTP %s — %s", r.status_code, r.text[:200])
         raise HTTPException(502, f"CapSolver HTTP {r.status_code}: {r.text[:200]}")
     d = r.json()
     if d.get("errorId") != 0:
+        log.error("solve_captcha: CapSolver error %s — %s", d.get('errorCode'), d.get('errorDescription'))
         raise HTTPException(502, f"CapSolver {d.get('errorCode')}: {d.get('errorDescription')}")
     text = d.get("solution", {}).get("text", "").strip()
     if not text:
+        log.error("solve_captcha: CapSolver returned empty solution — full response: %s", d)
         raise HTTPException(502, "CapSolver returned empty solution")
     print(f"[CapSolver] Solved: '{text}'")
     return text

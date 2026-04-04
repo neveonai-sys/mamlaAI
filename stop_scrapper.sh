@@ -3,10 +3,10 @@
 # Stop Script for eCourts FastAPI Scraper only
 # Usage: ./stop_scrapper.sh
 
-echo "🛑 Stopping eCourts FastAPI scraper..."
+echo "🛑 Stopping Unified eCourts FastAPI scraper..."
 
-# Kill by process pattern
-PIDS=$(pgrep -f "uvicorn.*ecourts_fastapi" 2>/dev/null)
+# Kill by process pattern (matches main:app launched by start_scrapper.sh)
+PIDS=$(pgrep -f "uvicorn.*main" 2>/dev/null)
 if [ -n "$PIDS" ]; then
     echo "🔄 Killing uvicorn process(es): $PIDS"
     kill -9 $PIDS 2>/dev/null || true
@@ -23,7 +23,7 @@ sleep 1
 if lsof -ti:8001 >/dev/null 2>&1; then
     echo "❌ Port 8001 still occupied — manual intervention may be needed"
 else
-    echo "✅ eCourts FastAPI scraper stopped"
+    echo "✅ Unified eCourts FastAPI scraper stopped"
 fi
 
 exit 0
