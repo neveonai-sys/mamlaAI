@@ -50,7 +50,7 @@
 | eCourts Scraper (ACTIVE) views + URLs | `Legalv1/ecourts_scraper/views.py` · `Legalv1/ecourts_scraper/urls.py` |
 | eCourts v2 proxy to FastAPI scraper (ACTIVE) | `Legalv1/ecourt_scrapped/views.py` · `Legalv1/ecourt_scrapped/urls.py` · `Legalv1/ecourt_scrapped/services/scraper_client.py` · `Legalv1/ecourt_scrapped/services/master_data.py` · `Legalv1/ecourt_scrapped/services/ecourts_crawler.py` |
 | Case registry (cases, hearing notes, notes, tasks) | `Legalv1/cases/views.py` · `Legalv1/cases/urls.py` · `Legalv1/cases/routes/` |
-| AI agents (intake, doc-intel, hearing prep, post-hearing, draft context, closure) | `Legalv1/agents/views.py` · `Legalv1/agents/urls.py` · `Legalv1/agents/base_agent.py` · `Legalv1/agents/*.py` |
+| AI agents (intake, doc-intel, hearing prep, post-hearing, draft context, closure, **conversational draft**) | `Legalv1/agents/views.py` · `Legalv1/agents/urls.py` · `Legalv1/agents/base_agent.py` · `Legalv1/agents/*.py` · **`Legalv1/agents/conversational_draft_agent.py`** |
 | eCourts direct API (DEPRECATED reference only) | `Legalv1/ecourts_api/` — keep commented/out of runtime |
 | Search views + URLs | `Legalv1/search_facility/views.py` · `Legalv1/search_facility/urls.py` |
 | Today's Updates views + URLs | `Legalv1/todaysupdates/views.py` · `Legalv1/todaysupdates/urls.py` |
@@ -78,6 +78,7 @@
 | `hearing_notes` | cases app — prep + outcome per hearing |
 | `case_notes` | cases app — threaded notes (internal/shared visibility) |
 | `case_tasks` | cases app — tasks per case |
+| `draft_conversations` | ai_draft app — guided drafting conversational intake sessions (ConversationalDraftAgent) |
 
 Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_client()`.
 
@@ -158,6 +159,7 @@ Active frontend first. `frontend_webpack/` is the previous UI only.
 | **Dashboard** (agenda uses `upcoming_events_list`) | `mamlaAI_ground_zero/frontend/src/components/dashboard/Dashboard.jsx` |
 | **Command Center** (quick actions, live events) | `mamlaAI_ground_zero/frontend/src/components/dashboard/CommandCenter.jsx` |
 | **Drafting Workspace** (new draft, load draft, load template, save/revert, section history, location refresh, quota-aware AI suggestion UX) | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` |
+| **Guided Drafting Page** (conversational intake → draft_plan → generate; start with case/docs/scratch; mid-chat doc upload; ready banner with DraftPlanCard) | `mamlaAI_ground_zero/frontend/src/components/drafting/GuidedDraftingPage.jsx` |
 | **Calendar Page** (advanced legal calendar shell, FullCalendar, conflict workflow, case/client-aware intake, multi-day linked-series UX) | `mamlaAI_ground_zero/frontend/src/components/calendar/CalendarPage.jsx` |
 | **Court Updates** (subscription management + filter tabs) | `mamlaAI_ground_zero/frontend/src/components/courts/CourtUpdates.jsx` |
 | **Document Workspace** (TalkDoc / RAG chat, two-window flow: setup library for upload/delete/load chats, case/client-aware document filters, timestamped document labels, focused viewer+chat work window, live uploads into active chats, image preview, API-backed case/client suggestions with case→client autofill/filtering, session-scoped docs, session-aware Brain quota banners/locks for both document analysis and general legal chat) | `mamlaAI_ground_zero/frontend/src/components/documents/DocumentWorkspace.jsx` |
@@ -183,6 +185,9 @@ Active frontend first. `frontend_webpack/` is the previous UI only.
 | `/home`, `/about`, `/sessions`, `/calendar`, `/my-updates`, `/feedback`, `/todays-updates` | Various pages | Protected (all users) |
 | `/draft-with-ai`, `/chat-with-docs` | DraftWithAI, ChatWithDocs | Protected (Lawyer or Client) |
 | `/onboard-client` | OnboardClient | Protected (Lawyer only) |
+| `/drafting` | DraftingWorkspace | Protected |
+| `/drafting/guided` | GuidedDraftingPage | Protected |
+| `/drafting/:id` | DraftingWorkspace | Protected |
 | `*` | — | Redirect to `/` |
 
 ---

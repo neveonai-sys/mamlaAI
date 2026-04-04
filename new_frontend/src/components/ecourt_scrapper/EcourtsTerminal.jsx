@@ -244,8 +244,6 @@ export default function EcourtsTerminal() {
       <div className="mt-8 rounded-[24px] border border-primary/10 bg-background-light p-6">
         <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Service Notes</p>
         <ul className="mt-3 space-y-2 text-sm leading-7 text-slate-600">
-          <li>Case data is sourced directly from official eCourts records, ensuring accuracy and up-to-date availability.</li>
-          <li>Court and district references are cached for faster load times across all your searches.</li>
           <li>Case Status, Court Orders, and Cause List are fully active and available for all supported courts.</li>
         </ul>
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">

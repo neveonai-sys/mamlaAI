@@ -1,6 +1,6 @@
 # 11 — Agentic Guided Drafting Flow: Plan
 
-> **Status:** APPROVED — Design agreed 2026-03-31.
+> **Status:** IMPLEMENTED — Phase 1, 2, 3 completed 2026-04-04.
 > All changes are additive. The existing Quick Draft form (`/drafting`) is untouched.
 > Each phase is a separate execution sprint. Update this file when a phase completes.
 
@@ -288,15 +288,21 @@ Update alongside implementation (same commit):
 
 ## Verification Checklist
 
-- [ ] Start with a case → AI's first message references case facts and skips those questions
-- [ ] Upload a doc mid-conversation → AI's reply acknowledges extracted facts
-- [ ] Answer questions until `ready=true` → Draft Plan card renders with sections list
-- [ ] Click "Generate Draft" → redirects to `/drafting/:session_id` with valid draft in editing workspace
-- [ ] `/drafting` Quick Draft route fully functional — no regression
-- [ ] `draft_conversations` doc in MongoDB has all turns + `draft_plan` after readiness signal
-- [ ] `GET /api/aidrafts/guide/start/` without any context starts a blank conversation correctly
-- [ ] `?case_id=` param on `/drafting/guided` auto-starts with case context, skips start screen
-- [ ] Editor errors clean on all modified files
+- [x] `DRAFT_INTAKE_SYSTEM` prompt added to `mamla_brain/prompts.py`
+- [x] `ConversationalDraftAgent` module created at `agents/conversational_draft_agent.py`
+- [x] 4 guide endpoints added to `ai_draft/views.py` and registered in `ai_draft/urls.py`
+- [x] `GuidedDraftingPage.jsx` created with start / chat / ready phases
+- [x] `/drafting/guided` route registered in `AppContent.js` (before `/drafting/:id`)
+- [x] "Guided Draft" button added to `DraftingWorkspace.jsx` init screen
+- [x] "Guided Draft" button added to `CaseHub.jsx` Drafts tab with `?case_id=` param
+- [x] `docs/04-api-reference.md`, `docs/02-backend-legalv1.md`, `docs/00-agent-quickref.md`, `docs/05-changelog-and-improvements.md` all updated
+- [ ] **Runtime:** Start with a case → AI's first message references case facts and skips those questions
+- [ ] **Runtime:** Upload a doc mid-conversation → AI's reply acknowledges extracted facts
+- [ ] **Runtime:** Answer questions until `ready=true` → Draft Plan card renders with sections list
+- [ ] **Runtime:** Click "Generate Draft" → redirects to `/drafting/:session_id` with valid draft
+- [ ] **Runtime:** `/drafting` Quick Draft route fully functional — no regression
+- [ ] **Runtime:** `draft_conversations` doc in MongoDB has all turns + `draft_plan` after readiness signal
+- [ ] **Runtime:** `?case_id=` param on `/drafting/guided` auto-starts with case context, skips start screen
 
 ---
 

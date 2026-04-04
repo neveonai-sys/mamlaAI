@@ -632,6 +632,7 @@ function ChatWindow({
   input,
   onInputChange,
   onSend,
+  onSendText,
   chatLoading,
   onDeleteSession,
   onStartRename,
@@ -644,6 +645,7 @@ function ChatWindow({
   quotaNotice,
   sendDisabled,
   sendPlaceholder,
+  quickActions,
 }) {
   const bottomRef = useRef(null);
 
@@ -744,6 +746,23 @@ function ChatWindow({
         </div>
 
         <div className="border-t border-slate-100 bg-white p-4">
+          {/* Quick-action suggestion chips */}
+          {quickActions?.length > 0 && !sendDisabled && (
+            <div className="flex gap-2 overflow-x-auto pb-2.5 mb-2" style={{ scrollbarWidth: 'none' }}>
+              {quickActions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => onSendText?.(action.label)}
+                  disabled={chatLoading}
+                  className="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600 hover:bg-primary/8 hover:border-primary/30 hover:text-primary transition-colors disabled:opacity-50 flex-shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[14px]">{action.icon}</span>
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="relative flex items-center">
             <input
               value={input}
@@ -1290,6 +1309,7 @@ export default function DocumentWorkspace() {
     if (!files.length) return;
     setUploading(true);
     setError('');
+    let midChatAddedFileNames = null;
     try {
       await withBlocking(files.length > 1 ? 'Uploading documents...' : 'Uploading document...', async () => {
         const uploadedIds = [];
@@ -1316,6 +1336,8 @@ export default function DocumentWorkspace() {
         if (attachToActiveSession && activeSession && uploadedIds.length > 0) {
           await attachDocIdsToSession(activeSession.id, uploadedIds);
           await fetchSessions(activeSession.id);
+          // Capture names for post-upload AI notification (runs after withBlocking)
+          midChatAddedFileNames = files.map((f) => f.name).join(', ');
         }
 
         if (!attachToActiveSession && uploadedIds.length > 0) {
@@ -1333,6 +1355,15 @@ export default function DocumentWorkspace() {
     } finally {
       setUploading(false);
       event.target.value = '';
+    }
+
+    // After withBlocking finishes, let the AI acknowledge the newly added documents.
+    // Runs outside the blocking overlay so the chat stays interactive.
+    if (midChatAddedFileNames) {
+      sendMessageText(
+        `New document(s) added to this session: ${midChatAddedFileNames}. ` +
+        'Please acknowledge them — note that indexing may take a few seconds, so let me know once you can start answering questions about these docs.'
+      );
     }
   }
 
@@ -1425,12 +1456,12 @@ export default function DocumentWorkspace() {
     }
   }
 
-  async function handleSend() {
-    if (!input.trim() || chatLoading || !activeSession || sendDisabled) return;
-
-    const text = input.trim();
-    setInput('');
-    setMessages((current) => [...current, { role: 'user', content: text }]);
+  // Core message-send logic — accepts explicit text so it can be called by
+  // handleSend (from the input box) AND by quick-action chips / mid-doc notification.
+  async function sendMessageText(text) {
+    if (!text?.trim() || chatLoading || !activeSession || sendDisabled) return;
+    const trimmedText = text.trim();
+    setMessages((current) => [...current, { role: 'user', content: trimmedText }]);
     setChatLoading(true);
     setError('');
     setChatQuotaNotice(null);
@@ -1438,7 +1469,7 @@ export default function DocumentWorkspace() {
     try {
       const response = await withBlocking('Analyzing your question...', () => apiClient.post('talkdoc/query/', {
         session_id: activeSession.id,
-        query: text,
+        query: trimmedText,
       }));
       const responseQuota = response.data?.quota || null;
       setMessages((current) => [
@@ -1455,10 +1486,7 @@ export default function DocumentWorkspace() {
       }
       setSessions((current) => current.map((session) => (
         session.id === activeSession.id
-          ? {
-            ...session,
-            last_message_at: nowTimestampString(),
-          }
+          ? { ...session, last_message_at: nowTimestampString() }
           : session
       )));
     } catch (err) {
@@ -1474,6 +1502,13 @@ export default function DocumentWorkspace() {
     } finally {
       setChatLoading(false);
     }
+  }
+
+  async function handleSend() {
+    if (!input.trim() || chatLoading || !activeSession || sendDisabled) return;
+    const text = input.trim();
+    setInput('');
+    await sendMessageText(text);
   }
 
   function openPreview() {
@@ -1614,6 +1649,20 @@ export default function DocumentWorkspace() {
               quotaNotice={brainQuotaNotice}
               sendDisabled={sendDisabled}
               sendPlaceholder={sendPlaceholder}
+              onSendText={sendMessageText}
+              quickActions={activeSession?.has_docs ? [
+                { icon: 'summarize',   label: 'Summarise this order' },
+                { icon: 'event',       label: 'Key dates & deadlines' },
+                { icon: 'groups',      label: 'Parties & their positions' },
+                { icon: 'checklist',   label: 'What are my next steps?' },
+                { icon: 'analytics',   label: 'Case strength analysis' },
+              ] : [
+                { icon: 'gavel',       label: 'What law applies here?' },
+                { icon: 'checklist',   label: 'What are my next steps?' },
+                { icon: 'balance',     label: 'Analyse the legal situation' },
+                { icon: 'calendar_month', label: 'Time limits & deadlines' },
+                { icon: 'search',      label: 'What are my options?' },
+              ]}
             />
           </div>
         </main>

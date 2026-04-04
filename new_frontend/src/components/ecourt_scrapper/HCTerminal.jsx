@@ -216,13 +216,12 @@ export default function HCTerminal() {
       <div className="mt-8 rounded-[24px] border border-primary/10 bg-background-light p-6">
         <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Note</p>
         <ul className="mt-3 space-y-2 text-sm leading-7 text-slate-600">
-          <li>High Court data is sourced via hcservices.ecourts.gov.in. Each search requires a live CAPTCHA solve.</li>
           <li>Response times may be 10–30 seconds depending on portal load.</li>
           <li>All 25 High Courts (+ circuit benches) are supported. Use <strong>Case Search → CNR</strong> for the fastest lookup.</li>
         </ul>
         {serviceOk === false && (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            HC scraper service is currently unreachable. Ensure the HC FastAPI server is running on port 8001.
+            HC fetch service is currently unreachable. Ensure the HC backend server is running on correct port.
           </div>
         )}
       </div>

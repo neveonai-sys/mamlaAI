@@ -1247,6 +1247,16 @@ export default function DraftingWorkspace() {
               <p className="text-slate-500 text-sm">
                 Create from scratch, load a saved draft, or start from an existing template.
               </p>
+              {/* Guided Draft entry */}
+              <button
+                type="button"
+                onClick={() => navigate('/drafting/guided')}
+                className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition"
+              >
+                <span className="material-symbols-outlined text-lg">chat</span>
+                Guided Draft (Recommended)
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-primary text-ivory text-[10px] font-bold">NEW</span>
+              </button>
             </div>
 
             {/* Tab bar */}

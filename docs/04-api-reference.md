@@ -82,6 +82,10 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | GET | `test/download/` | No auth | Download test draft. |
 | GET | `test/status/<uuid:session_id>/` | No auth | Test draft status. |
 | GET | `test/sections/<str:session_id>/` | No auth | Test draft sections. |
+| POST | `guide/start/` | Supabase | Start a guided-drafting conversation. Body: `{case_id?, document_ids?}`. Returns `{conv_id, message}`. |
+| POST | `guide/message/` | Supabase | Send a user message in a guided conversation. Body: `{conv_id, message}`. Returns `{reply, ready, draft_plan?}`. |
+| POST | `guide/upload_doc/` | Supabase | Process newly uploaded docs mid-conversation. Body: `{conv_id, document_ids}`. Returns `{reply}`. |
+| POST | `guide/generate/` | Supabase | Trigger draft generation from the gathered context. Consumes `ai_draft_generation` quota. Body: `{conv_id}`. Returns `{session_id}`. |
 
 ---
 

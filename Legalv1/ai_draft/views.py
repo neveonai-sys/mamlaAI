@@ -1003,3 +1003,81 @@ def export_draft(request):
         response['Content-Disposition'] = f'attachment; filename=legal_draft.{fmt}'
         return response
     return JsonResponse({'error': 'No draft available'}, status=400)
+
+
+# ─── Guided Drafting endpoints ────────────────────────────────────────────────
+
+@api_view(['POST'])
+@supabase_required
+def guide_start(request):
+    """POST aidrafts/guide/start/ — Start a new guided drafting conversation."""
+    import agents.conversational_draft_agent as cda
+    data = json.loads(request.body)
+    user_id = request.supabase_user.get('user_id')
+    result = cda.start(
+        user_id=user_id,
+        case_id=data.get('case_id') or None,
+        document_ids=data.get('document_ids') or None,
+    )
+    if not result.get('ok'):
+        return JsonResponse({'error': result.get('error', 'Failed to start session.')}, status=400)
+    return JsonResponse({'conv_id': result['conv_id'], 'message': result['message']})
+
+
+@api_view(['POST'])
+@supabase_required
+def guide_message(request):
+    """POST aidrafts/guide/message/ — Send a user message in the guided conversation."""
+    import agents.conversational_draft_agent as cda
+    data = json.loads(request.body)
+    user_id = request.supabase_user.get('user_id')
+    conv_id = (data.get('conv_id') or '').strip()
+    user_text = (data.get('message') or '').strip()
+    if not conv_id or not user_text:
+        return JsonResponse({'error': 'conv_id and message are required.'}, status=400)
+    result = cda.message(conv_id=conv_id, user_id=user_id, user_text=user_text)
+    if not result.get('ok'):
+        return JsonResponse({'error': result.get('error', 'Failed to process message.')}, status=400)
+    return JsonResponse({
+        'reply': result['reply'],
+        'ready': result['ready'],
+        'draft_plan': result.get('draft_plan'),
+    })
+
+
+@api_view(['POST'])
+@supabase_required
+def guide_upload_doc(request):
+    """POST aidrafts/guide/upload_doc/ — Process newly uploaded docs mid-conversation."""
+    import agents.conversational_draft_agent as cda
+    data = json.loads(request.body)
+    user_id = request.supabase_user.get('user_id')
+    conv_id = (data.get('conv_id') or '').strip()
+    document_ids = data.get('document_ids') or []
+    if not conv_id or not document_ids:
+        return JsonResponse({'error': 'conv_id and document_ids are required.'}, status=400)
+    result = cda.handle_doc_upload(conv_id=conv_id, user_id=user_id, document_ids=document_ids)
+    if not result.get('ok'):
+        return JsonResponse({'error': result.get('error', 'Document processing failed.')}, status=400)
+    return JsonResponse({'reply': result['reply']})
+
+
+@api_view(['POST'])
+@supabase_required
+def guide_generate(request):
+    """POST aidrafts/guide/generate/ — Generate the draft from the gathered context."""
+    import agents.conversational_draft_agent as cda
+    data = json.loads(request.body)
+    user_id = request.supabase_user.get('user_id')
+    conv_id = (data.get('conv_id') or '').strip()
+    if not conv_id:
+        return JsonResponse({'error': 'conv_id is required.'}, status=400)
+    # quota gate — reuse same feature code as regular draft generation
+    decision = _authorize_draft_feature(request, 'ai_draft_generation')
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
+    result = cda.generate(conv_id=conv_id, user_id=user_id)
+    if not result.get('ok'):
+        return JsonResponse({'error': result.get('error', 'Draft generation failed.')}, status=400)
+    _finalize_draft_quota(request, 'ai_draft_generation', decision)
+    return JsonResponse({'session_id': result['session_id']})

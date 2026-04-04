@@ -62,7 +62,7 @@ All user-facing API base path is effectively **`/api/`** (e.g. full path `https:
 | App | Purpose | Key models / storage |
 |-----|---------|----------------------|
 | **users** | Auth (Supabase), profile, onboarding, signup (Mongo), courts/states/districts, feedback | MongoDB: user_details, sessions (legacy), feedback, signup_tokens, etc. |
-| **ai_draft** | AI drafting sessions, sections, save/load, PDF, templates | MongoDB: aidrafts_complete_data |
+| **ai_draft** | AI drafting sessions, sections, save/load, PDF, templates. Also hosts the Guided Drafting conversational intake flow (`guide/*` endpoints). | MongoDB: aidrafts_complete_data, **draft_conversations** |
 | **create_drafts** | Template-based drafts, submit, auto-save, PDF | MongoDB: draft_content_data, user_draft_data; local files under draftdocs |
 | **calendar_management** | Events CRUD plus REST aliases and conflict APIs. The service layer stores recurring chains as per-day meeting entries, supports `only once`, `this and following`, and `entire series` operations, syncs participant copies into linked user records, and now sends creator/participant emails as separate deliveries instead of CC-style batching. | MongoDB (user_details.meetings, etc.) |
 | **calendersetup** | Google Calendar OAuth (init, redirect, events) | N/A |

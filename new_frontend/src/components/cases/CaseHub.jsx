@@ -506,11 +506,18 @@ function DraftsTab({ caseId, onNewDraft }) {
     <div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-semibold text-ink">Case Drafts ({drafts.length})</p>
-        <button onClick={onNewDraft}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition">
-          <span className="material-symbols-outlined text-sm">add</span>
-          New Draft
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate(`/drafting/guided?case_id=${caseId}`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition">
+            <span className="material-symbols-outlined text-sm">chat</span>
+            Guided Draft
+          </button>
+          <button onClick={onNewDraft}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition">
+            <span className="material-symbols-outlined text-sm">add</span>
+            New Draft
+          </button>
+        </div>
       </div>
       {drafts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center text-graphite/60 gap-3">

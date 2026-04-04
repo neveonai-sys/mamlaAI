@@ -285,6 +285,97 @@ def _is_clearly_non_legal_query(text):
     return any(keyword in lowered for keyword in NON_LEGAL_QUERY_KEYWORDS)
 
 
+# ─── Case context & system prompt helpers ─────────────────────────────────────
+
+def _load_case_context(matter: dict, db) -> str:
+    """
+    If the session matter includes a caseid, fetch that case record from MongoDB
+    and return a compact human-readable brief for the LLM system prompt.
+    Returns empty string when no case is linked or the case is not found.
+    """
+    case_ids = _matter_list(matter or {}, 'caseid')
+    if not case_ids:
+        return ''
+    case_id = case_ids[0]
+    case = None
+    try:
+        case = db['cases'].find_one({"_id": case_id})
+    except Exception:
+        pass
+    if not case:
+        return f'Case ID: {case_id}'
+
+    parts = [f"Title: {case.get('title', case_id)}"]
+    if case.get('case_ref'):
+        parts.append(f"Ref: {case['case_ref']}")
+    if case.get('case_type'):
+        parts.append(f"Type: {case['case_type']}")
+    court = case.get('court') or {}
+    if isinstance(court, dict):
+        court_str = ' / '.join(filter(None, [
+            court.get('state', ''), court.get('district', ''), court.get('court_name', '')
+        ]))
+        if court_str:
+            parts.append(f"Court: {court_str}")
+    elif court:
+        parts.append(f"Court: {court}")
+    if case.get('cnr'):
+        parts.append(f"CNR: {case['cnr']}")
+    if case.get('status'):
+        parts.append(f"Status: {case['status']}")
+    if case.get('stage'):
+        parts.append(f"Stage: {case['stage']}")
+    if case.get('next_hearing'):
+        parts.append(f"Next hearing: {case['next_hearing']}")
+    if case.get('brief'):
+        parts.append(f"Brief: {str(case['brief'])[:400]}")
+    return '\n'.join(parts)
+
+
+def _build_talkdoc_system(has_docs: bool, case_context: str = '') -> str:
+    """
+    Build a lawyer-focused LLM system prompt for TalkDoc sessions.
+    Keeps the tone collegial and professional — this is a practising advocate, not a layman.
+    """
+    case_block = ''
+    if case_context:
+        case_block = (
+            '\n\n[CASE CONTEXT]\n'
+            + case_context
+            + '\nUse this as the backdrop for all answers. Reference case facts when relevant '
+            'without asking the advocate to re-confirm information already in the brief.'
+        )
+
+    if has_docs:
+        return (
+            'You are Mamla Brain, an expert legal research assistant working directly with a practising Indian advocate.\n'
+            'Your job is to help the advocate understand, analyse, and extract actionable insight from the documents in this session.\n\n'
+            'Rules:\n'
+            '- Answer ONLY from the provided document context. Quote or paraphrase passages; never invent facts.\n'
+            '- Cite every factual claim as (Document Name · Page X).\n'
+            '- Order / judgment summary: extract (a) court & date, (b) parties, (c) key findings/holdings, (d) directions issued, (e) next date if stated.\n'
+            '- Key dates request: list all dates chronologically with the event or significance of each.\n'
+            '- Parties & positions: identify petitioner/respondent/complainant/accused; summarise each party\'s claim or defence concisely.\n'
+            '- Next steps / strategy: reason from document facts and applicable law; present numbered concrete action points.\n'
+            '- If a document has been uploaded but context appears empty, let the user know indexing may still be in progress and ask them to try again in a moment.\n'
+            '- If context is insufficient, explain what is missing and what additional documents would help.\n'
+            '- You are speaking to a lawyer — be direct, precise, and professional. Skip disclaimers.'
+            + case_block
+        )
+    else:
+        return (
+            'You are Mamla Brain, an expert Indian legal research assistant working with a practising advocate.\n\n'
+            'Rules:\n'
+            '- Answer only legal questions.\n'
+            '- Focus on Indian law: statutes, procedure (CPC / CrPC / IBC / CP Act 2019 / IEA / Transfer of Property Act etc.), case law, and practical strategy.\n'
+            '- Next steps request: reason step-by-step from the facts given; present numbered action points with timelines where applicable.\n'
+            '- Applicable law request: cite specific Act, Section, and leading Supreme Court / High Court judgments where relevant.\n'
+            '- Legal analysis: give the advocate\'s perspective directly — strengths, weaknesses, and likely judicial approach.\n'
+            '- You are speaking to a practising lawyer — be collegial and precise. Do not add condescending disclaimers like "consult a qualified advocate".'
+            + case_block
+        )
+
+
 # ---------- Rename Session ----------
 
 @api_view(['POST'])
@@ -626,56 +717,22 @@ def send_message(request, session_id: str):
                            doc_ids=[str(d) for d in sess["doc_ids"]], matter=sess.get("matter"), k=24)
         top_context = "\n\n".join([f"[{h['name_stored']} p.{h.get('page') or '?'}]\n{h['text']}" for h in cli_hits[:10]])
 
-    # 3) Select appropriate system prompt based on session type
-    if sess.get("has_docs"):
-        system = (
-            "You are a professional legal research assistant for Mamla.AI. Your role is to help lawyers and their clients understand legal documents.\n\n"
-            "IMPORTANT GUIDELINES:\n"
-            "1. ONLY answer questions related to the provided legal documents and legal matters\n"
-            "2. If asked about non-legal topics, politely decline and redirect to legal questions\n"
-            "3. Use clear, professional language suitable for both lawyers and non-lawyers\n"
-            "4. Always cite specific documents and page numbers when providing information\n"
-            "5. Be thorough but concise - include all important details from the documents\n"
-            "6. Structure responses with bullet points and clear headings for readability\n"
-            "7. Highlight critical information like dates, parties, obligations, and risks\n"
-            "8. If information is missing or unclear, explicitly state what needs clarification\n\n"
-            "FORMAT YOUR RESPONSES:\n"
-            "- Start with a brief summary\n"
-            "- Use bullet points for key details\n"
-            "- Always cite sources as (Document Name · Page X)\n"
-            "- End with any important warnings or recommendations\n\n"
-            "Remember: Focus ONLY on legal matters. Decline politely if asked about unrelated topics."
-        )
-    else:
-        system = (
-            "You are a professional legal assistant for Mamla.AI. You provide information about Indian legal procedures, laws, and general legal concepts.\n\n"
-            "IMPORTANT GUIDELINES:\n"
-            "1. ONLY answer questions about legal matters, procedures, and laws\n"
-            "2. If asked about non-legal topics, politely decline: 'I can only assist with legal matters. Please ask a question related to law, legal procedures, or your legal documents.'\n"
-            "3. Use clear, professional language that both lawyers and clients can understand\n"
-            "4. Always clarify this is GENERAL legal information, NOT specific legal advice\n"
-            "5. Recommend consulting a qualified lawyer for case-specific advice\n"
-            "6. Focus on Indian legal system and procedures\n"
-            "7. Be helpful but always maintain professional boundaries\n\n"
-            "FORMAT YOUR RESPONSES:\n"
-            "- Use simple, clear language\n"
-            "- Include relevant sections of law when applicable\n"
-            "- Suggest next steps or actions when appropriate\n"
-            "- Always add: 'Note: This is general information. Please consult a lawyer for specific legal advice.'\n\n"
-            "Remember: Strictly limit responses to legal topics only."
-        )
-    
-    # Retrieve conversation history from database
-    history_msgs = list(db['rag_messages'].find(
+    # 3) Build system prompt with case context and correct history window
+    case_context = _load_case_context(sess.get('matter') or {}, db)
+    system = _build_talkdoc_system(sess.get('has_docs', False), case_context)
+
+    # Retrieve conversation history — sort desc for efficient tail-slice, then reverse
+    raw_history = list(db['rag_messages'].find(
         {"session_id": sess["_id"]},
         {"role": 1, "content": 1, "_id": 0}
-    ).sort("created_at", 1).limit(6))  # Last 6 messages for context
-    
-    # Build messages array with system prompt, history, and current question
+    ).sort("created_at", -1).limit(14))
+    raw_history.reverse()
+
+    # Build messages array with system prompt, prior history, and current question
     messages = [{"role": "system", "content": system}]
-    
-    # Add conversation history (excluding the message we just saved)
-    for msg in history_msgs[:-1]:  # Exclude the last one (current user message we just saved)
+
+    # Add conversation history (excluding the message we just saved at the tail)
+    for msg in raw_history[:-1]:
         messages.append({"role": msg["role"], "content": msg["content"]})
     
     # Add current user message with context (for document-based) or plain (for general chat)
@@ -921,24 +978,17 @@ def query_v2(request):
         cli_hits = knn_search(ensure_index(), qvec, user_id=user_id, doc_ids=session_doc_ids, matter=sess.get("matter"), k=24)
         top_context = "\n\n".join([f"[{h['name_stored']} p.{h.get('page') or '?'}]\n{h['text']}" for h in cli_hits[:10]])
 
-    if session_doc_ids:
-        system = (
-            "You are a professional legal research assistant for Mamla.AI. "
-            "Answer ONLY from the provided document context. Cite sources as (Document · Page X). "
-            "Stick to legal matters only."
-        )
-    else:
-        system = (
-            "You are a professional legal assistant for Mamla.AI specialising in Indian law. "
-            "Answer only legal questions. Always add: 'Note: This is general information. Please consult a qualified advocate for specific advice.'"
-        )
+    case_context = _load_case_context(sess.get('matter') or {}, db)
+    system = _build_talkdoc_system(bool(session_doc_ids), case_context)
 
-    history_msgs = list(db['rag_messages'].find(
+    # Last 14 messages: sort descending (newest first), limit, then reverse to chronological
+    raw_history = list(db['rag_messages'].find(
         {"session_id": sess["_id"]}, {"role": 1, "content": 1, "_id": 0}
-    ).sort("created_at", 1).limit(6))
+    ).sort("created_at", -1).limit(14))
+    raw_history.reverse()
 
     messages = [{"role": "system", "content": system}]
-    for msg in history_msgs[:-1]:
+    for msg in raw_history[:-1]:   # omit the just-saved user message (tail of list)
         messages.append({"role": msg["role"], "content": msg["content"]})
     if top_context:
         messages.append({"role": "user", "content": f"Context:\n{top_context}\n\nQuestion:\n{text}"})

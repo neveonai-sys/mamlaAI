@@ -26,6 +26,19 @@ This document summarizes the **code review outcomes**, **changes already made**,
 
 ## 2. What Was Done (Completed Changes)
 
+### Agentic Guided Drafting Flow (2026-04-04)
+
+| Change | Location | Purpose |
+|--------|----------|---------|
+| Added `DRAFT_INTAKE_SYSTEM` prompt | `Legalv1/mamla_brain/prompts.py` | System prompt for conversational intake agent — one question at a time, mandatory/optional labelling, `{ready, missing_fields, draft_plan, message}` JSON signal |
+| Created `ConversationalDraftAgent` | `Legalv1/agents/conversational_draft_agent.py` (new) | Module-level functions `start()`, `message()`, `handle_doc_upload()`, `generate()`. MongoDB collection `draft_conversations`. Soft-cap at turn 8, hard-cap at 10. Integrates `DraftContextAgent` for case pre-load and `retrieval.search_user_docs()` for doc pre-load. |
+| Added 4 guide endpoints | `Legalv1/ai_draft/views.py` (`guide_start`, `guide_message`, `guide_upload_doc`, `guide_generate`) | `POST aidrafts/guide/start/`, `guide/message/`, `guide/upload_doc/`, `guide/generate/`. All `@supabase_required`. `guide_generate` uses the `ai_draft_generation` quota gate. |
+| Registered guide URL paths | `Legalv1/ai_draft/urls.py` | 4 `guide/*` paths added to `authenticated_urlpatterns` |
+| Created `GuidedDraftingPage` | `mamlaAI_ground_zero/frontend/src/components/drafting/GuidedDraftingPage.jsx` (new) | Three-phase UI: start screen (case / documents / scratch), chat pane (typing indicator, mid-chat doc upload), ready banner with `DraftPlanCard` + "Generate Draft" → navigate to `/drafting/:session_id` |
+| Registered `/drafting/guided` route | `mamlaAI_ground_zero/frontend/src/AppContent.js` | Inserted before `/drafting/:id` to prevent match shadowing |
+| "Guided Draft" button | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` | Added above tab bar on init screen; navigates to `/drafting/guided` |
+| "Guided Draft" button in Drafts tab | `mamlaAI_ground_zero/frontend/src/components/cases/CaseHub.jsx` | Navigates to `/drafting/guided?case_id=<id>` — page auto-starts with case context |
+
 ### Backend
 
 | Change | Location | Purpose |
