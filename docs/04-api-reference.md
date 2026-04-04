@@ -43,6 +43,7 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | POST | `sign-out-user/` | **Supabase** | Sign out (scope e.g. local). Frontend logout. |
 | POST | `signup-onboarded-client/` | **Supabase** | Profile update for client onboarded by lawyer. |
 | POST | `add_case_client` | **Supabase** | Add case–client relationship. |
+| GET | `clients/` | **Supabase** | Flat list of lawyer's clients. Query: optional `?search=<text>` (name, email, or phone). Returns `{results: [{id, client_id, fname, lname, name, email, phone, status, case_id}], count}`. |
 
 ---
 
@@ -86,6 +87,7 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | POST | `guide/message/` | Supabase | Send a user message in a guided conversation. Body: `{conv_id, message}`. Returns `{reply, ready, draft_plan?}`. |
 | POST | `guide/upload_doc/` | Supabase | Process newly uploaded docs mid-conversation. Body: `{conv_id, document_ids}`. Returns `{reply}`. |
 | POST | `guide/generate/` | Supabase | Trigger draft generation from the gathered context. Consumes `ai_draft_generation` quota. Body: `{conv_id}`. Returns `{session_id}`. |
+| GET | `list/` | Supabase | Flat list of saved drafts for the current user. Query: optional `?case_id=<id>` — returns only drafts linked to that case. Response key: `results`. |
 
 ---
 
@@ -119,7 +121,7 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | GET | `get-all-events` | Supabase | All events. |
 | POST | `delete-event/` | Supabase | Delete event. |
 | POST | `update-event/` | Supabase | Update event. |
-| GET | `events/` | Supabase | REST list endpoint used by the new MamlaAI calendar. Query: `start_date`, `end_date`, `page_size`, optional `search`, optional `upcoming`. |
+| GET | `events/` | Supabase | REST list endpoint used by the new MamlaAI calendar. Query: `start_date`, `end_date`, `page_size`, optional `search`, optional `upcoming`, optional `case_id` (filters to events where `caseId` matches). |
 | POST | `events/` | Supabase | REST create endpoint used by the new MamlaAI calendar. Persists all legacy event fields, creates recurring per-day instances when applicable, and sends creator/participant notifications. |
 | PUT | `events/<event_id>/` | Supabase | REST update endpoint. Infers changed fields when the frontend does not send `updatedFields`, reuses the legacy recurring-aware service layer, and supports `only once`, `this and following`, and `entire series` semantics. |
 | DELETE | `events/<event_id>/` | Supabase | REST delete endpoint. Infers recurring/title/party metadata from the stored event when omitted and routes through the legacy delete service. |

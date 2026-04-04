@@ -53,7 +53,7 @@ All user-facing API base path is effectively **`/api/`** (e.g. full path `https:
 - **MongoDB:** `get_mongo_client()` returns a singleton `MongoClient`. Primary DB name: `legaldb` (see `settings.MONGO_URI`).
 - **Supabase:** `get_supabase_client()` returns the app’s Supabase client (from `core.apps`). Used for auth and any Supabase-backed logic.
 - **Redis:** Used as Django cache backend and Celery broker (see `Legalv1/Legalv1/settings.py`).
-- **Indexes:** `ensure_indexes()` in `init_clients.py` defines MongoDB indexes (user_details, draft_content_data, aidrafts_complete_data). It is currently commented out at module load; can be run manually or on startup if needed.
+- **Indexes:** `ensure_indexes()` in `init_clients.py` defines MongoDB indexes (user_details, draft_content_data, aidrafts_complete_data, **cases.case_ref unique**). It is currently commented out at module load; run manually after verifying no legacy constraint conflicts before enabling at startup.
 
 ---
 
@@ -76,6 +76,7 @@ All user-facing API base path is effectively **`/api/`** (e.g. full path `https:
 | **ecourts_scraper** | **Active.** Scraper-first eCourts runtime with async jobs, Mongo cache, stored reference datasets for stitched terminal dropdowns, and Capsolver-backed CAPTCHA solving. | MongoDB: ecourts_cache, ecourts_scrape_jobs, ecourts_selectors, ecourts_reference_data; Celery queues ecourts_realtime, ecourts_background |
 | **ecourts_api** | **Deprecated reference only.** Previous partner-API implementation retained in the repo for rollback/debugging comments, not wired into runtime. | No active runtime usage. Do not depend on `ECOURT_TOKEN`. |
 | **core** | Health check view, init_clients, response_utils | N/A |
+| **cases** | Case CRUD (create/list/get/update/close), hearing notes, case notes, case tasks, agentic operations (intake, hearing-prep, post-hearing, draft-context, case-closure). `case_ref` field is now auto-generated (`MC-{YYYY}-{6-char}`) and has a unique MongoDB index. `ecourts_params` is a storable dict on the case record. | MongoDB: `cases`, `hearing_notes`, `case_notes`, `case_tasks` |
 
 See **06-ecourts-scraper.md** for eCourts architecture, APIs, and conventions.
 
@@ -93,7 +94,7 @@ See **06-ecourts-scraper.md** for eCourts architecture, APIs, and conventions.
 ## Users App — Two View Modules
 
 - **`users/views.py`** — Unprotected or legacy-style endpoints: `signup_user`, `verify_email`, `get_prefilled_data`, `verify_barcode`, `get_states`, `get_districts`, `get_courts`. No `@supabase_required` here.
-- **`users/supabase_views.py`** — Supabase-protected endpoints: `check_auth`, `invalidate_session`, `onboard_new_client`, `check_existing_user`, `onboard_existing_client`, `filter_cases_clients_with_details`, `submit_feedback`, `check_username`, `onboarding_new_user`, `get_profile`, `supabase_login`, `send_reset_password_link`, `reset_password`, `sign_out_supabase`, `profile_update_of_client_onboarded_by_lawyer`, `add_case_client`.
+- **`users/supabase_views.py`** — Supabase-protected endpoints: `check_auth`, `invalidate_session`, `onboard_new_client`, `check_existing_user`, `onboard_existing_client`, `filter_cases_clients_with_details`, `submit_feedback`, `check_username`, `onboarding_new_user`, `get_profile`, `supabase_login`, `send_reset_password_link`, `reset_password`, `sign_out_supabase`, `profile_update_of_client_onboarded_by_lawyer`, `add_case_client`, `list_clients` (flat client list, `?search=` supported).
 
 User-related **URLs** are in `Legalv1/users/urls.py`; each path points to either `views.*` or `supabase_views.*`.
 

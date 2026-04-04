@@ -20,7 +20,9 @@ const DraftingWorkspace  = lazy(() => import('./components/drafting/DraftingWork
 const DocumentWorkspace  = lazy(() => import('./components/documents/DocumentWorkspace'));
 const CalendarPage       = lazy(() => import('./components/calendar/CalendarPage'));
 // const CourtUpdates       = lazy(() => import('./components/courts/CourtUpdates'));
-const ClientOnboarding   = lazy(() => import('./components/clients/ClientOnboarding'));
+// ClientOnboarding route removed — client onboarding now happens inline in CaseRegistry modal
+// const ClientOnboarding   = lazy(() => import('./components/clients/ClientOnboarding'));
+// const ClientProfile      = lazy(() => import('./components/clients/ClientProfile'));
 const Sessions           = lazy(() => import('./components/sessions/Sessions'));
 const Feedback           = lazy(() => import('./components/feedback/Feedback'));
 
@@ -141,7 +143,9 @@ export default function AppContent() {
             <Route path="/documents/:id"   element={<DocumentWorkspace />} />
             <Route path="/calendar"        element={<CalendarPage />} />
             {/* <Route path="/court-updates"   element={<CourtUpdates />} /> */}
-            <Route path="/clients"         element={<ClientOnboarding />} />
+            {/* /clients route removed — onboarding now via CaseRegistry modal */}
+            {/* <Route path="/clients"         element={<ClientOnboarding />} /> */}
+            {/* <Route path="/clients/:clientId" element={<ClientProfile />} /> */}
             {/* <Route path="/sessions"        element={<Sessions />} /> */}
             <Route path="/feedback"        element={<Feedback />} />
 

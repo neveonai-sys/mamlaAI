@@ -195,6 +195,7 @@ def ensure_indexes():
         db["cases"].create_index([("lawyer_id", 1), ("status", 1)])
         db["cases"].create_index([("client_ids", 1)])
         db["cases"].create_index([("cnr", 1)])
+        db["cases"].create_index([("case_ref", 1)], unique=True)
         db["hearing_notes"].create_index([("case_id", 1), ("hearing_date", -1)])
         db["case_notes"].create_index([("case_id", 1), ("created_at", -1)])
         db["case_notes"].create_index([("case_id", 1), ("visibility", 1)])

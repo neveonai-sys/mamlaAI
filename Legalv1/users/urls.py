@@ -4,7 +4,10 @@ from users import views, supabase_views
 urlpatterns = [
     # REST-compatible client endpoints (new frontend)
     path('clients/', supabase_views.list_clients),
-    path('clients/<str:client_id>/', supabase_views.update_client_detail),
+    # PUT clients/<id>/ only used by removed ClientOnboarding edit form — deactivated
+    # path('clients/<str:client_id>/', supabase_views.update_client_detail),
+    path('clients/<str:client_id>/status/', supabase_views.update_client_status),
+    path('clients/<str:client_id>/resend-invite/', supabase_views.resend_client_invite),
     path('invite_client/', supabase_views.invite_client_handler),
 
     path('signup-user/', views.signup_user),

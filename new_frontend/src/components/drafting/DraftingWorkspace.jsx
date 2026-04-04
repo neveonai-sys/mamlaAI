@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import apiClient from '../../services/api';
+import { getCase } from '../../services/casesApi';
 import DOMPurify from 'dompurify';
 import { refreshEntitlements } from '../../features/entitlementsActions';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
@@ -349,7 +350,7 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
         <button type="button" className="btn-ghost text-xs" onClick={onAddCustom}>Add Entry</button>
       </div>
       <div className="rounded-xl border border-primary/10 overflow-hidden bg-white">
-        <div className="grid grid-cols-[44px_1fr_1fr] gap-0 border-b border-primary/10 bg-ivory/70 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+        <div className="grid grid-cols-[44px_1fr_1fr_1fr] gap-0 border-b border-primary/10 bg-ivory/70 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
           <label className="flex items-center justify-center py-3">
             <input
               type="checkbox"
@@ -361,11 +362,12 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
             />
           </label>
           <div className="py-3 px-3">Case ID</div>
+          <div className="py-3 px-3">Title</div>
           <div className="py-3 px-3">Client Name</div>
         </div>
         <div className="max-h-64 overflow-y-auto custom-scrollbar divide-y divide-primary/10">
           {rows.map((row) => (
-            <label key={row.id} className="grid grid-cols-[44px_1fr_1fr] gap-0 items-center px-0 py-0 hover:bg-primary/5 cursor-pointer">
+            <label key={row.id} className="grid grid-cols-[44px_1fr_1fr_1fr] gap-0 items-center px-0 py-0 hover:bg-primary/5 cursor-pointer">
               <span className="flex items-center justify-center py-3">
                 <input
                   type="checkbox"
@@ -374,6 +376,7 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
                 />
               </span>
               <span className="py-3 px-3 text-sm text-slate-700">{row.case_id || '-'}</span>
+              <span className="py-3 px-3 text-sm text-slate-700">{row.case_title || '-'}</span>
               <span className="py-3 px-3 text-sm text-slate-700">{row.client_name || '-'}</span>
             </label>
           ))}
@@ -391,6 +394,7 @@ export default function DraftingWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   const { user_type } = useSelector((s) => s.user);
   const { trial, wallet, features } = useSelector((s) => s.entitlements);
@@ -556,7 +560,7 @@ export default function DraftingWorkspace() {
   function buildSelectedDraftFor() {
     return draftForRows
       .filter((row) => selectedDraftForIds.includes(row.id))
-      .map((row) => ({ case_id: row.case_id || '', client_name: row.client_name || '', client_id: row.client_id || '' }));
+      .map((row) => ({ case_id: row.case_id || '', case_title: row.case_title || '', client_name: row.client_name || '', client_id: row.client_id || '' }));
   }
 
   function handleToggleDraftFor(id, checked) {
@@ -664,16 +668,22 @@ export default function DraftingWorkspace() {
       rows.push({
         id: caseId,
         case_id: caseId,
+        case_title: client.case_title || '',
         client_id: client.client_id || client.phone_number || '',
         client_name: `${client.Fname || ''} ${client.Lname || ''}`.trim() || 'Unnamed',
       });
     });
-    (filterData.clientIds_without_case || []).forEach((client) => {
+    // clientIds_without_case rows removed — orphan clients no longer surfaced in UI
+    (filterData.caseIds_without_client || []).forEach((entry) => {
+      // entry is now {case_id, case_title} — defensive fallback for old string shape
+      const caseId = entry?.case_id || entry;
+      if (!caseId) return;
       rows.push({
-        id: client.user_id || `client-${client.phone_number}`,
-        case_id: '',
-        client_id: client.user_id || client.phone_number || '',
-        client_name: `${client.Fname || ''} ${client.Lname || ''}`.trim() || 'Unnamed',
+        id: caseId,
+        case_id: caseId,
+        case_title: entry?.case_title || '',
+        client_id: '',
+        client_name: '(No client)',
       });
     });
     setDraftForRows(rows);
@@ -748,6 +758,25 @@ export default function DraftingWorkspace() {
     const caseId = prefill.draft_for?.case_id;
     if (caseId) setSelectedCaseId(caseId);
   }, [location.state, id]);
+
+  // ── If opened via ?case_id= URL param, pre-set case and doc type ──
+  useEffect(() => {
+    const caseIdParam = searchParams.get('case_id');
+    if (!caseIdParam || id || location.state?.prefill) return;
+    const STAGE_TO_TYPE = {
+      Filing: 'Petition / Plaint',
+      Pleadings: 'Written Statement',
+      Evidence: 'Affidavit',
+      Arguments: 'Written Submissions',
+      Appeal: 'Memorandum of Appeal',
+    };
+    getCase(caseIdParam).then((res) => {
+      const caseData = res.data;
+      setSelectedCaseId(caseIdParam);
+      const stage = caseData?.stage;
+      if (stage && STAGE_TO_TYPE[stage]) setSelectedDocType(STAGE_TO_TYPE[stage]);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── If launched with an id, load that draft ──
   useEffect(() => {

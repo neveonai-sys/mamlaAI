@@ -214,14 +214,15 @@ function TalkDocContextSelector({ rows, selectedRowId, onSelectRow, onAddCustomR
         </div>
       </div>
       <div className="overflow-hidden rounded-xl border border-primary/10 bg-white">
-        <div className="grid grid-cols-[44px_1fr_1fr] gap-0 border-b border-primary/10 bg-ivory/70 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+        <div className="grid grid-cols-[44px_1fr_1fr_1fr] gap-0 border-b border-primary/10 bg-ivory/70 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
           <div className="py-3" />
           <div className="px-3 py-3">Case ID</div>
+          <div className="px-3 py-3">Title</div>
           <div className="px-3 py-3">Client</div>
         </div>
         <div className="max-h-64 overflow-y-auto custom-scrollbar divide-y divide-primary/10">
           {rows.map((row) => (
-            <label key={row.id} className="grid cursor-pointer grid-cols-[44px_1fr_1fr] gap-0 items-center hover:bg-primary/5">
+            <label key={row.id} className="grid cursor-pointer grid-cols-[44px_1fr_1fr_1fr] gap-0 items-center hover:bg-primary/5">
               <span className="flex items-center justify-center py-3">
                 <input
                   type="radio"
@@ -231,6 +232,7 @@ function TalkDocContextSelector({ rows, selectedRowId, onSelectRow, onAddCustomR
                 />
               </span>
               <span className="px-3 py-3 text-sm text-slate-700">{row.case_id || '-'}</span>
+              <span className="px-3 py-3 text-sm text-slate-700">{row.case_title || '-'}</span>
               <span className="px-3 py-3 text-sm text-slate-700">{row.client_name || '-'}</span>
             </label>
           ))}
@@ -830,6 +832,7 @@ export default function DocumentWorkspace() {
   const [chatQuotaNotice, setChatQuotaNotice] = useState(null);
 
   const composerMatter = useMemo(() => buildMatter(composerCaseId, composerClientId), [composerCaseId, composerClientId]);
+  const pendingOpenChatRef = useRef(false);
 
   const filteredDocs = useMemo(() => {
     const query = docSearch.trim().toLowerCase();
@@ -960,10 +963,21 @@ export default function DocumentWorkspace() {
       const seenCases = new Set();
       const seenClients = new Set();
 
-      (payload.caseIds_without_client || []).forEach((caseId) => {
+      (payload.caseIds_without_client || []).forEach((entry) => {
+        // entry is now {case_id, case_title} — defensive fallback for old string shape
+        const caseId = entry?.case_id || entry;
         if (!caseId || seenCases.has(caseId)) return;
         seenCases.add(caseId);
-        nextCaseOptions.push({ value: caseId, label: caseId });
+        const caseTitle = entry?.case_title || '';
+        nextCaseOptions.push({ value: caseId, label: caseTitle ? `${caseTitle}` : caseId });
+        // These cases now appear as rows in the DocIntel context grid too
+        nextContextRows.push({
+          id: caseId,
+          case_id: caseId,
+          case_title: caseTitle,
+          client_id: '',
+          client_name: '(No client)',
+        });
       });
 
       Object.entries(payload.case_client_map || {}).forEach(([caseId, clientEntry]) => {
@@ -992,6 +1006,7 @@ export default function DocumentWorkspace() {
           nextContextRows.push({
             id: `${caseId}-${option.value}`,
             case_id: caseId,
+            case_title: clientEntry.case_title || '',
             client_id: option.value,
             client_name: getClientName(client),
           });
@@ -1001,24 +1016,14 @@ export default function DocumentWorkspace() {
           nextContextRows.push({
             id: caseId,
             case_id: caseId,
+            case_title: clientEntry.case_title || '',
             client_id: '',
             client_name: 'Unnamed',
           });
         }
       });
 
-      (payload.clientIds_without_case || []).forEach((client) => {
-        const option = buildClientOption(client);
-        if (!option.value || seenClients.has(option.value)) return;
-        seenClients.add(option.value);
-        nextClientOptions.push(option);
-        nextContextRows.push({
-          id: `client-${option.value}`,
-          case_id: '',
-          client_id: option.value,
-          client_name: getClientName(client),
-        });
-      });
+      // clientIds_without_case rows removed — orphan clients no longer surfaced in UI
 
       setCaseOptions(nextCaseOptions.sort((a, b) => a.value.localeCompare(b.value)));
       setClientOptions(nextClientOptions.sort((a, b) => a.value.localeCompare(b.value)));
@@ -1174,7 +1179,7 @@ export default function DocumentWorkspace() {
     if (id) return;
 
     const params = new URLSearchParams(location.search);
-    const nextCaseId = params.get('caseid')?.trim() || '';
+    const nextCaseId = params.get('caseid')?.trim() || location.state?.caseid?.trim() || '';
     const nextClientIdFromQuery = params.get('clientid')?.trim() || '';
     const linkedClients = nextCaseId ? (caseClientMap[nextCaseId] || []) : [];
     const resolvedClientId = nextClientIdFromQuery || (linkedClients.length === 1 ? linkedClients[0].value : '');
@@ -1195,7 +1200,17 @@ export default function DocumentWorkspace() {
     setComposerCaseId(nextCaseId);
     setComposerClientId(resolvedClientId);
     setComposerClientInput(resolvedClientInput);
-  }, [caseClientMap, clientOptions, id, location.search]);
+    if (nextCaseId && location.state?.openchat === true) {
+      pendingOpenChatRef.current = true;
+    }
+  }, [caseClientMap, clientOptions, id, location.search, location.state]);
+
+  // Auto-create a chat session when navigated with openchat:true in router state
+  useEffect(() => {
+    if (!pendingOpenChatRef.current || !composerCaseId) return;
+    pendingOpenChatRef.current = false;
+    createSession();
+  }, [composerCaseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchDocs();

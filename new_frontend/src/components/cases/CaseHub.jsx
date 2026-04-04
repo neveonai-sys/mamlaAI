@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import apiClient from '../../services/api';
@@ -536,7 +536,7 @@ function DraftsTab({ caseId, onNewDraft }) {
                     {d.draft_name || 'Untitled Draft'}
                   </p>
                   <p className="text-[11px] text-graphite/60 mt-0.5">
-                    {d.last_updated_on ? `Updated ${fmtDate(d.last_updated_on)}` : fmtDate(d.created_on)}
+                    {fmtDate(d.created_at)}
                   </p>
                 </div>
                 <span className="material-symbols-outlined text-graphite/30 group-hover:text-primary/60 text-base flex-shrink-0">open_in_new</span>
@@ -549,12 +549,260 @@ function DraftsTab({ caseId, onNewDraft }) {
   );
 }
 
-// ─── CASE HUB ─────────────────────────────────────────────────────────────────
+// ─── DOCUMENTS TAB ────────────────────────────────────────────────────────────────────
+function DocumentsTab({ caseId }) {
+  const navigate = useNavigate();
+  const [docs, setDocs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
+
+  function fetchDocs() {
+    setLoading(true);
+    apiClient.get(`talkdoc/documents/?caseid=${caseId}`)
+      .then(r => setDocs(r.data?.results ?? r.data?.items ?? r.data ?? []))
+      .catch(() => setDocs([]))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { fetchDocs(); }, [caseId]);
+
+  async function handleFileChange(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('matter', JSON.stringify({ caseid: [caseId], personal: 'false' }));
+        await apiClient.post('talkdoc/upload/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+      fetchDocs();
+    } catch (err) {
+      setUploadError(err.response?.data?.error || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  if (loading) return <div className="py-8 text-center text-sm text-graphite/50"><span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span></div>;
+
+  return (
+    <div>
+      <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" multiple className="hidden" onChange={handleFileChange} />
+      <div className="flex justify-end gap-2 mb-3">
+        <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition disabled:opacity-60">
+          <span className="material-symbols-outlined text-sm">{uploading ? 'progress_activity' : 'upload'}</span>
+          {uploading ? 'Uploading…' : 'Upload'}
+        </button>
+        <button onClick={() => navigate('/documents', { state: { caseid: caseId, openchat: true } })}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition">
+          <span className="material-symbols-outlined text-sm">chat</span>
+          Chat
+        </button>
+      </div>
+      {uploadError && <p className="text-xs text-red-600 mb-2">{uploadError}</p>}
+      {docs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center text-graphite/60 gap-3">
+          <span className="material-symbols-outlined text-4xl text-primary/20">folder_open</span>
+          <p className="text-sm">No documents for this case yet.</p>
+          <button onClick={() => fileInputRef.current?.click()} className="text-xs text-primary font-medium hover:underline">Upload a document</button>
+        </div>
+      ) : docs.map(d => (
+        <div key={d.id || d.doc_id}
+          className="w-full text-left p-3 rounded-xl border border-primary/10 bg-white mb-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-ink truncate">{d.filename || d.name}</p>
+            <span className={`text-[11px] rounded px-1.5 py-0.5 font-semibold flex-shrink-0 ${
+              d.indexed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+            }`}>{d.status || (d.indexed ? 'Indexed' : 'Processing')}</span>
+          </div>
+          <p className="text-[11px] text-graphite/50 mt-0.5">{d.created_at ? new Date(d.created_at).toLocaleDateString('en-IN') : ''}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── CALENDAR TAB ─────────────────────────────────────────────────────────────────────
+function CalendarTab({ caseId }) {
+  const navigate = useNavigate();
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiClient.get(`calendar/events/?case_id=${caseId}&upcoming=true`)
+      .then(r => setEvents(r.data?.results ?? []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [caseId]);
+
+  if (loading) return <div className="py-8 text-center text-sm text-graphite/50"><span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span></div>;
+
+  return (
+    <div>
+      <div className="flex justify-end mb-3">
+        <button onClick={() => navigate(`/calendar?case_id=${caseId}`)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition">
+          <span className="material-symbols-outlined text-sm">add</span>
+          Add Event
+        </button>
+      </div>
+      {events.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center text-graphite/60 gap-3">
+          <span className="material-symbols-outlined text-4xl text-primary/20">calendar_month</span>
+          <p className="text-sm">No upcoming events for this case.</p>
+          <button onClick={() => navigate(`/calendar?case_id=${caseId}`)} className="text-xs text-primary font-medium hover:underline">Schedule a hearing</button>
+        </div>
+      ) : events.map(e => (
+        <div key={e.id} className="p-3 rounded-xl border border-primary/10 bg-white mb-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-ink">{e.title}</p>
+            <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5 font-semibold flex-shrink-0">{e.eventType || e.Task_type || 'Event'}</span>
+          </div>
+          <p className="text-[11px] text-graphite/60 mt-0.5">{e.start ? new Date(e.start).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── ECOURTS TAB ────────────────────────────────────────────────────────────────────────
+function isHCCnr(cnr) {
+  return typeof cnr === 'string' && /HC/i.test(cnr.slice(0, 8));
+}
+
+function ECourtsTab({ caseId, caseData }) {
+  const navigate = useNavigate();
+  const [courtType, setCourtType] = useState(() => isHCCnr(caseData.cnr) ? 'HC' : 'DC');
+  const [cnrResult, setCnrResult] = useState(null);
+  const [cnrLoading, setCnrLoading] = useState(false);
+  const [lastChecked, setLastChecked] = useState(null);
+  const [ecourtsForm, setEcourtsForm] = useState(caseData.ecourts_params || {});
+  const [saving, setSaving] = useState(false);
+
+  async function handleCnrRefresh() {
+    setCnrLoading(true);
+    try {
+      let res;
+      if (courtType === 'HC') {
+        res = await apiClient.get(`ecourts/v2/hc/case/cnr/${caseData.cnr}/`);
+      } else {
+        // Use same endpoint as CaseDetail page (case/detail with cnr_number)
+        res = await apiClient.post('ecourts/v2/case/detail/', { cnr_number: caseData.cnr });
+      }
+      setCnrResult(res.data);
+      setLastChecked(new Date().toLocaleTimeString('en-IN'));
+    } catch (_) {}
+    setCnrLoading(false);
+  }
+
+  async function handleSaveEcourtsParams() {
+    setSaving(true);
+    try {
+      await updateCase(caseId, { ecourts_params: ecourtsForm });
+    } catch (_) {}
+    setSaving(false);
+  }
+
+  // Auto-fetch CNR status when the tab opens (if CNR is stored on the case)
+  useEffect(() => {
+    if (caseData.cnr) handleCnrRefresh();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const CourtTypeToggle = () => (
+    <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs font-semibold">
+      {['DC', 'HC'].map(type => (
+        <button key={type} onClick={() => setCourtType(type)}
+          className={`px-3 py-1 transition ${courtType === type ? 'bg-primary text-white' : 'bg-white text-graphite/60 hover:bg-slate-50'}`}>
+          {type}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (caseData.cnr) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <CourtTypeToggle />
+          <span className="font-mono text-sm bg-slate-100 rounded px-2 py-1">{caseData.cnr}</span>
+          {lastChecked && <span className="text-xs text-graphite/50">Last checked: {lastChecked}</span>}
+          <button
+            onClick={() => navigate(courtType === 'HC' ? `/ecourts/hc/case/${caseData.cnr}` : `/ecourts/case/${caseData.cnr}`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition ml-auto">
+            <span className="material-symbols-outlined text-sm">open_in_new</span>
+            Open in eCourts
+          </button>
+          <button onClick={handleCnrRefresh} disabled={cnrLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition disabled:opacity-50">
+            <span className={`material-symbols-outlined text-sm${cnrLoading ? ' animate-spin' : ''}`}>refresh</span>
+            {cnrLoading ? 'Checking…' : 'Refresh'}
+          </button>
+        </div>
+        {cnrLoading && !cnrResult && (
+          <p className="text-xs text-graphite/50">Fetching latest case status…</p>
+        )}
+        {cnrResult && (
+          <div className="p-3 rounded-xl border border-slate-100 bg-ivory text-xs text-graphite whitespace-pre-wrap font-mono max-h-60 overflow-y-auto">
+            {JSON.stringify(cnrResult, null, 2).slice(0, 800)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <CourtTypeToggle />
+        <p className="text-xs text-graphite/60">No CNR on record. Save eCourts search parameters to query later, or search directly.</p>
+      </div>
+      <div className="space-y-2">
+        <input className="form-input w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          placeholder="Search type (e.g. cnr, party, filing)"
+          value={ecourtsForm.search_type || ''}
+          onChange={e => setEcourtsForm(f => ({ ...f, search_type: e.target.value }))} />
+        <input className="form-input w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          placeholder="Search value"
+          value={ecourtsForm.search_value || ''}
+          onChange={e => setEcourtsForm(f => ({ ...f, search_value: e.target.value }))} />
+      </div>
+      <div className="flex gap-2">
+        <button onClick={handleSaveEcourtsParams} disabled={saving}
+          className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 disabled:opacity-50 transition">
+          {saving ? 'Saving…' : 'Save to Case'}
+        </button>
+        <button
+          onClick={() => navigate(
+            courtType === 'HC'
+              ? `/ecourts/hc/case-status?q=${encodeURIComponent(ecourtsForm.search_value || '')}`
+              : `/ecourts/case-search?q=${encodeURIComponent(ecourtsForm.search_value || '')}`
+          )}
+          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition">
+          Run Search
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── CASE HUB ─────────────────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'hearings', label: 'Hearings', icon: 'gavel' },
-  { id: 'notes',    label: 'Notes',    icon: 'notes' },
-  { id: 'tasks',    label: 'Tasks',    icon: 'checklist' },
-  { id: 'drafts',   label: 'Drafts',   icon: 'edit_note' },
+  { id: 'hearings',  label: 'Hearings',  icon: 'gavel' },
+  { id: 'notes',     label: 'Notes',     icon: 'notes' },
+  { id: 'tasks',     label: 'Tasks',     icon: 'checklist' },
+  { id: 'drafts',    label: 'Drafts',    icon: 'edit_note' },
+  { id: 'documents', label: 'Documents', icon: 'folder_open' },
+  { id: 'calendar',  label: 'Calendar',  icon: 'calendar_month' },
+  { id: 'ecourts',   label: 'eCourts',   icon: 'balance' },
 ];
 
 export default function CaseHub() {
@@ -592,7 +840,7 @@ export default function CaseHub() {
       navigate('/drafting', { state: { prefill: ctx, case_id: caseId } });
     } catch (_) {
       // Fall back to plain navigation if agent fails
-      navigate(`/drafting?case=${caseId}`);
+      navigate(`/drafting?case_id=${caseId}`);
     } finally {
       setDraftContextLoading(false);
     }
@@ -647,9 +895,14 @@ export default function CaseHub() {
               )}
             </div>
             <h1 className="text-lg font-semibold text-ink leading-snug">{caseData.title}</h1>
-            {caseData.case_ref && (
-              <p className="text-xs text-graphite/60 mt-0.5">{caseData.case_ref}</p>
-            )}
+            <button
+              onClick={() => navigator.clipboard.writeText(caseData.case_ref || '')}
+              title="Copy case reference"
+              className="inline-flex items-center gap-1 mt-0.5 text-xs bg-primary/5 border border-primary/15 text-primary/70 rounded px-2 py-0.5 hover:bg-primary/10 transition font-mono cursor-copy"
+            >
+              {caseData.case_ref || 'MC-????-??????'}
+              <span className="material-symbols-outlined text-[11px]">content_copy</span>
+            </button>
             {caseData.brief && (
               <p className="text-sm text-graphite/80 mt-2 leading-relaxed">{caseData.brief}</p>
             )}
@@ -711,7 +964,7 @@ export default function CaseHub() {
               {draftContextLoading ? 'Building context…' : 'New Draft'}
             </button>
             <button
-              onClick={() => navigate(`/documents?case=${caseId}`)}
+              onClick={() => setActiveTab('documents')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/30 text-primary text-xs font-semibold hover:bg-primary/5 transition"
             >
               <span className="material-symbols-outlined text-sm">description</span>
@@ -760,6 +1013,15 @@ export default function CaseHub() {
         )}
         {activeTab === 'drafts' && (
           <DraftsTab caseId={caseId} onNewDraft={handleNewDraft} />
+        )}
+        {activeTab === 'documents' && (
+          <DocumentsTab caseId={caseId} />
+        )}
+        {activeTab === 'calendar' && (
+          <CalendarTab caseId={caseId} />
+        )}
+        {activeTab === 'ecourts' && (
+          <ECourtsTab caseId={caseId} caseData={caseData} />
         )}
       </div>
 

@@ -20,6 +20,7 @@ import {
   addMinutes,
 } from 'date-fns';
 import apiClient from '../../services/api';
+import { useSearchParams } from 'react-router-dom';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 
 const EVENT_TYPE_OPTIONS = [
@@ -532,6 +533,7 @@ export default function CalendarPage() {
   const { firstname, lastname, email, user_type } = useSelector((state) => state.user);
   const fullName = `${firstname || ''} ${lastname || ''}`.trim() || email || 'Lead counsel';
   const readOnly = user_type === 'Client';
+  const [searchParams] = useSearchParams();
 
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -606,14 +608,14 @@ export default function CalendarPage() {
   const caseOptions = useMemo(() => {
     return [
       ...filterData.mappedRows.map((row) => row.caseId),
-      ...filterData.casesWithoutClient,
+      // casesWithoutClient entries are now {case_id, case_title} objects
+      ...filterData.casesWithoutClient.map((e) => e?.case_id || e),
     ].filter((value, index, arr) => value && arr.indexOf(value) === index);
   }, [filterData]);
 
   const clientOptions = useMemo(() => {
     return [
       ...filterData.mappedRows.map((row) => row.clientName),
-      ...filterData.clientsWithoutCase,
     ].filter((value, index, arr) => value && arr.indexOf(value) === index);
   }, [filterData]);
 
@@ -676,6 +678,15 @@ export default function CalendarPage() {
     fetchEvents(currentRange.start, currentRange.end, { blockUi: true });
     fetchCaseClientData();
   }, []);
+
+  // ── If opened via ?case_id= URL param, pre-open editor for a new hearing ──
+  useEffect(() => {
+    const caseIdParam = searchParams.get('case_id');
+    if (!caseIdParam) return;
+    setEventForm((f) => ({ ...f, caseId: caseIdParam, eventType: 'Court Hearing' }));
+    setEditorMode('create');
+    setEditorOpen(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (calendarRef.current && activeView !== 'agenda') {

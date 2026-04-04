@@ -592,6 +592,10 @@ def events_rest(request):
             # Sort by start ascending
             events.sort(key=lambda e: str(e.get('start', '') or ''))
 
+            case_id_filter = request.GET.get('case_id', '').strip()
+            if case_id_filter:
+                events = [e for e in events if e.get('caseId') == case_id_filter]
+
             if upcoming:
                 now_str = dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M')
                 events = [e for e in events if str(e.get('start', '')) >= now_str]

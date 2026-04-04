@@ -104,7 +104,21 @@ All frontend API calls that go to this backend should use `apiClient` and paths 
 | `src/components/auth/Login.jsx` | Login page |
 | `src/components/auth/Signup.jsx` | Signup page |
 | `src/components/auth/ResetPassword.jsx` | Password reset |
+| `src/components/cases/CaseRegistry.jsx` | Case list + `CreateCaseModal` (now with inline Link Client section) |
+| `src/components/cases/CaseHub.jsx` | Case detail — 7 tabs: Hearings, Notes, Tasks, Drafts, Documents, Calendar, eCourts |
+| `src/components/clients/ClientOnboarding.jsx` | Full client roster (clicking a row navigates to `/clients/:clientId`) |
+| `src/components/clients/ClientProfile.jsx` | Lightweight client profile: contact card + linked-case list |
+| `src/services/casesApi.js` | Case API wrappers including `listCalendarEventsByCase` |
 | `src/utils/securityUtils.js` | Secure storage helpers |
+
+## Active Case & Client Routes
+
+| Path | Component | Notes |
+|------|-----------|-------|
+| `/cases` | `CaseRegistry` | Case list + create modal (inline client link) |
+| `/cases/:caseId` | `CaseHub` | 7-tab case detail page |
+| `/clients` | `ClientOnboarding` | Full client roster |
+| `/clients/:clientId` | `ClientProfile` | Lightweight client profile + linked cases |
 
 ## Active eCourts Routes
 

@@ -88,7 +88,7 @@ export function deleteCaseTask(caseId, taskId) {
 
 // ─── Agents (/api/agents/) ────────────────────────────────────────────────
 
-const AGENTS = '/api/agents';
+const AGENTS = 'agents';
 
 export function runCaseIntakeAgent(payload) {
   return apiClient.post(`${AGENTS}/case-intake/`, payload);
@@ -130,4 +130,8 @@ export function runCaseClosureAgent(caseId, resolutionType, resolutionSummary) {
     resolution_type: resolutionType,
     resolution_summary: resolutionSummary,
   });
+}
+
+export function listCalendarEventsByCase(caseId, upcoming = true) {
+  return apiClient.get('calendar/events/', { params: { case_id: caseId, upcoming: upcoming ? 'true' : undefined, page_size: 500 } });
 }

@@ -1,8 +1,41 @@
 # 10 — Unified Case Hub + Context-Aware Workflow Plan
 
-> **Status:** APPROVED — Implementation plan agreed on 2026-03-31.
-> All changes are additive. Existing flows (`/cases`, `/drafting`, `/documents`, `/calendar`, `/clients`, `/ecourts`) stay exactly as they are. No existing workflow is removed or broken.
-> Each phase is a separate execution sprint. Update this file when a phase completes.
+> **Status:** ✅ COMPLETE — All 18 items implemented on 2026-04-04.
+> Implementation verified: 0 editor errors across all changed files.
+
+---
+
+## Implementation Summary (2026-04-04)
+
+| # | Item | File(s) | Status |
+|---|------|---------|--------|
+| 1 | Auto-generate `case_ref` (`MC-{YYYY}-{6-char}`) on case creation; remove user-editable field | `cases/routes/case_crud.py` | ✅ |
+| 2 | Unique MongoDB index on `cases.case_ref` | `core/init_clients.py` | ✅ |
+| 3 | Remove "Internal Ref" input from `CreateCaseModal` | `CaseRegistry.jsx` | ✅ |
+| 4 | Always-visible `case_ref` copy-chip in CaseHub header | `CaseHub.jsx` | ✅ |
+| 5 | `GET /api/aidrafts/list/` — add `?case_id=` filter | `ai_draft/views.py` | ✅ |
+| 6 | `GET /api/calendar/events/` — add `?case_id=` filter | `calendar_management/views.py` | ✅ |
+| 7 | `GET /api/users/clients/` — add `?search=` filter | `users/supabase_views.py` | ✅ |
+| 8 | CaseHub **Documents tab** — fetches `talkdoc/documents/?caseid=` | `CaseHub.jsx` | ✅ |
+| 9 | CaseHub **Calendar tab** — fetches `calendar/events/?case_id=` | `CaseHub.jsx` | ✅ |
+| 10 | CaseHub **eCourts tab** — CNR branch + `ecourts_params` form branch | `CaseHub.jsx` | ✅ |
+| 11 | `DraftingWorkspace` — `?case_id=` URL param pre-fills case + stage→type map | `DraftingWorkspace.jsx` | ✅ |
+| 12 | `CalendarPage` — `?case_id=` URL param opens editor pre-filled as Court Hearing | `CalendarPage.jsx` | ✅ |
+| 13 | `CreateCaseModal` — collapsible "Link Client" section (search + inline invite) | `CaseRegistry.jsx` | ✅ |
+| 14 | New `ClientProfile.jsx` — contact card + linked cases list | `clients/ClientProfile.jsx` (new) | ✅ |
+| 15 | Route `/clients/:clientId` → `<ClientProfile>` | `AppContent.js` | ✅ |
+| 16 | `ClientOnboarding` rows navigate to `/clients/:clientId` | `ClientOnboarding.jsx` | ✅ |
+| 17 | `listCalendarEventsByCase()` service wrapper | `services/casesApi.js` | ✅ |
+| 18 | CaseHub **Drafts tab** — switched to backend `aidrafts/list/?case_id=` filter | `CaseHub.jsx` | ✅ |
+
+### Key implementation notes
+
+- `ecourts_params` was missing from `UPDATABLE_FIELDS` — added proactively
+- `draft_for.caseid` uses lowercase `caseid` key (dot-notation filter in MongoDB)
+- Calendar events store `caseId` (camelCase) — `?case_id=` filter applied after sort
+- `ensure_indexes()` remains commented out at boot — run manually to build the new `case_ref` unique index on existing data before enabling
+- `onboard-client/` returns `signup_link` not `client_id`; inline invite uses a phone-based lookup afterwards to resolve the client id
+- `listCases()` response key is `cases` (not `results`)
 
 ---
 

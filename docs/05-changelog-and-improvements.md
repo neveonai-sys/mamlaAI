@@ -26,6 +26,32 @@ This document summarizes the **code review outcomes**, **changes already made**,
 
 ## 2. What Was Done (Completed Changes)
 
+### Doc-10 Unified CaseHub + Unique Case ID (2026-04-04)
+
+All 18 items implemented and verified (0 editor errors).
+
+| Change | Location | Purpose |
+|--------|----------|---------|
+| Auto-generated `case_ref` (`MC-{YYYY}-{6-char A–Z0–9}`) with 10-retry collision guard | `Legalv1/cases/routes/case_crud.py` | Replaces the old user-typed "Internal Ref" field. The field is now immutable after creation. |
+| Unique MongoDB index on `cases.case_ref` | `Legalv1/core/init_clients.py` (`ensure_indexes`) | Enforces uniqueness at the DB layer. Run `ensure_indexes()` manually on existing data before enabling at startup. |
+| `ecourts_params` added to `UPDATABLE_FIELDS` | `cases/routes/case_crud.py` | Allows `PATCH /api/cases/<id>/update/` to store arbitrary eCourts search parameters on the case document. |
+| Removed "Internal Ref" input from `CreateCaseModal` | `CaseRegistry.jsx` | `case_ref` is now server-generated; CNR is now full-width in the grid. |
+| Always-visible `case_ref` copy-chip in CaseHub header | `CaseHub.jsx` | Displays `MC-????-??????` placeholder when case_ref is absent; clicking copies to clipboard. |
+| `GET /api/aidrafts/list/` — `?case_id=` filter | `Legalv1/ai_draft/views.py` (`list_drafts`) | Filters `draft_for.caseid` (lowercase dot-notation) in MongoDB. Response key: `results`. |
+| `GET /api/calendar/events/` — `?case_id=` filter | `Legalv1/calendar_management/views.py` (`events_rest`) | Post-sort Python filter on `event.get('caseId')` (camelCase). Composes with existing `upcoming` and `search` params. |
+| `GET /api/users/clients/` — `?search=` filter | `Legalv1/users/supabase_views.py` (`list_clients`) | Searches `name`, `email`, `phone` fields case-insensitively. |
+| CaseHub **Drafts tab** — backend `?case_id=` filter | `CaseHub.jsx` | Switched from `get_user_saved_drafts_v2` + client-side filter to `aidrafts/list/?case_id=`. |
+| CaseHub **Documents tab** | `CaseHub.jsx` | Fetches `talkdoc/documents/?caseid=`; Upload/Chat navigates to `/documents?case=`. |
+| CaseHub **Calendar tab** | `CaseHub.jsx` | Fetches `calendar/events/?case_id=&upcoming=true`; Add Event navigates to `/calendar?case_id=`. |
+| CaseHub **eCourts tab** | `CaseHub.jsx` | CNR branch: manual refresh + Open Detail. No-CNR branch: `ecourts_params` form → Save to Case (PATCH) + Run Search. |
+| `DraftingWorkspace` — `?case_id=` URL param | `DraftingWorkspace.jsx` | Reads on mount; pre-selects case + maps stage → document type (Filing→Petition, Evidence→Affidavit, etc). Guard: skips if existing session or router-state prefill is present. |
+| `CalendarPage` — `?case_id=` URL param | `CalendarPage.jsx` | Opens the New Event editor on mount with `caseId` pre-filled and `eventType='Court Hearing'`. Added `import { useSearchParams } from 'react-router-dom'` (first react-router import in this file). |
+| `CreateCaseModal` — collapsible "Link Client" section | `CaseRegistry.jsx` | Debounced search against `users/clients/?search=` with dropdown; inline "Invite new client" sub-form that calls `onboard-client/` + phone-based lookup to resolve client id. |
+| New `ClientProfile.jsx` | `components/clients/ClientProfile.jsx` (new) | Contact card (avatar, name, email, phone, status) + clickable linked-case list. Fetches `users/clients/` + `cases/list/` and filters by `client_ids`. |
+| Route `/clients/:clientId` → `<ClientProfile>` | `AppContent.js` | Lazy-loaded; inserted after existing `/clients` route. |
+| `ClientOnboarding` rows navigate to `/clients/:clientId` | `ClientOnboarding.jsx` | `onClick` calls `navigate()` alongside `setSelected()` for backward compat. |
+| `listCalendarEventsByCase(caseId, upcoming)` | `services/casesApi.js` | Convenience wrapper for `calendar/events/?case_id=&upcoming=&page_size=500`. |
+
 ### Agentic Guided Drafting Flow (2026-04-04)
 
 | Change | Location | Purpose |

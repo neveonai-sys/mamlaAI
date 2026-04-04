@@ -865,10 +865,14 @@ def list_drafts(request):
     page_size = int(request.GET.get('page_size', 20))
     page = int(request.GET.get('page', 1))
     q = request.GET.get('q', '').strip().lower()
+    case_id = request.GET.get('case_id', '').strip()
 
     db = CreateupdatefetchAIdrafts(user_id).get_mongo_client_db()
+    base_query = {"user_id": user_id}
+    if case_id:
+        base_query["draft_for.caseid"] = case_id
     saved = []
-    for sess in db.find({"user_id": user_id},
+    for sess in db.find(base_query,
                         {"saved_drafts": 1, "draft_for": 1, "last_updated_on": 1, "status": 1}):
         sess_for = sess.get("draft_for", {})
         for d in sess.get("saved_drafts", []):

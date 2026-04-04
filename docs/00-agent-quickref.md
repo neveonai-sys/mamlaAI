@@ -18,7 +18,7 @@
 | What was last changed / what to do next | `docs/05-changelog-and-improvements.md` |
 | Mamla Brain framework (RAG+LLM, Case Companion, external API) | `docs/07-mamla-brain-framework.md` |
 | **One-stop lawyer workflow plan (case registry, agents, hearing prep, client portal)** | `docs/08-lawyer-workflow-plan.md` |
-| **Unified Case Hub + context-aware workflow implementation plan (approved 2026-03-31)** | `docs/10-unified-casehub-plan.md` |
+| **Unified Case Hub + context-aware workflow — COMPLETE (2026-04-04)** | `docs/10-unified-casehub-plan.md` |
 | **Agentic Guided Drafting Flow (conversational intake → draft generation)** | `docs/11-agentic-guided-drafting-plan.md` |
 | **Pricing, billing plans, user types, payment gateway architecture** | `docs/09-pricing-and-billing-plan.md` |
 
@@ -164,7 +164,11 @@ Active frontend first. `frontend_webpack/` is the previous UI only.
 | **Court Updates** (subscription management + filter tabs) | `mamlaAI_ground_zero/frontend/src/components/courts/CourtUpdates.jsx` |
 | **Document Workspace** (TalkDoc / RAG chat, two-window flow: setup library for upload/delete/load chats, case/client-aware document filters, timestamped document labels, focused viewer+chat work window, live uploads into active chats, image preview, API-backed case/client suggestions with case→client autofill/filtering, session-scoped docs, session-aware Brain quota banners/locks for both document analysis and general legal chat) | `mamlaAI_ground_zero/frontend/src/components/documents/DocumentWorkspace.jsx` |
 | **Case Detail** (hearings, null-safe date rendering) | `mamlaAI_ground_zero/frontend/src/components/cases/CaseDetail.jsx` |
-| **Client Onboarding** | `mamlaAI_ground_zero/frontend/src/components/clients/ClientOnboarding.jsx` |
+| **Case Registry** (case list + `CreateCaseModal` with inline Link Client section) | `mamlaAI_ground_zero/frontend/src/components/cases/CaseRegistry.jsx` |
+| **Case Hub** (7-tab case detail: Hearings, Notes, Tasks, Drafts, Documents, Calendar, eCourts; `case_ref` copy-chip in header; all tabs case-scoped via backend `?case_id=` filters) | `mamlaAI_ground_zero/frontend/src/components/cases/CaseHub.jsx` |
+| **Client Onboarding** (rows navigate to `/clients/:clientId`) | `mamlaAI_ground_zero/frontend/src/components/clients/ClientOnboarding.jsx` |
+| **Client Profile** (contact card + linked-case list; NEW) | `mamlaAI_ground_zero/frontend/src/components/clients/ClientProfile.jsx` |
+| Cases API wrappers (incl. `listCalendarEventsByCase`) | `mamlaAI_ground_zero/frontend/src/services/casesApi.js` |
 | Webpack dev config (proxy /api) | `mamlaAI_ground_zero/frontend/webpack.dev.js` |
 | Webpack prod config | `mamlaAI_ground_zero/frontend/webpack.prod.js` |
 | Tailwind config | `mamlaAI_ground_zero/frontend/tailwind.config.js` |
@@ -188,6 +192,10 @@ Active frontend first. `frontend_webpack/` is the previous UI only.
 | `/drafting` | DraftingWorkspace | Protected |
 | `/drafting/guided` | GuidedDraftingPage | Protected |
 | `/drafting/:id` | DraftingWorkspace | Protected |
+| `/cases` | CaseRegistry | Protected |
+| `/cases/:caseId` | CaseHub | Protected |
+| `/clients` | ClientOnboarding | Protected |
+| `/clients/:clientId` | ClientProfile | Protected |
 | `*` | — | Redirect to `/` |
 
 ---

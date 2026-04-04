@@ -704,6 +704,14 @@ def list_clients(request):
                 }
 
         result = list(clients.values())
+        search = request.GET.get('search', '').strip().lower()
+        if search:
+            result = [
+                c for c in result
+                if search in (c.get('name') or '').lower()
+                or search in (c.get('email') or '').lower()
+                or search in (c.get('phone') or '')
+            ]
         return JsonResponse({"results": result, "count": len(result)})
     except Exception as e:
         logger.error(traceback.format_exc())
@@ -773,7 +781,125 @@ def invite_client_handler(request):
             creator_id=user_id, fname=fname, lname=lname,
             user_type='Client', phonenumber=phonenumber, email=email, case_id=case_id
         )
-        return JsonResponse({"message": "Invite sent", "signup_link": signup_link})
+        new_client = obj.check_user_exists("phone", phonenumber) if phonenumber else obj.check_user_exists("email", email)
+        new_client_id = new_client.get('user_id') if new_client else None
+        return JsonResponse({"message": "Invite sent", "signup_link": signup_link, "client_id": new_client_id})
     except Exception as e:
         logger.error(traceback.format_exc())
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(['PATCH'])
+@supabase_required
+def update_client_status(request, client_id):
+    """
+    PATCH /api/users/clients/<client_id>/status/
+    Body: {"status": "A" | "I"}
+    Allows a lawyer to activate ("A") or deactivate ("I") a client.
+    """
+    try:
+        supa_user = request.supabase_user
+        lawyer_id = supa_user.get('user_id')
+        data = json.loads(request.body or b'{}')
+        new_status = (data.get('status') or '').strip().upper()
+        if new_status not in ('A', 'I'):
+            return JsonResponse({'error': 'status must be "A" (active) or "I" (inactive)'}, status=400)
+
+        obj = Handleusermetadata()
+        db = obj.get_mongo_client_db()
+
+        # Ownership check: lawyer must have this client in their client_ids
+        lawyer_doc = db['user_details'].find_one({'user_id': lawyer_id}, {'client_ids': 1})
+        if not lawyer_doc or client_id not in (lawyer_doc.get('client_ids') or []):
+            return JsonResponse({'error': 'Client not associated with your account'}, status=403)
+
+        res = db['user_details'].update_one({'user_id': client_id}, {'$set': {'user_status': new_status}})
+        if not res.matched_count:
+            return JsonResponse({'error': 'Client not found'}, status=404)
+        return JsonResponse({'message': 'Status updated', 'status': new_status})
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@supabase_required
+def resend_client_invite(request, client_id):
+    """
+    POST /api/users/clients/<client_id>/resend-invite/
+    Body: {"email": "..."} (optional — adds/updates email before sending invite)
+    Generates a fresh signup token and sends an invite email.
+    Only valid for pending clients (user_status = "P" and no supabase_id).
+    Returns 400 if the client has already registered.
+    """
+    try:
+        from Legalv1.settings import FRONTEND_URL
+        from users.tasks import send_email_celery
+        from core.init_clients import get_supabase_client
+
+        supa_user = request.supabase_user
+        lawyer_id = supa_user.get('user_id')
+        data = json.loads(request.body or b'{}')
+
+        obj = Handleusermetadata()
+        db = obj.get_mongo_client_db()
+
+        # Ownership check: lawyer must have this client in their client_ids
+        lawyer_doc = db['user_details'].find_one({'user_id': lawyer_id}, {'client_ids': 1})
+        if not lawyer_doc or client_id not in (lawyer_doc.get('client_ids') or []):
+            return JsonResponse({'error': 'Client not associated with your account'}, status=403)
+
+        client_doc = db['user_details'].find_one({'user_id': client_id})
+        if not client_doc:
+            return JsonResponse({'error': 'Client not found'}, status=404)
+
+        # Block if the client has already signed up (supabase_id is set)
+        if client_doc.get('supabase_id'):
+            return JsonResponse({'error': 'Client has already registered'}, status=400)
+
+        # Optionally update email if provided in the request body
+        email = (data.get('email') or '').strip()
+        if email:
+            db['user_details'].update_one({'user_id': client_id}, {'$set': {'email': email}})
+            try:
+                supabase = get_supabase_client()
+                supabase.table('user_metadata').update({'email': email}).eq('user_id', client_id).execute()
+            except Exception:
+                logger.warning(f'resend_client_invite: could not sync email to Supabase for {client_id}')
+        else:
+            # Fall back to stored email
+            try:
+                supabase = get_supabase_client()
+                resp = supabase.table('user_metadata').select('email').eq('user_id', client_id).single().execute()
+                email = (resp.data or {}).get('email') or client_doc.get('email') or ''
+            except Exception:
+                email = client_doc.get('email') or ''
+
+        if not email:
+            return JsonResponse({'error': 'Email is required to send an invite'}, status=400)
+
+        # Get client first name for the email body
+        try:
+            supabase = get_supabase_client()
+            meta_resp = supabase.table('user_metadata').select('first_name').eq('user_id', client_id).single().execute()
+            fname = (meta_resp.data or {}).get('first_name') or client_doc.get('fname') or 'there'
+        except Exception:
+            fname = client_doc.get('fname') or 'there'
+
+        # Get lawyer name for the email body
+        lawyer_data = obj.check_user_exists('user_id', lawyer_id) or {}
+        lawyer_fname = lawyer_data.get('fname') or 'your lawyer'
+        lawyer_lname = lawyer_data.get('lname') or ''
+
+        # Generate a fresh signup token and build the invite link
+        signup_token = obj.generate_signup_token(lawyer_id, client_id)
+        signup_link = f"{FRONTEND_URL}/signup?token={signup_token}"
+
+        # Send the invite email asynchronously
+        email_subject, email_body = EmailTemplates.client_signup_invitation(fname, lawyer_fname, lawyer_lname, signup_link)
+        send_email_celery.delay(email, email_subject, email_body)
+
+        return JsonResponse({'message': 'Invite sent', 'signup_link': signup_link})
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)

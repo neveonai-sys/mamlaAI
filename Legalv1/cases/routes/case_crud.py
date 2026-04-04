@@ -4,8 +4,11 @@ Collections: cases
 All functions receive the MongoDB db handle and authenticated user metadata.
 """
 import uuid
+import random
+import string
 import logging
 from datetime import datetime, timezone
+from core.init_clients import get_supabase_client
 
 logger = logging.getLogger('django')
 
@@ -27,6 +30,22 @@ def _serialize(doc):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _generate_case_ref(db) -> str:
+    """Auto-generate a unique human-readable case reference: MC-{YYYY}-{6-char A-Z0-9}."""
+    year = datetime.now(timezone.utc).year
+    chars = string.ascii_uppercase + string.digits
+    for _ in range(10):
+        suffix = ''.join(random.choices(chars, k=6))
+        ref = f"MC-{year}-{suffix}"
+        if not db[DB_CASES].find_one({'case_ref': ref}):
+            return ref
+    raise RuntimeError('Could not generate unique case_ref after 10 retries')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CREATE
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -41,11 +60,13 @@ def create_case(db, supa_user, payload: dict) -> dict:
     title = (payload.get('title') or '').strip()
     if not title:
         raise ValueError("'title' is required.")
+    payload.pop('case_ref', None)  # strip any client-supplied case_ref; always auto-generated
 
     now = _now()
     doc = {
         '_id': str(uuid.uuid4()),
-        'case_ref': (payload.get('case_ref') or '').strip(),
+        'case_ref': _generate_case_ref(db),
+        'ecourts_params': payload.get('ecourts_params') or {},
         'title': title,
         'case_type': (payload.get('case_type') or '').strip(),
         'court': payload.get('court') or {},
@@ -59,6 +80,7 @@ def create_case(db, supa_user, payload: dict) -> dict:
         'next_hearing': (payload.get('next_hearing') or '').strip(),
         'tags': payload.get('tags') or [],
         'brief': (payload.get('brief') or '').strip(),
+        'client_name_display': (payload.get('client_name_display') or '').strip(),
         'created_at': now,
         'updated_at': now,
     }
@@ -100,7 +122,65 @@ def list_cases(db, supa_user, filters: dict = None) -> list:
         query['title'] = {'$regex': re.escape(filters['search']), '$options': 'i'}
 
     cursor = db[DB_CASES].find(query).sort('updated_at', -1).limit(200)
-    return [_serialize(doc) for doc in cursor]
+    cases = [_serialize(doc) for doc in cursor]
+
+    # Enrich each case with client_name from Supabase user_metadata.
+    # Wrapped in try/except so a Supabase outage never kills the case list.
+    try:
+        all_client_ids = list({
+            cid
+            for case in cases
+            for cid in (case.get('client_ids') or [])
+            if cid
+        })
+        if all_client_ids:
+            supabase = get_supabase_client()
+            resp = supabase.table('user_metadata').select('user_id,first_name,last_name,phone,email').in_('user_id', all_client_ids).execute()
+            name_map = {
+                row['user_id']: {
+                    'name': f"{row.get('first_name') or ''} {row.get('last_name') or ''}".strip(),
+                    'phone': row.get('phone') or '',
+                    'email': row.get('email') or '',
+                }
+                for row in (resp.data or [])
+            }
+            # Batch-fetch client status + registration flag from MongoDB
+            status_map = {}
+            for cdoc in db['user_details'].find(
+                {'user_id': {'$in': all_client_ids}},
+                {'user_id': 1, 'user_status': 1, 'supabase_id': 1}
+            ):
+                status_map[cdoc['user_id']] = {
+                    'status': cdoc.get('user_status', ''),
+                    'is_registered': bool(cdoc.get('supabase_id')),
+                }
+            for case in cases:
+                ids = case.get('client_ids') or []
+                cid = ids[0] if ids else None
+                cinfo = name_map.get(cid, {}) if cid else {}
+                case['client_name'] = cinfo.get('name', '') or (case.get('client_name_display') or '')
+                case['client_phone'] = cinfo.get('phone', '')
+                case['client_email'] = cinfo.get('email', '')
+                sinfo = status_map.get(cid, {}) if cid else {}
+                case['client_status'] = sinfo.get('status', '')
+                case['client_is_registered'] = sinfo.get('is_registered', False)
+        else:
+            for case in cases:
+                case['client_name'] = case.get('client_name_display') or ''
+                case['client_phone'] = ''
+                case['client_email'] = ''
+                case['client_status'] = ''
+                case['client_is_registered'] = False
+    except Exception:
+        logger.warning('list_cases: failed to enrich client names from Supabase')
+        for case in cases:
+            case['client_name'] = case.get('client_name_display') or ''
+            case['client_phone'] = ''
+            case['client_email'] = ''
+            case['client_status'] = ''
+            case['client_is_registered'] = False
+
+    return cases
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -126,9 +206,9 @@ def get_case(db, supa_user, case_id: str) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 UPDATABLE_FIELDS = {
-    'case_ref', 'title', 'case_type', 'court', 'cnr', 'client_ids',
+    'title', 'case_type', 'court', 'cnr', 'client_ids',
     'paralegal_ids', 'status', 'stage', 'filing_date', 'next_hearing',
-    'tags', 'brief',
+    'tags', 'brief', 'ecourts_params', 'client_name_display',
 }
 
 

@@ -372,7 +372,7 @@ export default function ClientOnboarding() {
               <ClientCard
                 key={c.id}
                 client={c}
-                onClick={() => { setSelected(c); setShowForm(false); setError(''); setMessage(''); }}
+                onClick={() => { navigate(`/clients/${c.id}`); setSelected(c); setShowForm(false); setError(''); setMessage(''); }}
                 isSelected={selected?.id === c.id}
               />
             ))
