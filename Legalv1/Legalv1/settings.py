@@ -261,7 +261,7 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://mamla.ai')
 
 #supabse details
 SUPABASE_URL = (os.getenv('SUPABASE_URL') or '').strip()
-SUPABASE_SERVICE_ROLE_KEY = (os.getenv('SUPABASE_SERVICE_ROLE_KEY') or '').strip()
+SUPABASE_SECRET_KEY = (os.getenv('SUPABASE_SECRET_KEY') or '').strip()
 ENCRYPTION_KEY = (os.getenv('ENCRYPTION_KEY') or '').strip()
 
 # Twilio credentials (optional if using Twilio)
@@ -287,17 +287,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# setting up mail
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS')
-EMAIL_PORT = os.getenv('EMAIL_PORT')
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+# Email (Resend SDK)
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+EMAIL_FROM = os.getenv('EMAIL_FROM', 'mamla@noreply.mamla.ai')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # MONGODB
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
 mongo_uri_env = (os.getenv('MONGO_URI') or '').strip()
 mongo_hostname = (os.getenv('MONGO_HOSTNAME') or '').strip()
 mongo_password = (os.getenv('MONGO_PWD') or '').strip()

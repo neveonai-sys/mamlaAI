@@ -1,7 +1,7 @@
-# from core.init_clients import get_mongo_client
+# from core.init_clients import get_mongo_client, get_mongo_db
 # mongo = get_mongo_client()
 
-# db = mongo['legaldb']
+# db = get_mongo_db()
 # user_collection = db['user_details']
 # whatsapp_updates = db['whatsapp_chat_sessions']
 # state_district_court_collection = db["state_district_court_data"]

@@ -6,7 +6,7 @@ from search_facility.task import index_doc_celery
 # from celery import group, chord
 import logging
 from bson.objectid import ObjectId
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 logger = logging.getLogger('django')
 
@@ -23,7 +23,7 @@ class Handlesearch:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
 
     def index_document_opensearch(self):

@@ -14,7 +14,7 @@ from supabase_required import supabase_required
 from ecourts_scraper.agent.job_manager import JobManager
 from ecourts_scraper.cache.cache_manager import EcourtsCacheManager
 from ecourts_scraper.reference_data import EcourtsReferenceDataManager
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 logger = logging.getLogger("django")
 
@@ -22,7 +22,7 @@ CNR_PATTERN = re.compile(r"^[A-Za-z0-9]{14,20}$")
 
 
 def _get_legaldb():
-    return get_mongo_client()["legaldb"]
+    return get_mongo_db()
 
 
 def _reference_response(doc: dict, *, extra: dict | None = None, status: int = 200):

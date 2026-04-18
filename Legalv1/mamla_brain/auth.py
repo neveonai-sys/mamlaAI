@@ -6,12 +6,12 @@ from functools import wraps
 from django.conf import settings
 from django.http import JsonResponse
 
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from supabase_required import verify_supabase_token
 
 
 def _db():
-    return get_mongo_client()['legaldb']
+    return get_mongo_db()
 
 
 def _now():

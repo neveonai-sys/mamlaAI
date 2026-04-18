@@ -6,7 +6,7 @@ import pytz
 import os
 from utilities.routes.utils import Handutilities  # Replace with your notification function
 from opensearchpy import OpenSearch, helpers
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 import requests
 import traceback
 import logging
@@ -16,7 +16,7 @@ def get_mongo_client_db(required_collection):
     mongo = get_mongo_client()
     if not mongo:
         return ''
-    db = mongo['legaldb']
+    db = get_mongo_db()
 
     if required_collection == "user_details":    
         return db['user_details']

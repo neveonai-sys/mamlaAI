@@ -9,7 +9,7 @@ import random
 import requests
 import logging
 import pymongo
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from core.email_templates import EmailTemplates
 
 logger = logging.getLogger('django')
@@ -159,7 +159,7 @@ class Eventmanagement:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
 
         user_collection = db['user_details']
 

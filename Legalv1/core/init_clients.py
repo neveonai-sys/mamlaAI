@@ -103,10 +103,16 @@ def get_mongo_client() -> MongoClient:
     """Get MongoDB client with connection pooling"""
     return db_clients.mongo
 
+def get_mongo_db():
+    """Get the configured MongoDB database (respects MONGO_DB_NAME env var)"""
+    from django.conf import settings
+    return db_clients.mongo[settings.MONGO_DB_NAME]
+
 def ensure_indexes():
     """Create necessary database indexes"""
     try:
-        db = db_clients.mongo['legaldb']
+        from django.conf import settings
+        db = db_clients.mongo[settings.MONGO_DB_NAME]
         
         # List of supported languages
         SUPPORTED_LANGUAGES = {

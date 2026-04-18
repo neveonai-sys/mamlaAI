@@ -6,7 +6,7 @@ from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view
 from django_ratelimit.decorators import ratelimit
 from supabase_required import supabase_required  # your decorator
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import chat_complete
 from core.entitlements import authorize_feature_use, consume_feature_use, get_feature_quota_payload
 from .storage import upload_bytes
@@ -34,7 +34,7 @@ NON_LEGAL_QUERY_KEYWORDS = {
 }
 
 def _db():
-    return get_mongo_client()['legaldb']
+    return get_mongo_db()
 
 
 def _build_matter_filter(request):
@@ -480,7 +480,7 @@ def document_file(request, doc_id: str):
         return JsonResponse({"error": "file unavailable"}, status=404)
 
     try:
-        gridfs_api = GridFS(get_mongo_client()['legaldb'], collection='talkdoc_files')
+        gridfs_api = GridFS(get_mongo_db(), collection='talkdoc_files')
         file_obj = gridfs_api.get(ObjectId(file_id))
     except Exception:
         return JsonResponse({"error": "file unavailable"}, status=404)
@@ -512,7 +512,7 @@ def delete_document(request, doc_id: str):
     file_id = document.get('storage', {}).get('file_id')
     if file_id:
         try:
-            gridfs_api = GridFS(get_mongo_client()['legaldb'], collection='talkdoc_files')
+            gridfs_api = GridFS(get_mongo_db(), collection='talkdoc_files')
             gridfs_api.delete(ObjectId(file_id))
         except Exception:
             logger.warning(f"[TALKDOC][DELETE] Failed to remove GridFS file for doc_id={doc_id}", exc_info=True)

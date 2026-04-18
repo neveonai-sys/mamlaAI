@@ -11,7 +11,7 @@ from celery import shared_task
 from pydub import AudioSegment
 
 # from whatsapp_module.models import sessions_col
-from core.init_clients import get_mongo_client, get_supabase_client
+from core.init_clients import get_mongo_client, get_mongo_db, get_supabase_client
 
 logger = logging.getLogger('django')
 
@@ -21,7 +21,7 @@ def get_mongo_client_db():
     mongo = get_mongo_client()
     if not mongo:
         return ''
-    db = mongo['legaldb']
+    db = get_mongo_db()
     return db
 
 @shared_task(
@@ -165,7 +165,7 @@ def assign_orders_evening():
         if not mongo:
             return
 
-        db = mongo['legaldb']
+        db = get_mongo_db()
         today_start = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
         supabase = get_supabase_client()
@@ -224,7 +224,7 @@ def paralegal_reminder_task():
         mongo = get_mongo_client()
         if not mongo:
             return
-        db = mongo['legaldb']
+        db = get_mongo_db()
 
         assigned_orders = list(db['service_orders'].find({"status": "assigned"}))
         for order in assigned_orders:
@@ -259,7 +259,7 @@ def notify_clients_end_of_day():
         mongo = get_mongo_client()
         if not mongo:
             return
-        db = mongo['legaldb']
+        db = get_mongo_db()
 
         today_start = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         completed_orders = list(db['service_orders'].find({

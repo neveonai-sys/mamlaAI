@@ -14,7 +14,7 @@ import requests
 from Legalv1.settings import FRONTEND_URL
 from users.tasks import send_email_celery, update_onboarded_user_details, request_to_whatsapp_url, insert_new_user_details, create_userdetails_in_supabase_public_table
 # from utilities.routes.utils import Handutilities
-from core.init_clients import get_mongo_client, get_supabase_client
+from core.init_clients import get_mongo_client, get_mongo_db, get_supabase_client
 from core.email_templates import EmailTemplates
 
 # Get the logger for this module
@@ -28,7 +28,7 @@ class Handleusermetadata:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
 
     def check_user_exists(self, key, val):

@@ -13,7 +13,7 @@ from nltk.corpus import stopwords
 from collections import Counter
 import re
 from utilities.routes.utils import Handutilities
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 nltk.download('stopwords')
 STOPWORDS = set(stopwords.words('english'))
@@ -31,7 +31,7 @@ def get_mongo_client_db():
     mongo = get_mongo_client()
     if not mongo:
         return ''
-    db = mongo['legaldb']
+    db = get_mongo_db()
     return db
 
 @shared_task

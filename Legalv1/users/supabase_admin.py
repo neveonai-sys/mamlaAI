@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger('django')
 
 def get_supabase_admin():
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SECRET_KEY)
 
 def find_user_by_username(username: str):
     """

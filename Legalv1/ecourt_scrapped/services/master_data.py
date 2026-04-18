@@ -11,7 +11,7 @@ Two data sources (tried in order):
 import logging
 from datetime import datetime, timedelta
 
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 logger = logging.getLogger("django")
 
@@ -32,7 +32,7 @@ _TTL_MAP = {
 
 
 def _db():
-    return get_mongo_client()["legaldb"]
+    return get_mongo_db()
 
 
 def _cache_collection():

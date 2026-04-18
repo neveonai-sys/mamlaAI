@@ -32,7 +32,7 @@ module.exports = merge(common, {
       'process.env.NODE_ENV': JSON.stringify('development'),
       'process.env.REACT_APP_API_BASE_URL': JSON.stringify(''),
       'process.env.REACT_APP_SUPABASE_URL': JSON.stringify(process.env.REACT_APP_SUPABASE_URL || ''),
-      'process.env.REACT_APP_SUPABASE_ANON_KEY': JSON.stringify(process.env.REACT_APP_SUPABASE_ANON_KEY || ''),
+      'process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY || ''),
     }),
   ],
 });

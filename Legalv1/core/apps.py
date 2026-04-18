@@ -26,7 +26,7 @@ class CoreConfig(AppConfig):
         # Initialize Supabase client
         self.supabase = create_supabase_client(
             _require_setting('SUPABASE_URL'),
-            _require_setting('SUPABASE_SERVICE_ROLE_KEY')
+            _require_setting('SUPABASE_SECRET_KEY')
         )
 
         # Initialize PyMongo client

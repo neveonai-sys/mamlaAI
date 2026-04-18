@@ -9,7 +9,7 @@ import logging
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 from supabase_required import supabase_required
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from core.response_utils import error_response
 
 from .routes import case_crud, hearing_notes, case_notes, case_tasks
@@ -18,7 +18,7 @@ logger = logging.getLogger('django')
 
 
 def _db():
-    return get_mongo_client()['legaldb']
+    return get_mongo_db()
 
 
 def _body(request) -> dict:

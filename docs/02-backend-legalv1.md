@@ -50,7 +50,7 @@ All user-facing API base path is effectively **`/api/`** (e.g. full path `https:
 
 **File:** `Legalv1/core/init_clients.py`
 
-- **MongoDB:** `get_mongo_client()` returns a singleton `MongoClient`. Primary DB name: `legaldb` (see `settings.MONGO_URI`).
+- **MongoDB:** `get_mongo_db()` returns the active database (respects `MONGO_DB_NAME` env var — prod: `mamladb`, dev: `legaldb`). `get_mongo_client()` returns the raw singleton `MongoClient`. **Always use `get_mongo_db()` in app code — never hardcode `['legaldb']`.**
 - **Supabase:** `get_supabase_client()` returns the app’s Supabase client (from `core.apps`). Used for auth and any Supabase-backed logic.
 - **Redis:** Used as Django cache backend and Celery broker (see `Legalv1/Legalv1/settings.py`).
 - **Indexes:** `ensure_indexes()` in `init_clients.py` defines MongoDB indexes (user_details, draft_content_data, aidrafts_complete_data, **cases.case_ref unique**). It is currently commented out at module load; run manually after verifying no legacy constraint conflicts before enabling at startup.
@@ -151,13 +151,15 @@ Both `legalenv` and `legalenv.dev` are in `.gitignore` — never committed.
 ---
 
 - **Env file:** Project root `legalenv` (loaded via env-file selection in `Legalv1/Legalv1/settings.py`).
-- Backend start scripts now fail fast if the relevant env file is missing or if `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`, and Mongo configuration are empty, so runtime bootstrap errors are surfaced before Django/Celery are launched in the background.
+- Backend start scripts now fail fast if the relevant env file is missing or if `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ENCRYPTION_KEY`, and Mongo configuration are empty, so runtime bootstrap errors are surfaced before Django/Celery are launched in the background.
 - Env aliases currently accepted for compatibility with the checked-in `legalenv` file: `CAPSOLVER_API` is treated the same as `CAPSOLVER_API_KEY` for the scraper runtime, and TalkDoc search accepts either `RAG_OS_*` or `OPENSEARCH_*` names for OpenSearch connectivity.
 - **Important settings (names to look for in settings.py):**
   - `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`
   - `MONGO_URI`, `FRONTEND_URL` (used for redirects and Celery callbacks; default `https://mamla.ai`)
   - `CORS_ALLOWED_ORIGINS`
-  - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_TOKEN` (or equivalent)
+  - `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_JWT_TOKEN`
+  - `RESEND_API_KEY`, `EMAIL_FROM` (Resend SDK — all outbound email; Django mail backend removed)
+  - `MONGO_DB_NAME` (active database name; prod: `mamladb`, dev: `legaldb`)
   - Redis/Celery configuration
 
 ### LLM Settings

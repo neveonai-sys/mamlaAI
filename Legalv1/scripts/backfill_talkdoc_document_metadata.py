@@ -17,7 +17,7 @@ import django  # noqa: E402
 
 django.setup()
 
-from core.init_clients import get_mongo_client  # noqa: E402
+from core.init_clients import get_mongo_client, get_mongo_db  # noqa: E402
 
 
 def matter_list(matter, key):
@@ -44,7 +44,7 @@ def timestamped_filename(filename, created_at=None):
 
 
 def main():
-    db = get_mongo_client()['legaldb']
+    db = get_mongo_db()
     collection = db['rag_documents']
 
     updated = 0

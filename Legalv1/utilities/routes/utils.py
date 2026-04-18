@@ -1,19 +1,14 @@
 import os
 # import pymongo
 import traceback
-import smtplib
-# from email.mime.text import MIMEText
+import base64
+import resend
 # from twilio.rest import Client as TwilioClient
 import logging
 # from bson.objectid import ObjectId
 import requests
 import re
 import json
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
-from smtplib import SMTP, SMTPException
 from django.conf import settings
 from core.llm_client import chat_complete
 # from utilities.tasks import request_to_whatsapp_url
@@ -173,50 +168,38 @@ class Handutilities:
 
     def initiate_email(self, data, attachments=None):
         try:
-            from_email = settings.EMAIL_HOST_USER
-            to_emails = [email.strip() for email in data.get('to_emails', '').split(',') if email.strip()]
-            cc_emails = [email.strip() for email in data.get('cc_emails', '').split(',') if email.strip()]
-            bcc_emails = [email.strip() for email in data.get('bcc_emails', '').split(',') if email.strip()]
+            resend.api_key = settings.RESEND_API_KEY
+            to_emails = [e.strip() for e in data.get('to_emails', '').split(',') if e.strip()]
+            cc_emails  = [e.strip() for e in data.get('cc_emails',  '').split(',') if e.strip()]
+            bcc_emails = [e.strip() for e in data.get('bcc_emails', '').split(',') if e.strip()]
             subject = data.get('subject', '')
-            body = str(data.get('body', ''))
+            body    = str(data.get('body', ''))
 
-            logger.info(f"initiate_email all data ----- {data} =========== {to_emails},  {cc_emails},  {bcc_emails}")
-            # Convert email lists to strings
-            to_emails_str = ', '.join(to_emails)
-            cc_emails_str = ', '.join(cc_emails)
-            bcc_emails_str = ', '.join(bcc_emails)
+            logger.info(f"initiate_email all data ----- {data} =========== {to_emails}, {cc_emails}, {bcc_emails}")
 
-            # Setup the MIME
-            message = MIMEMultipart()
-            message['From'] = from_email
-            message['To'] = to_emails_str
-            message['Cc'] = cc_emails_str
-            message['Bcc'] = bcc_emails_str
-            message['Subject'] = subject
+            params = {
+                "from":    settings.EMAIL_FROM,
+                "to":      to_emails,
+                "subject": subject,
+                "html":    body.replace('\n', '<br>'),
+            }
+            if cc_emails:
+                params["cc"] = cc_emails
+            if bcc_emails:
+                params["bcc"] = bcc_emails
 
-            # Add body to email
-            message.attach(MIMEText(body, 'plain'))
-
-            # Handle attachments
-            # attachments = request.FILES.getlist('attachments')
             if attachments:
-                for attachment in attachments:
-                    part = MIMEBase('application', 'octet-stream')
-                    part.set_payload(attachment.read())
-                    encoders.encode_base64(part)
-                    part.add_header('Content-Disposition', f'attachment; filename= {attachment.name}')
-                    message.attach(part)
-            
-            logger.info(f"SEND EMAIL ---> message ==>{message.values()}")
-            # Send the email
-            try:
-                with SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:  # Replace with your SMTP server details
-                    server.starttls()
-                    server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)  # Use environment variables for security
-                    server.sendmail(from_email, to_emails + cc_emails + bcc_emails, message.as_string())
-                return {"message": "Email sent successfully"}
-            except SMTPException as e:
-                raise Exception({"error": str(e)})
+                params["attachments"] = [
+                    {
+                        "filename": att.name,
+                        "content":  base64.b64encode(att.read()).decode(),
+                    }
+                    for att in attachments
+                ]
+
+            logger.info(f"SEND EMAIL via Resend ---> to={to_emails}")
+            result = resend.Emails.send(params)
+            return {"message": "Email sent successfully", "id": result.get("id")}
         except Exception as err:
-            logger.error(f" errorr sending email ---> {err}")
+            logger.error(f"error sending email ---> {err}")
             return {"error": str(err)}

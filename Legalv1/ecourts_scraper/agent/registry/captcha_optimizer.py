@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 logger = logging.getLogger("django")
 COLLECTION = "ecourts_captcha_strategy"
@@ -20,7 +20,7 @@ DEFAULT_STRATEGY_ORDER = ["capsolver", "easyocr", "2captcha"]
 
 
 def _col():
-    return get_mongo_client()["legaldb"][COLLECTION]
+    return get_mongo_db()[COLLECTION]
 
 
 def _key(court_type: str, page: str) -> str:

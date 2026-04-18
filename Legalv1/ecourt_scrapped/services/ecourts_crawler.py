@@ -302,8 +302,8 @@ def scrape_case_types(state_code: str, dist_code: str,
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _db():
-    from core.init_clients import get_mongo_client
-    return get_mongo_client()["legaldb"]
+    from core.init_clients import get_mongo_client, get_mongo_db
+    return get_mongo_db()
 
 
 def ensure_indexes():

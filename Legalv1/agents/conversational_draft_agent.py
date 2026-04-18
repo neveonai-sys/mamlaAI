@@ -17,7 +17,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import chat_complete
 from mamla_brain.prompts import DRAFT_INTAKE_SYSTEM
 from mamla_brain.retrieval import search_user_docs
@@ -36,7 +36,7 @@ def _now():
 
 def _get_db():
     mongo = get_mongo_client()
-    return mongo['legaldb']
+    return get_mongo_db()
 
 
 # ─── System prompt builder ────────────────────────────────────────────────────

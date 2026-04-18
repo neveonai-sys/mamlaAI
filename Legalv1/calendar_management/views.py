@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view
 # from rest_framework.response import Response
 from django.http import JsonResponse
 # import jwt
-from django.core.mail import send_mail
+import resend
 import requests
 import datetime as dt
 import json
@@ -14,7 +14,7 @@ import uuid
 import traceback
 from .routes.createupdateevents import Eventmanagement
 # from celery import chain
-# from django.conf import settings
+from django.conf import settings
 from supabase_required import supabase_required
 from django_ratelimit.decorators import ratelimit
 from core.email_templates import EmailTemplates, format_datetime_for_email
@@ -537,13 +537,17 @@ def send_event_reminder(event):
 
     # Send Email Reminder
     if event.send_reminder in ['Email', 'Both'] and event.party_b_email:
-        send_mail(
-            'Event Reminder',
-            message,
-            'from@example.com',  # Replace with your actual email settings
-            [event.party_b_email],
-            fail_silently=False,
-        )
+        try:
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from":    settings.EMAIL_FROM,
+                "to":      [event.party_b_email],
+                "subject": "Event Reminder",
+                "html":    f"<p>{message}</p>",
+            })
+        except Exception as e:
+            import logging
+            logging.getLogger('django').error(f"send_event_reminder email error: {e}")
 
     # Send WhatsApp Reminder using a service like Twilio
     if event.send_reminder in ['WhatsApp', 'Both']:

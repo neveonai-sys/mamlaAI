@@ -16,6 +16,7 @@
 | eCourts / court data / scraper | `docs/06-ecourts-scraper.md` |
 | Big picture / repo layout | `docs/01-architecture-overview.md` |
 | What was last changed / what to do next | `docs/05-changelog-and-improvements.md` |
+| Local dev setup, start commands, env vars | `docs/00-running-locally.md` |
 | Mamla Brain framework (RAG+LLM, Case Companion, external API) | `docs/07-mamla-brain-framework.md` |
 | **One-stop lawyer workflow plan (case registry, agents, hearing prep, client portal)** | `docs/08-lawyer-workflow-plan.md` |
 | **Unified Case Hub + context-aware workflow — COMPLETE (2026-04-04)** | `docs/10-unified-casehub-plan.md` |
@@ -80,7 +81,7 @@
 | `case_tasks` | cases app — tasks per case |
 | `draft_conversations` | ai_draft app — guided drafting conversational intake sessions (ConversationalDraftAgent) |
 
-Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_client()`.
+DB name: **`MONGO_DB_NAME`** env var (prod: `mamladb`, dev: `legaldb`). Get active DB via `core.init_clients.get_mongo_db()`. Never hardcode `['legaldb']`.
 
 ---
 
@@ -216,14 +217,17 @@ Active frontend first. `frontend_webpack/` is the previous UI only.
 | Variable | Used in | Purpose |
 |----------|---------|---------|
 | `MONGO_URI` | Backend settings | MongoDB connection string |
+| `MONGO_DB_NAME` | Backend settings | Active database name (prod: `mamladb`, dev: `legaldb`) |
+| `RESEND_API_KEY` | Backend settings | Resend SDK key for all outbound email |
+| `EMAIL_FROM` | Backend settings | From address for outbound email (`mamla@noreply.mamla.ai`) |
 | `FRONTEND_URL` | Backend settings | Used in email links, redirects (never hardcode `mamla.ai`) |
-| `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` | Backend settings | Supabase project config |
+| `SUPABASE_URL` · `SUPABASE_SECRET_KEY` | Backend settings | Supabase project config (backend secret key) |
 | `ECOURTS_CAPSOLVER_API_KEY` / `CAPSOLVER_API_KEY` | `ecourts_scraper` | Capsolver token for CAPTCHA solving |
 | `BRAIN_T1_MODEL` · `BRAIN_T2_MODEL` · `BRAIN_T3_MODEL` | Backend settings | Mamla Brain tiered model routing |
 | `BRAIN_MONTHLY_FREE_QUOTA` | Backend settings | Default external Brain API-key quota |
 | `REDIS_URL` | Backend settings | Redis broker + cache |
 | `REACT_APP_API_BASE_URL` | Frontend Webpack prod build | API base URL injected at build time |
-| `REACT_APP_SUPABASE_URL` · `REACT_APP_SUPABASE_ANON_KEY` | Frontend | Supabase client init on frontend |
+| `REACT_APP_SUPABASE_URL` · `REACT_APP_SUPABASE_PUBLISHABLE_KEY` | Frontend | Supabase publishable key injected at build time |
 
 Backend env is loaded via `legalenv` (dotenv). File: `Legalv1/legalenv`.  
 Frontend env is injected by Webpack DefinePlugin in `webpack.prod.js`.

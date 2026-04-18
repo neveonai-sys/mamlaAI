@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 
 FEATURE_ORDER = (
@@ -61,7 +61,7 @@ PLAN_FEATURES = {
 
 
 def _db():
-    return get_mongo_client()['legaldb']
+    return get_mongo_db()
 
 
 def _collection():

@@ -7,7 +7,7 @@ import datetime
 from .routes.session_manager import SessionManager
 import os
 from django.conf import settings
-from core.init_clients import get_mongo_client, get_supabase_client
+from core.init_clients import get_mongo_client, get_mongo_db, get_supabase_client
 # from whatsapp_module.routes.handlewhatsappmessage import Whatsappmessageformulation
 import logging
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ def get_mongo_client_db():
     mongo = get_mongo_client()
     if not mongo:
         return ''
-    db = mongo['legaldb']
+    db = get_mongo_db()
     return db
 
 @shared_task

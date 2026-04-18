@@ -12,7 +12,7 @@ import bcrypt
 from Legalv1.settings import FRONTEND_URL
 from users.tasks import send_email_celery, request_to_whatsapp_url, send_whatsapp_message_celery
 from utilities.routes.utils import Handutilities
-from core.init_clients import get_mongo_client, get_supabase_client
+from core.init_clients import get_mongo_client, get_mongo_db, get_supabase_client
 from core.email_templates import EmailTemplates
 
 # Get the logger for this module
@@ -26,7 +26,7 @@ class Handleuserdata:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
        
     def check_user_exists(self, chk_data):

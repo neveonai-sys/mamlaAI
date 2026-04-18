@@ -441,9 +441,9 @@ def refresh_subscribed_causelists():
     scrapes for today's date.
     """
     from datetime import date as date_type
-    from core.init_clients import get_mongo_client
+    from core.init_clients import get_mongo_client, get_mongo_db
 
-    db = get_mongo_client()["legaldb"]
+    db = get_mongo_db()
     today = date_type.today().isoformat()
     jm = JobManager()
 
@@ -511,11 +511,11 @@ def refresh_tracked_cases():
     Find all unique CNR numbers across user_details.case_ids,
     then queue re-scrapes for each (skipping recently cached ones).
     """
-    from core.init_clients import get_mongo_client
+    from core.init_clients import get_mongo_client, get_mongo_db
     from ecourts_scraper.cache.cache_manager import EcourtsCacheManager
     from datetime import datetime, timezone, timedelta
 
-    db = get_mongo_client()["legaldb"]
+    db = get_mongo_db()
     jm = JobManager()
     cache = EcourtsCacheManager()
     now = datetime.now(timezone.utc)

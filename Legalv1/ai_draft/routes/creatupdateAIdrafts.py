@@ -6,7 +6,7 @@ import math
 from io import BytesIO
 from docx import Document
 from pymongo import ASCENDING, DESCENDING, ReturnDocument
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from pdfminer.high_level import extract_text as extract_text_from_pdf
 import datetime
 import json
@@ -22,7 +22,7 @@ class CreateupdatefetchAIdrafts:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         collection = db['aidrafts_complete_data']
         # Indexes are created via scripts/optimize_database_indexes.py
         # No need to create them on every request
@@ -160,7 +160,7 @@ class CreateupdatefetchAIdrafts:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
 
         document = db['draft_content_data'].find_one(query)
         logger.info(f"fetch_existing_template_text ----> query: {query}, document: {document}")

@@ -7,7 +7,7 @@ import datetime
 import requests
 from .encryption import encrypt_data, decrypt_data
 import logging
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 # from users.routes.usermetadata import Handleusermetadata
 
 logger = logging.getLogger('django')
@@ -20,7 +20,7 @@ class SessionManager:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
 
     def create_session(self, user_id, access_token, refresh_token, ip_address, location, device_type):

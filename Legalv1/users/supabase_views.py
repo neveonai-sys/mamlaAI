@@ -726,12 +726,12 @@ def update_client_detail(request, client_id):
     Body: {fname, lname, email, phone, ...}
     """
     try:
-        from core.init_clients import get_mongo_client
+        from core.init_clients import get_mongo_client, get_mongo_db
         data = json.loads(request.body or b"{}")
         allowed = {k: v for k, v in data.items() if k in ('fname', 'lname', 'email', 'phonenumber', 'phone_number', 'address', 'notes')}
         if not allowed:
             return JsonResponse({"error": "No updatable fields provided"}, status=400)
-        db = get_mongo_client()['legaldb']
+        db = get_mongo_db()
         res = db['user_details'].update_one({"user_id": client_id}, {"$set": allowed})
         if res.matched_count:
             return JsonResponse({"message": "Updated"})

@@ -3,11 +3,10 @@ MongoDB collection definitions and index management for eCourts scraper.
 """
 import logging
 from datetime import datetime, timedelta
-from core.init_clients import get_mongo_client
+from django.conf import settings
+from core.init_clients import get_mongo_client, get_mongo_db
 
 logger = logging.getLogger("django")
-
-DB_NAME = "legaldb"
 
 COLLECTION_ECOURTS_CACHE = "ecourts_cache"
 COLLECTION_SCRAPE_JOBS = "ecourts_scrape_jobs"
@@ -16,7 +15,7 @@ COLLECTION_REFERENCE_DATA = "ecourts_reference_data"
 
 
 def get_db():
-    return get_mongo_client()[DB_NAME]
+    return get_mongo_db()
 
 
 def get_cache_collection():

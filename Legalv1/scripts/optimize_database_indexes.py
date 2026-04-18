@@ -12,7 +12,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Legalv1.settings')
 django.setup()
 
 from pymongo import ASCENDING, DESCENDING, TEXT, IndexModel
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 import logging
 
 logger = logging.getLogger('django')
@@ -25,7 +25,7 @@ def optimize_aidrafts_indexes():
         logger.error("MongoDB client not available")
         return False
     
-    collection = mongo['legaldb']['aidrafts_complete_data']
+    collection = get_mongo_db()['aidrafts_complete_data']
     
     # Define comprehensive indexes (excluding text index that conflicts with Bengali data)
     indexes = [
@@ -66,7 +66,7 @@ def optimize_talkdoc_indexes():
     if not mongo:
         return False
     
-    db = mongo['legaldb']
+    db = get_mongo_db()
     
     # RAG documents indexes
     doc_indexes = [
@@ -117,7 +117,7 @@ def optimize_user_indexes():
     if not mongo:
         return False
     
-    db = mongo['legaldb']
+    db = get_mongo_db()
     
     # User sessions indexes
     session_indexes = [
