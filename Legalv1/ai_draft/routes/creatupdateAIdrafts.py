@@ -335,21 +335,32 @@ Example:
     def update_content_using_AI_with_user_input(self, session_id, section_id, suggestion):
         try:
             session = self.get_mongo_client_db().find_one({'_id': ObjectId(session_id)})
+            all_sections = session.get('draft_sections', [])
             section = next(
-                (s for s in session['draft_sections'] if s['section_id'] == section_id), None
+                (s for s in all_sections if s['section_id'] == section_id), None
+            )
+
+            # Build a brief summary of the other sections for context
+            other_sections_context = '\n'.join(
+                f'  - {s["section_name"]}: {(s.get("content") or "")[:300].strip()}{"..." if len(s.get("content") or "") > 300 else ""}'
+                for s in all_sections if s['section_id'] != section_id and (s.get('content') or '').strip()
+            )
+            context_block = (
+                f"\nFor context, the rest of the draft contains these sections:\n{other_sections_context}\n"
+                if other_sections_context else ''
             )
 
             # Construct prompt for LLM
-            prompt = f"""
-You previously drafted the following section titled "{section['section_name']}":
+            prompt = f"""You are refining one section of a legal draft.{context_block}
+The section to update is titled "{section['section_name']}":
 
 {section['content']}
 
-The user has the following suggestions or changes:
+The user's instruction for this section:
 
 {suggestion}
 
-Please provide an updated version of this section, incorporating the user's suggestions, and ensure it complies with Indian legal standards.
+Update ONLY this section, incorporating the user's instruction. Ensure the content aligns with the rest of the draft and complies with Indian legal standards.
 
 Return ONLY the updated section content. Do not include any headings, labels, preamble, or extra commentary."""
 

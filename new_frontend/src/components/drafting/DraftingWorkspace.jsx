@@ -92,9 +92,7 @@ function EditorToolbar() {
 }
 
 // ─── Left sidebar with doc outline ───────────────────────────────────────────
-function DraftSidebar({ sections, activeSectionIdx, onSelectSection, savedDrafts, onLoadDraft }) {
-  const [showSaved, setShowSaved] = useState(false);
-
+function DraftSidebar({ sections, activeSectionIdx, onSelectSection }) {
   return (
     <aside className="w-60 flex flex-col border-r border-primary/10 bg-ivory flex-shrink-0 xl:w-64">
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
@@ -118,36 +116,13 @@ function DraftSidebar({ sections, activeSectionIdx, onSelectSection, savedDrafts
         ) : (
           <p className="text-xs text-slate-400 px-3 py-2 italic">No outline yet</p>
         )}
-
-        <div className="pt-4 pb-2 px-3 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saved Drafts</p>
-          <button
-            onClick={() => setShowSaved((v) => !v)}
-            className="text-primary hover:opacity-70 text-[10px] font-bold"
-          >
-            {showSaved ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        {showSaved && savedDrafts.length > 0 && (
-          <div className="space-y-1">
-            {savedDrafts.map((d) => (
-              <button
-                key={d.draft_id || d.session_id || d.id}
-                onClick={() => onLoadDraft(d)}
-                className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:text-primary hover:bg-primary/5 rounded transition-colors truncate"
-              >
-                {d.draft_name || d.title || 'Untitled Draft'}
-              </button>
-            ))}
-          </div>
-        )}
       </nav>
     </aside>
   );
 }
 
 // ─── AI assistant right panel ─────────────────────────────────────────────────
-function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled }) {
+function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled, sections, activeSectionIdx, onSectionChange }) {
   const [input, setInput] = useState('');
   const bottomRef = useRef(null);
 
@@ -168,6 +143,10 @@ function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled }) {
     'Check for ambiguous language',
   ];
 
+  const activeSectionName = sections?.[activeSectionIdx]?.section_name
+    || sections?.[activeSectionIdx]?.section_title
+    || (sections?.length > 0 ? `Section ${activeSectionIdx + 1}` : null);
+
   return (
     <aside className="flex w-[340px] flex-col border-l border-primary/10 bg-ivory flex-shrink-0 xl:w-[360px]">
       <div className="p-4 border-b border-primary/10 flex items-center justify-between flex-shrink-0">
@@ -176,6 +155,32 @@ function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled }) {
           AI Assistant
         </h3>
       </div>
+
+      {/* Section target selector */}
+      {sections && sections.length > 0 && (
+        <div className="mx-4 mt-3 flex-shrink-0">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+            Refining section
+          </label>
+          <select
+            value={activeSectionIdx}
+            onChange={(e) => onSectionChange(Number(e.target.value))}
+            disabled={promptDisabled || loading}
+            className="w-full rounded-lg border border-primary/20 bg-white px-3 py-1.5 text-xs font-medium text-ink focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {sections.map((sec, i) => (
+              <option key={sec.section_id || i} value={i}>
+                {sec.section_name || sec.section_title || `Section ${i + 1}`}
+              </option>
+            ))}
+          </select>
+          {activeSectionName && (
+            <p className="text-[10px] text-slate-400 mt-1">
+              All AI suggestions will update <span className="font-semibold text-primary">{activeSectionName}</span>. Switch sections above before sending.
+            </p>
+          )}
+        </div>
+      )}
 
       {quotaNotice && (
         <div className={`mx-4 mt-4 rounded-xl border px-3 py-2 text-xs font-medium ${quotaNoticeClassName(quotaNotice.tone)}`}>
@@ -423,7 +428,7 @@ export default function DraftingWorkspace() {
   const [lastSavedAt, setLastSavedAt] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [showOutlinePanel, setShowOutlinePanel] = useState(true);
+  const [showOutlinePanel] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
 
   // Init form state
@@ -1254,14 +1259,7 @@ export default function DraftingWorkspace() {
     const docCategories = filterData?.document_categories || [];
     return (
       <div className="flex h-full">
-        {/* Left sidebar */}
-        <DraftSidebar
-          sections={[]}
-          activeSectionIdx={-1}
-          onSelectSection={() => {}}
-          savedDrafts={savedDrafts}
-          onLoadDraft={handleLoadDraft}
-        />
+
 
         {/* Center: init form */}
         <div className="flex-1 flex items-start justify-center p-10 overflow-y-auto">
@@ -1840,13 +1838,7 @@ export default function DraftingWorkspace() {
               {draftingQuota.remaining_included} Brain drafting actions left
             </span>
           )}
-          <button
-            className={`btn-ghost flex items-center gap-1.5 text-xs ${showOutlinePanel ? 'bg-primary/8 text-primary' : ''}`}
-            onClick={() => setShowOutlinePanel((current) => !current)}
-          >
-            <span className="material-symbols-outlined text-base">left_panel_open</span>
-            {showOutlinePanel ? 'Hide Outline' : 'Show Outline'}
-          </button>
+
           <button
             className={`btn-ghost flex items-center gap-1.5 text-xs ${showAiPanel ? 'bg-primary/8 text-primary' : ''}`}
             onClick={() => setShowAiPanel((current) => !current)}
@@ -1897,16 +1889,7 @@ export default function DraftingWorkspace() {
 
       {/* 3-pane body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Outline */}
-        {showOutlinePanel && (
-          <DraftSidebar
-            sections={sections}
-            activeSectionIdx={activeSectionIdx}
-            onSelectSection={setActiveSectionIdx}
-            savedDrafts={savedDrafts}
-            onLoadDraft={handleLoadDraft}
-          />
-        )}
+
 
         {/* Center: Editor */}
         <main className="flex-1 flex flex-col bg-background-light overflow-hidden">
@@ -2033,6 +2016,9 @@ export default function DraftingWorkspace() {
             messages={aiMessages}
             quotaNotice={suggestionQuotaNotice}
             promptDisabled={suggestionPromptDisabled}
+            sections={sections}
+            activeSectionIdx={activeSectionIdx}
+            onSectionChange={setActiveSectionIdx}
           />
         )}
       </div>

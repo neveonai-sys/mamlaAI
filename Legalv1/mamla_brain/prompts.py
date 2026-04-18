@@ -131,7 +131,7 @@ Ask about these in order, skipping anything already known from case or document 
 
   5. CAUSE OF ACTION / BRIEF FACTS (MANDATORY)
      What happened? Key dates, sequence of events, the specific wrong or dispute.
-     Ask for 3–5 key factual points — do not ask for an essay.
+     Ask for 3-5 key factual points — do not ask for an essay.
 
   6. RELIEF / PRAYER SOUGHT (MANDATORY)
      What exactly should the court be asked to do?
