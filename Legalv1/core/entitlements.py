@@ -13,50 +13,150 @@ FEATURE_ORDER = (
     'case_companion',
     'ai_suggestions',
     'ai_draft_generation',
+    'ecourts_case_lookup',
+    'ecourts_order_download',
 )
 
 
 PLAN_FEATURES = {
+    # ── Trial (new user default — 30 days) ──────────────────────────────────
     'trial': {
-        'brain_doc_analysis': {'included_limit': 8, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
-        'general_legal_chat': {'included_limit': 24, 'soft_warning_threshold': 0.8, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_doc_analysis':     {'included_limit': 8,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 24, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 12, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
-        'case_companion': {'included_limit': 2, 'soft_warning_threshold': 0.5, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions': {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
-        'ai_draft_generation': {'included_limit': 20, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'case_companion':         {'included_limit': 2,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 20, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 30, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': True},
     },
+    # ── Vakil Starter ₹299/month ─────────────────────────────────────────────
+    'vakil_starter': {
+        'brain_doc_analysis':     {'included_limit': 15, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 50, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 20, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'case_companion':         {'included_limit': 3,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 30, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 30, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': True},
+    },
+    # ── Vakil Pro ₹699/month ─────────────────────────────────────────────────
+    'vakil_pro': {
+        'brain_doc_analysis':     {'included_limit': 40,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 150,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'case_companion':         {'included_limit': 10,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 20,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 70,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 30,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+    },
+    # ── Vakil Power ₹1,299/month ─────────────────────────────────────────────
+    'vakil_power': {
+        'brain_doc_analysis':     {'included_limit': 100,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 400,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'case_companion':         {'included_limit': 30,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 100,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+    },
+    # ── Nagrik Free (trial-style expiry — TODO: 7d cap when Nagrik UX launches)
+    'nagrik_free': {
+        'brain_doc_analysis':     {'included_limit': 2,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 5,  'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': True},
+        'case_companion':         {'included_limit': 0,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': True},
+        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': True},
+        'ai_draft_generation':    {'included_limit': 1,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 5,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': True},
+    },
+    # ── Nagrik Basic ₹79/month ───────────────────────────────────────────────
+    'nagrik_basic': {
+        'brain_doc_analysis':     {'included_limit': 8,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 30, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': True},
+        'case_companion':         {'included_limit': 0,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': True},
+        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': True},
+        'ai_draft_generation':    {'included_limit': 5,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 15, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': True},
+    },
+    # ── Firm Basic ₹1,999/month (= Vakil Pro quotas per seat) ───────────────
+    'firm_basic': {
+        'brain_doc_analysis':     {'included_limit': 40,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 150,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'case_companion':         {'included_limit': 10,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 20,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 70,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 30,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+    },
+    # ── Firm Pro ₹4,499/month (= Vakil Power quotas per seat) ───────────────
+    'firm_pro': {
+        'brain_doc_analysis':     {'included_limit': 100,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 400,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'case_companion':         {'included_limit': 30,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 100,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+    },
+    # ── Pro (legacy plan code — kept for backward compatibility) ────────────
     'pro': {
-        'brain_doc_analysis': {'included_limit': 30, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
-        'general_legal_chat': {'included_limit': 120, 'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
-        'brain_drafting_actions': {'included_limit': 40, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
-        'case_companion': {'included_limit': 8, 'soft_warning_threshold': 0.5, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions': {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
-        'ai_draft_generation': {'included_limit': 60, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'brain_doc_analysis':     {'included_limit': 30,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 120,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 40,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'case_companion':         {'included_limit': 8,       'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 0,       'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 30,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
+    # ── Enterprise / Internal (unlimited) ───────────────────────────────────
     'enterprise': {
-        'brain_doc_analysis': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'general_legal_chat': {'included_limit': 1000000, 'soft_warning_threshold': 0.98, 'overage_credit_cost': 0, 'hard_block': False},
+        'brain_doc_analysis':     {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 1000000, 'soft_warning_threshold': 0.98, 'overage_credit_cost': 0, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'case_companion': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ai_suggestions': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ai_draft_generation': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'case_companion':         {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
     },
     'internal': {
-        'brain_doc_analysis': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'general_legal_chat': {'included_limit': 1000000, 'soft_warning_threshold': 0.98, 'overage_credit_cost': 0, 'hard_block': False},
+        'brain_doc_analysis':     {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 1000000, 'soft_warning_threshold': 0.98, 'overage_credit_cost': 0, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'case_companion': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ai_suggestions': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ai_draft_generation': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'case_companion':         {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
     },
+    # ── Locked (trial expired — wallet credits still usable as soft grace) ──
     'locked': {
-        'brain_doc_analysis': {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
-        'general_legal_chat': {'included_limit': 0, 'soft_warning_threshold': 0.8, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_doc_analysis':     {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 0, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
-        'case_companion': {'included_limit': 0, 'soft_warning_threshold': 0.5, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions': {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
-        'ai_draft_generation': {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'case_companion':         {'included_limit': 0, 'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 0, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
+}
+
+# Plans that don't expire in Phase A (active paid subscriptions).
+# In Phase B, subscription status from the `subscriptions` MongoDB collection will replace this set.
+PAID_PLANS = {
+    'pro', 'vakil_starter', 'vakil_pro', 'vakil_power',
+    'nagrik_basic', 'firm_basic', 'firm_pro',
 }
 
 
@@ -129,8 +229,9 @@ def _effective_plan_code(document, current_time=None):
         return 'internal'
     if plan_code == 'enterprise':
         return 'enterprise'
-    if plan_code == 'pro':
-        return 'pro'
+    # Paid plans never expire in Phase A — no trial_ends_at check needed
+    if plan_code in PAID_PLANS:
+        return plan_code
 
     trial_ends_at = document.get('trial_ends_at')
     if trial_ends_at and trial_ends_at > current:
@@ -223,6 +324,12 @@ def ensure_user_entitlements(supabase_user):
         updates['email'] = supabase_user.get('email', '')
     if document.get('user_type') != supabase_user.get('user_type', ''):
         updates['user_type'] = supabase_user.get('user_type', '')
+    # Auto-promote to internal plan if the email is now in BRAIN_ADMIN_EMAILS.
+    # Runs on every request so it takes effect immediately after the env var is set,
+    # even for users whose MongoDB document was created before the var existed.
+    if is_internal_user(supabase_user) and document.get('plan_code') != 'internal':
+        updates['plan_code'] = 'internal'
+        updates['launch_access'] = 'internal_only'
 
     if updates:
         updates['updated_at'] = current
@@ -309,6 +416,7 @@ def get_entitlement_summary(supabase_user):
             'active': bool(effective_plan_code == 'trial' and trial_ends_at and trial_ends_at > current),
             'started_at': str(document.get('trial_started_at', '')),
             'ends_at': str(trial_ends_at or ''),
+            'days_remaining': max((trial_ends_at - current).days, 0) if (trial_ends_at and trial_ends_at > current) else 0,
         },
         'quota_reset_at': str(document.get('quota_reset_at', '')),
         'features': {
@@ -320,6 +428,16 @@ def get_entitlement_summary(supabase_user):
 
 def authorize_feature_use(supabase_user, feature_code):
     document = ensure_user_entitlements(supabase_user)
+
+    # Dev bypass — never block in local development (DEBUG=True)
+    if getattr(settings, 'DEBUG', False):
+        quota = _feature_payload(document, feature_code, next_cta='continue', message_key='dev_mode_bypass')
+        return {
+            'allowed': True,
+            'charge_source': 'included',
+            'wallet_credits_charged': 0,
+            'quota': quota,
+        }
 
     if not _launch_allowed(supabase_user, document.get('launch_access', 'lawyers_only')):
         quota = _feature_payload(
@@ -419,6 +537,9 @@ def authorize_feature_use(supabase_user, feature_code):
 
 def consume_feature_use(supabase_user, feature_code, decision):
     document = ensure_user_entitlements(supabase_user)
+    # Dev bypass — do NOT increment counters or deduct wallet in local development (DEBUG=True)
+    if getattr(settings, 'DEBUG', False):
+        return _feature_payload(document, feature_code, allowed=True, next_cta='continue', message_key='dev_mode_bypass')
     feature = (document.get('features') or {}).get(feature_code, {})
     charge_source = decision.get('charge_source', 'included')
     wallet_credits_charged = int(decision.get('wallet_credits_charged', 0))

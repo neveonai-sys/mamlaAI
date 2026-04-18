@@ -1,8 +1,62 @@
 #!/bin/bash
 
-# Enhanced Start Script with Development and Production Modes
-# Usage: ./start.sh [dev|prod]
-# Default: prod (production mode)
+# eCourts FastAPI Scraper Start Script
+# Starts the unified DC + HC scraper on 127.0.0.1:8002
+# Usage: ./start_scrapper.sh
+
+PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
+LEGALENV_PATH="$PROJECT_ROOT/Legalv1/legalenv"
+LOG_DIR="$PROJECT_ROOT/logs"
+
+mkdir -p "$LOG_DIR"
+
+if [ ! -f "$LEGALENV_PATH" ]; then
+    echo "Error: missing env file at $LEGALENV_PATH"
+    exit 1
+fi
+
+# Rotate existing log before starting fresh
+FASTAPI_LOG="$LOG_DIR/scraper.log"
+if [ -s "$FASTAPI_LOG" ]; then
+    mv "$FASTAPI_LOG" "$LOG_DIR/scraper.prev.log"
+fi
+
+UVICORN_BIN="/home/pronoys/miniconda3/envs/py312/bin/uvicorn"
+FASTAPI_MODULE="main"
+FASTAPI_SCRAPER_DIR="$PROJECT_ROOT/scrapping_codes_ecourt"
+
+# Load CAPSOLVER_API_KEY from legalenv
+CAPSOLVER_KEY=$(grep '^CAPSOLVER_API=' "$LEGALENV_PATH" | cut -d= -f2-)
+
+echo "Starting Unified eCourts FastAPI scraper (DC + HC) on 127.0.0.1:8002..."
+
+# Kill any existing instance on port 8002
+lsof -ti:8002 2>/dev/null | xargs kill -9 2>/dev/null
+sleep 1
+
+if [ ! -x "$UVICORN_BIN" ]; then
+    echo "  ⚠️  Warning: uvicorn not found at $UVICORN_BIN — eCourts scraper unavailable"
+elif [ -z "$CAPSOLVER_KEY" ]; then
+    echo "  ⚠️  Warning: CAPSOLVER_API not set in legalenv — eCourts scraper unavailable"
+else
+    cd "$FASTAPI_SCRAPER_DIR"
+    nohup env CAPSOLVER_API_KEY="$CAPSOLVER_KEY" \
+        "$UVICORN_BIN" "${FASTAPI_MODULE}:app" \
+        --host 127.0.0.1 --port 8002 \
+        --workers 2 \
+        > "$FASTAPI_LOG" 2>&1 &
+    sleep 2
+    if lsof -ti:8002 >/dev/null 2>&1; then
+        echo "  ✅ Unified scraper running on 127.0.0.1:8002  (DC → /dc  |  HC → /hc)"
+    else
+        echo "  ❌ Unified scraper failed to start — check $FASTAPI_LOG"
+    fi
+    cd "$PROJECT_ROOT"
+fi
+
+echo "  📋 Log: $FASTAPI_LOG"
+exit 0
+
 
 # Get the project root directory
 PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
@@ -55,16 +109,16 @@ fi
 #     echo "Stopping any running services..."
 #     "$PROJECT_ROOT/stop.sh"
 # fi
-# ── Unified eCourts FastAPI Scraper (port 8001, localhost only) ─────────────
-echo "Starting Unified eCourts FastAPI scraper (DC + HC) on 127.0.0.1:8001..."
+# ── Unified eCourts FastAPI Scraper (port 8002, localhost only) ─────────────
+echo "Starting Unified eCourts FastAPI scraper (DC + HC) on 127.0.0.1:8002..."
 LOG_DATE=$(date +%d-%m-%Y)
 UVICORN_BIN="/home/pronoys/miniconda3/envs/py312/bin/uvicorn"
 FASTAPI_MODULE="main"
 FASTAPI_SCRAPER_DIR="$PROJECT_ROOT/scrapping_codes_ecourt"
 FASTAPI_LOG="$PROJECT_ROOT/logs/${LOG_DATE}_unified_scraper.log"
 
-# Kill any existing instance on port 8001
-lsof -ti:8001 2>/dev/null | xargs kill -9 2>/dev/null
+# Kill any existing instance on port 8002
+lsof -ti:8002 2>/dev/null | xargs kill -9 2>/dev/null
 sleep 1
 
 # Load CAPSOLVER_API_KEY from legalenv (FastAPI reads CAPSOLVER_API_KEY)
@@ -78,12 +132,12 @@ else
     cd "$FASTAPI_SCRAPER_DIR"
     nohup env CAPSOLVER_API_KEY="$CAPSOLVER_KEY" \
         "$UVICORN_BIN" "${FASTAPI_MODULE}:app" \
-        --host 127.0.0.1 --port 8001 \
+        --host 127.0.0.1 --port 8002 \
         --workers 2 \
         > "$FASTAPI_LOG" 2>&1 &
     sleep 2
-    if lsof -ti:8001 >/dev/null 2>&1; then
-        echo "  ✅ Unified scraper running on 127.0.0.1:8001  (DC → /dc  |  HC → /hc)"
+    if lsof -ti:8002 >/dev/null 2>&1; then
+        echo "  ✅ Unified scraper running on 127.0.0.1:8002  (DC → /dc  |  HC → /hc)"
     else
         echo "  ❌ Unified scraper failed to start — check $FASTAPI_LOG"
     fi

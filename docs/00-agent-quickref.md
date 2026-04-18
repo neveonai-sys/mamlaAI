@@ -225,6 +225,7 @@ Active frontend first. `frontend_webpack/` is the previous UI only.
 | `ECOURTS_CAPSOLVER_API_KEY` / `CAPSOLVER_API_KEY` | `ecourts_scraper` | Capsolver token for CAPTCHA solving |
 | `BRAIN_T1_MODEL` · `BRAIN_T2_MODEL` · `BRAIN_T3_MODEL` | Backend settings | Mamla Brain tiered model routing |
 | `BRAIN_MONTHLY_FREE_QUOTA` | Backend settings | Default external Brain API-key quota |
+| `BRAIN_ADMIN_EMAILS` | Backend settings | Comma-separated admin emails → `internal` plan (unlimited). Set in `legalenv.dev`. Never commit. |
 | `REDIS_URL` | Backend settings | Redis broker + cache |
 | `REACT_APP_API_BASE_URL` | Frontend Webpack prod build | API base URL injected at build time |
 | `REACT_APP_SUPABASE_URL` · `REACT_APP_SUPABASE_PUBLISHABLE_KEY` | Frontend | Supabase publishable key injected at build time |

@@ -11,6 +11,7 @@ import re
 import json
 from django.conf import settings
 from core.llm_client import chat_complete
+from core.email_templates import EmailTemplates
 # from utilities.tasks import request_to_whatsapp_url
 logger = logging.getLogger('django')
 
@@ -63,24 +64,22 @@ class Handutilities:
 
     def send_notification_email(self, partyBEmail, to_email, meeting, reminder_type):
         try:
-            subject = f"Reminder: Your meeting '{meeting['title']}' is coming up"
-            if reminder_type == "hourly":
-                subject += " in 1 hour."
-                body = f"Hello ,\n\nYour meeting '{meeting['title']}' is scheduled to start at {meeting['meeting_start_date'].strftime('%Y-%m-%d %H:%M')}.\n\nBest regards,\nYour Team"
-            elif reminder_type == "quarterly":
-                subject += " in 15 minutes."
-                body = f"Hello ,\n\nYour meeting '{meeting['title']}' is scheduled to start at {meeting['meeting_start_date'].strftime('%Y-%m-%d %H:%M')}.\n\nBest regards,\nYour Team"
-
-            data = dict()
-            data['to_emails'] = to_email
-            data['cc_emails'] = partyBEmail if partyBEmail else ''
-            data['subject'] = subject
-            data['body'] = body
+            window_label = "1 hour" if reminder_type == "hourly" else "15 minutes"
+            subject, body = EmailTemplates.meeting_reminder(
+                meeting['title'],
+                meeting['meeting_start_date'].strftime('%Y-%m-%d %H:%M'),
+                window_label,
+            )
+            data = {
+                'to_emails': to_email,
+                'cc_emails': partyBEmail if partyBEmail else '',
+                'subject': subject,
+                'body': body,
+            }
             logger.info(f"send_notification_email --> data ------> {data}")
             self.initiate_email(data)
         except Exception as e:
-                # Handle email sending errors
-                logger.error(f"Error send_notification_email to {to_email}: {e}")
+            logger.error(f"Error send_notification_email to {to_email}: {e}")
 
 
     # def send_notification_sms(self,to_phone, meeting, reminder_type):
@@ -146,23 +145,18 @@ class Handutilities:
             logger.error(f"EERROR SHAREDD TASKKKK AT request_whatsapp_url in UTILS USEEERRSSSS ---->  {err}")
             return {"error": str(err)}
 
-    def send_consolidated_notification(self,user, meeting):
-        # import smtplib
-        # from email.mime.text import MIMEText
+    def send_consolidated_notification(self, user, meeting):
         try:
-        
-            subject = f"Daily Summary: Updated Meetings for Today"
-            body = f"Hello,\n\nHere are your updated meetings for today:\n\n{meeting['consolidated_meetings']}\n\nBest regards,\nYour Team"
-                        
-            data = dict()
-            data['to_emails'] = user['email']
-            data['cc_emails'] = user['partyBEmail'] if user['partyBEmail'] else ''
-            data['subject'] = subject
-            data['body'] = body
+            subject, body = EmailTemplates.daily_meetings_summary(meeting['consolidated_meetings'])
+            data = {
+                'to_emails': user['email'],
+                'cc_emails': user['partyBEmail'] if user['partyBEmail'] else '',
+                'subject': subject,
+                'body': body,
+            }
             logger.info(f"send_consolidated_notification --> data ------> {data}")
             self.initiate_email(data)
         except Exception as e:
-            # Handle email sending errors
             logger.error(f"Error send_consolidated_notification to {user['email']}: {e}")
 
 
@@ -177,11 +171,13 @@ class Handutilities:
 
             logger.info(f"initiate_email all data ----- {data} =========== {to_emails}, {cc_emails}, {bcc_emails}")
 
+            # Pass HTML bodies as-is; convert plain text by replacing newlines
+            html_body = body if body.strip().startswith(('<!DOCTYPE', '<html', '<HTML')) else body.replace('\n', '<br>')
             params = {
                 "from":    settings.EMAIL_FROM,
                 "to":      to_emails,
                 "subject": subject,
-                "html":    body.replace('\n', '<br>'),
+                "html":    html_body,
             }
             if cc_emails:
                 params["cc"] = cc_emails

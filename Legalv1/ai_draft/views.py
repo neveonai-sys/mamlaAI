@@ -165,6 +165,7 @@ def update_section(request):
     logger.info(f"[update_section] Section {section_id} updated successfully.")
 
     if chk.get('mssg'):
+        cache.delete(f"draft_sections:{session_id}")
         return JsonResponse({'message': 'Section updated'})
     else:
         return JsonResponse({'error': 'Section not found'}, status=404)
@@ -188,6 +189,7 @@ def delete_section(request):
     chk = obj.delete_specific_section_of_the_draft(session_id, section_id)
 
     if chk.get('mssg'):
+        cache.delete(f"draft_sections:{session_id}")
         return JsonResponse({'message': 'Section deleted'})
     else:
         return JsonResponse({'error': 'Section not found or already deleted'}, status=404)
@@ -291,6 +293,7 @@ def add_section(request):
     obj = CreateupdatefetchAIdrafts(user_id)
     chk = obj.add_new_section_in_existing_draft(session_id, section_name, content)
     if chk.get('mssg'):
+        cache.delete(f"draft_sections:{session_id}")
         return JsonResponse({'message': 'Section added', 'section': chk.get('mssg')})
     else:
         return JsonResponse({'error': 'Failed to add section'}, status=500)
@@ -337,6 +340,7 @@ def update_section_order(request):
     obj = CreateupdatefetchAIdrafts(user_id)
     chk = obj.adjust_section_position_in_draft(session_id,draft_sections)
     if chk.get('mssg'):
+        cache.delete(f"draft_sections:{session_id}")
         return JsonResponse({'message': 'Section order updated'})
     else:
         return JsonResponse({'error': 'Failed to add section'}, status=500)

@@ -48,6 +48,15 @@ fi
 
 mkdir -p "$LOG_DIR"
 
+# Rotate a log file before starting a fresh process.
+# The previous active log is kept as name.prev.log (one backup per type, no clutter).
+rotate_log() {
+    local f="$LOG_DIR/$1.log"
+    if [ -s "$f" ]; then
+        mv "$f" "$LOG_DIR/$1.prev.log"
+    fi
+}
+
 PYTHON_BIN="${PYTHON_BIN:-/home/pronoys/miniconda3/envs/myenv/bin/python}"
 if [ ! -x "$PYTHON_BIN" ]; then
     PYTHON_BIN=$(command -v python3 || command -v python)
@@ -69,7 +78,7 @@ import sys
 cfg = dotenv_values(Path(r"$LEGALENV_PATH"))
 missing = []
 
-for key in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "ENCRYPTION_KEY"):
+for key in ("SUPABASE_URL", "SUPABASE_SECRET_KEY", "ENCRYPTION_KEY"):
     if not (cfg.get(key) or "").strip():
         missing.append(key)
 
@@ -124,7 +133,7 @@ export BACKEND_PORT="$BACKEND_PORT"
 cd "$PROJECT_ROOT/Legalv1"
 
 # ── Start backend ──────────────────────────────────────────────────────────
-LOG_DATE=$(date +%d-%m-%Y)
+rotate_log backend
 if [ "$MODE" = "dev" ]; then
     echo "🔧 Starting Django Development Server on port $BACKEND_PORT..."
     nohup "$PYTHON_BIN" manage.py runserver "0.0.0.0:${BACKEND_PORT}" > "$LOG_DIR/backend.log" 2>&1 &
@@ -141,27 +150,30 @@ sleep 5
 # ── Start Celery workers ───────────────────────────────────────────────────
 echo "Starting $MODE Celery workers..."
 
+rotate_log celery
 nohup "$PYTHON_BIN" -m celery -A Legalv1 worker \
     -P gevent \
     --concurrency="$CELERY_GEVENT_CONCURRENCY" \
     --loglevel="$CELERY_LOGLEVEL" \
     -Q celery,audio_processing \
     -n "${CELERY_WORKER_NAME}@%h" \
-    > "$LOG_DIR/${LOG_DATE}_celery.log" 2>&1 &
+    > "$LOG_DIR/celery.log" 2>&1 &
 
+rotate_log celery_ecourts
 nohup "$PYTHON_BIN" -m celery -A Legalv1 worker \
     -P prefork \
     --concurrency="$CELERY_PREFORK_CONCURRENCY" \
     --loglevel="$CELERY_LOGLEVEL" \
     -Q ecourts_realtime,ecourts_background \
     -n "${CELERY_ECOURTS_NAME}@%h" \
-    > "$LOG_DIR/${LOG_DATE}_celery_ecourts.log" 2>&1 &
+    > "$LOG_DIR/celery_ecourts.log" 2>&1 &
 
 if [ "$RUN_BEAT" = "true" ]; then
     echo "Starting Celery Beat (prod only)..."
+    rotate_log celery_beat
     nohup "$PYTHON_BIN" -m celery -A Legalv1 beat \
         --loglevel="$CELERY_LOGLEVEL" \
-        > "$LOG_DIR/${LOG_DATE}_celery_beat.log" 2>&1 &
+        > "$LOG_DIR/celery_beat.log" 2>&1 &
 else
     echo "ℹ️  Celery Beat skipped in dev mode (prevents double email/scheduled triggers)"
 fi
@@ -171,7 +183,7 @@ if [ "$MODE" = "prod" ]; then
     echo "Starting Redis Monitor..."
     cd "$PROJECT_ROOT/Legalv1/scripts"
     ./stop_redis_monitor.sh >/dev/null 2>&1
-    nohup ./start_redis_monitor.sh > "$PROJECT_ROOT/logs/redis_monitor_startup.log" 2>&1 &
+    nohup ./start_redis_monitor.sh >> "$PROJECT_ROOT/logs/redis_monitor.log" 2>&1 &
 fi
 
 # ── Summary ────────────────────────────────────────────────────────────────
@@ -189,12 +201,15 @@ else
 fi
 echo "================================================"
 echo "📋 Logs: $LOG_DIR/"
-echo "  - Django/Gunicorn: $LOG_DIR/backend.log (or ${LOG_DATE}_gunicorn-*.log)"
-echo "  - Celery Worker:   $LOG_DIR/${LOG_DATE}_celery.log"
-echo "  - Celery eCourts:  $LOG_DIR/${LOG_DATE}_celery_ecourts.log"
+echo "  - Django/Gunicorn:  $LOG_DIR/backend.log"
+echo "  - Celery Worker:    $LOG_DIR/celery.log"
+echo "  - Celery eCourts:   $LOG_DIR/celery_ecourts.log"
 if [ "$RUN_BEAT" = "true" ]; then
-    echo "  - Celery Beat:     $LOG_DIR/${LOG_DATE}_celery_beat.log"
+    echo "  - Celery Beat:      $LOG_DIR/celery_beat.log"
+    echo "  - Gunicorn Access:  $LOG_DIR/gunicorn-access.log"
+    echo "  - Redis Monitor:    $PROJECT_ROOT/logs/redis_monitor.log"
 fi
+echo "  (Archives: name.YYYY-MM-DD_HHMM.log — removed after 3 days by cleanup_logs.sh)"
 echo "================================================"
 
 exit 0

@@ -189,6 +189,27 @@ All 18 items implemented and verified (0 editor errors).
 | **Supabase key name standardisation** | `Legalv1/legalenv` · `Legalv1/legalenv.dev` · `Legalv1/Legalv1/settings.py` · `Legalv1/core/apps.py` · `Legalv1/users/supabase_admin.py` · `mamlaAI_ground_zero/frontend/webpack.prod.js` · `mamlaAI_ground_zero/frontend/webpack.dev.js` | Renamed `SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SECRET_KEY` (aligns with Supabase's new `sb_secret_*` key naming). Renamed `REACT_APP_SUPABASE_ANON_KEY` → `REACT_APP_SUPABASE_PUBLISHABLE_KEY` (aligns with Supabase's `sb_publishable_*` key naming). |
 | **`initialize_prod_db` management command** | `Legalv1/core/management/commands/initialize_prod_db.py` (new) | Idempotent one-shot command to bootstrap all MongoDB collections and indexes on a fresh database. Covers 7 groups: core app indexes, eCourts hierarchy, eCourts scraper cache, AI-drafts extended, TalkDoc RAG collections, user sessions, and LangGraph agent registries. Skips indexes whose key pattern already exists under a different auto-generated name to avoid `IndexOptionsConflict`. Usage: `DJANGO_MODE=prod python manage.py initialize_prod_db`. |
 
+### Log Structure Overhaul + Mamla.AI Visual Branding (2026-04-19)
+
+| Change | Location | Purpose |
+|--------|----------|---------|
+| **Log rotation + fixed names** | `start_backend.sh` · `start_scrapper.sh` · `gunicorn_config.py` | Active log files now have stable names (`celery.log`, `backend.log`, `scraper.log`). On restart, non-empty files are renamed to `name.YYYY-MM-DD_HHMM.log` via `rotate_log()`. Eliminated the old `DD-MM-YYYY_name.log` naming scheme. |
+| **Dev/prod log separation** | `start_frontend.sh` | Dev logs go to `logs/dev/frontend.log`; prod frontend uses Nginx (unchanged). |
+| **`cleanup_logs.sh` rewrite** | `cleanup_logs.sh` | Targets rotated archives (`*.????-??-??_????.log`), TimedRotatingFileHandler archives (`gunicorn-access.log.????-??-??`), and legacy `??-??-????_*.log` files. Scans `logs/` and `logs/dev/` (`-maxdepth 2`). Deletes empty `.log` files. Never touches active logs. |
+| **`start_scrapper.sh` rewrite** | `start_scrapper.sh` | Clean ~55-line script using `logs/scraper.log` with `rotate_log()`. Strips dead MODE/python/legalenv copy-paste from old start.sh. |
+| **Mamla.AI SVG logo components** | `mamlaAI_ground_zero/frontend/src/components/common/MamlaLogoIcon.jsx` (new) · `MamlaLogo.jsx` (new) | `MamlaLogoIcon` — courthouse-M SVG icon only, `dark` prop for nav/sidebar use. `MamlaLogo` — full horizontal logo with wordmark + `.AI` saffron badge. Both use React 18 `useId()` to prevent gradient ID collisions on multi-instance pages. |
+| **`favicon.svg` updated** | `mamlaAI_ground_zero/frontend/public/favicon.svg` | Navy tile, courthouse-M with dome/pillars/M diagonals, saffron steps + neural node. 64×64. |
+| **Logo integrated into app** | `Sidebar.jsx` · `AuthShowcase.jsx` · `LandingPage.jsx` · `Login.jsx` · `Signup.jsx` | All brand logo slots replaced with `MamlaLogoIcon` or `MamlaLogo` components. |
+
+### Email HTML Branding + Body Consolidation (2026-04-19)
+
+| Change | Location | Purpose |
+|--------|----------|---------|
+| **`email_templates.py` full rewrite** | `Legalv1/core/email_templates.py` | All templates now return proper HTML via `_html_wrap()` — branded navy header, "Mamla.AI" text logo, saffron accent bar, styled content area, support footer. All existing `@classmethod` methods converted from plain text to HTML. Three new methods added: `email_verification_link(fname, verify_link)`, `meeting_reminder(title, start_time, window_label, meet_link)`, `daily_meetings_summary(consolidated_meetings_text)`. `COMPANY_NAME` updated to `"Mamla.AI"`. |
+| **`initiate_email` HTML detection** | `Legalv1/utilities/routes/utils.py` | `initiate_email()` now checks if body already starts with `<!DOCTYPE` or `<html` before applying `body.replace('\n', '<br>')`. HTML bodies are passed through unmodified; plain text bodies retain the old newline conversion. Added `from core.email_templates import EmailTemplates` import. |
+| **Inline reminder bodies removed** | `Legalv1/utilities/routes/utils.py` (`send_notification_email`, `send_consolidated_notification`) | Both methods replaced inline "Best regards, Your Team" bodies with `EmailTemplates.meeting_reminder()` and `EmailTemplates.daily_meetings_summary()` calls. |
+| **Email verification body consolidated** | `Legalv1/users/routes/checkusers.py` (`send_email_verification_link`) | Inline plain-text verification body replaced with `EmailTemplates.email_verification_link(fname, verify_link)` call. |
+
 ---
 
 ## 3. What Was Intentionally Not Changed

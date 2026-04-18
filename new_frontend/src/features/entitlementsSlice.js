@@ -12,6 +12,7 @@ const initialState = {
     active: false,
     startedAt: '',
     endsAt: '',
+    daysRemaining: 0,
   },
   features: {},
   lastFetchedAt: '',
@@ -34,6 +35,7 @@ const entitlementsSlice = createSlice({
         active: Boolean(payload.trial?.active),
         startedAt: payload.trial?.started_at || '',
         endsAt: payload.trial?.ends_at || '',
+        daysRemaining: payload.trial?.days_remaining ?? 0,
       };
       state.features = payload.features || {};
       state.lastFetchedAt = new Date().toISOString();
@@ -76,7 +78,7 @@ const entitlementsSlice = createSlice({
       state.launchAccess = '';
       state.quotaResetAt = '';
       state.wallet = { balance: 0, currencyCode: 'INR' };
-      state.trial = { active: false, startedAt: '', endsAt: '' };
+      state.trial = { active: false, startedAt: '', endsAt: '', daysRemaining: 0 };
       state.features = {};
       state.lastFetchedAt = '';
     },

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import MamlaLogoIcon from '../common/MamlaLogoIcon';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearUser } from '../../features/userSlice';
 import apiClient from '../../services/api';
@@ -64,7 +65,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
         {!collapsed && (
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-              <span className="material-symbols-outlined text-primary-soft text-2xl icon-filled">account_balance</span>
+              <MamlaLogoIcon dark size={32} />
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-soft/82">Litigation OS</p>
@@ -76,7 +77,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
         )}
         {collapsed && (
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-            <span className="material-symbols-outlined text-primary-soft text-2xl icon-filled">account_balance</span>
+            <MamlaLogoIcon dark size={32} />
           </div>
         )}
         <button

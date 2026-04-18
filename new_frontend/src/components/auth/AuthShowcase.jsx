@@ -1,4 +1,5 @@
 import React from 'react';
+import MamlaLogoIcon from '../common/MamlaLogoIcon';
 
 function ChamberShowcaseIllustration() {
   return (
@@ -46,7 +47,7 @@ export default function AuthShowcase({ eyebrow, title, description, highlights }
         <div>
           <div className="mb-8 flex items-center gap-3 text-white">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/8">
-              <span className="material-symbols-outlined text-2xl text-primary-soft icon-filled">account_balance</span>
+              <MamlaLogoIcon dark size={34} />
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-soft/82">Supreme-ready</p>

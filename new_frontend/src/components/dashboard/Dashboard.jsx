@@ -56,6 +56,17 @@ function QuickActionCard({ icon, title, desc, to }) {
   );
 }
 
+const QUOTA_FEATURE_META = [
+  { code: 'general_legal_chat',     label: 'Legal Chat',       icon: 'forum' },
+  { code: 'brain_doc_analysis',     label: 'Doc Analysis',     icon: 'description' },
+  { code: 'ai_draft_generation',    label: 'AI Drafts',        icon: 'auto_awesome' },
+  { code: 'brain_drafting_actions', label: 'Drafting Actions', icon: 'edit_note' },
+  { code: 'case_companion',         label: 'Case Companion',   icon: 'psychology' },
+  { code: 'ai_suggestions',         label: 'AI Suggestions',   icon: 'lightbulb' },
+  { code: 'ecourts_case_lookup',    label: 'eCourts Lookup',   icon: 'gavel' },
+  { code: 'ecourts_order_download', label: 'Order Downloads',  icon: 'download' },
+];
+
 export default function Dashboard() {
   const { firstname } = useSelector((s) => s.user);
   const { planCode, trial, wallet, quotaResetAt, features } = useSelector((s) => s.entitlements);
@@ -91,6 +102,14 @@ export default function Dashboard() {
   const legalChatQuota = features?.general_legal_chat;
   const draftingQuota = features?.brain_drafting_actions;
   const quotaDateLabel = quotaResetAt ? new Date(quotaResetAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '';
+  const daysRemaining = trial?.daysRemaining ?? 0;
+  const trialExpired = !trial?.active && planCode === 'locked';
+  const trialEndingSoon = trial?.active && daysRemaining <= 3;
+  const allFeaturesExhausted = Object.keys(features || {}).length > 0
+    && Object.values(features || {}).every((f) => (f.remaining_included ?? 1) === 0);
+  const trialEndsLabel = trial?.endsAt
+    ? new Date(trial.endsAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '';
 
   return (
     <div className="p-8 space-y-8 max-w-7xl">
@@ -132,32 +151,50 @@ export default function Dashboard() {
         </div>
 
         {planCode && (
-          <div className="mt-4 rounded-2xl border border-primary/10 bg-white px-5 py-4 shadow-sm">
+          <div className={`mt-4 rounded-2xl border px-5 py-4 shadow-sm ${
+            trialExpired ? 'border-red-200 bg-red-50' :
+            trialEndingSoon ? 'border-amber-200 bg-amber-50' :
+            'border-primary/10 bg-white'
+          }`}>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-primary">Mamla Brain Access</p>
-                <h3 className="mt-2 text-lg font-bold text-ink">
-                  {trial?.active ? 'Trial access is active' : `${String(planCode).replace(/_/g, ' ')} plan active`}
+                <h3 className={`mt-2 text-lg font-bold ${
+                  trialExpired ? 'text-red-700' : trialEndingSoon ? 'text-amber-700' : 'text-ink'
+                }`}>
+                  {trialExpired
+                    ? 'Trial ended — upgrade to continue'
+                    : trialEndingSoon
+                    ? `Trial ending soon — ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
+                    : trial?.active
+                    ? 'Trial access is active'
+                    : allFeaturesExhausted
+                    ? 'Credits used up this cycle'
+                    : `${String(planCode).replace(/_/g, ' ')} plan active`}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  {typeof brainQuota?.remaining_included === 'number' ? `${brainQuota.remaining_included} document analyses left` : 'Brain quota will appear here'}
-                  {typeof legalChatQuota?.remaining_included === 'number' ? ` · ${legalChatQuota.remaining_included} general legal chats left` : ''}
-                  {typeof draftingQuota?.remaining_included === 'number' ? ` · ${draftingQuota.remaining_included} drafting actions left` : ''}
-                  {quotaDateLabel ? ` · resets ${quotaDateLabel}` : ''}
+                  {trialExpired && 'Your 30-day trial has ended. Upgrade to keep using Mamla Brain.'}
+                  {trialEndingSoon && `Trial expires on ${trialEndsLabel}. Upgrade now to avoid interruption.`}
+                  {!trialExpired && !trialEndingSoon && trial?.active && `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining · expires ${trialEndsLabel}`}
+                  {!trialExpired && !trialEndingSoon && !trial?.active && allFeaturesExhausted && 'All included AI quota used. Top up wallet credits or upgrade your plan.'}
+                  {!trialExpired && !trialEndingSoon && !trial?.active && !allFeaturesExhausted && (typeof brainQuota?.remaining_included === 'number' ? `${brainQuota.remaining_included} document analyses left` : 'Brain quota will appear here')}
+                  {!trialExpired && !trialEndingSoon && !trial?.active && !allFeaturesExhausted && typeof legalChatQuota?.remaining_included === 'number' && ` · ${legalChatQuota.remaining_included} general legal chats left`}
+                  {!trialExpired && !trialEndingSoon && !trial?.active && !allFeaturesExhausted && typeof draftingQuota?.remaining_included === 'number' && ` · ${draftingQuota.remaining_included} drafting actions left`}
+                  {!trialExpired && !trialEndingSoon && !trial?.active && !allFeaturesExhausted && quotaDateLabel && ` · resets ${quotaDateLabel}`}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {typeof brainQuota?.remaining_included === 'number' && (
+                {!trialExpired && typeof brainQuota?.remaining_included === 'number' && (
                   <span className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
                     {brainQuota.remaining_included} doc analyses
                   </span>
                 )}
-                {typeof legalChatQuota?.remaining_included === 'number' && (
+                {!trialExpired && typeof legalChatQuota?.remaining_included === 'number' && (
                   <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800">
                     {legalChatQuota.remaining_included} legal chats
                   </span>
                 )}
-                {typeof draftingQuota?.remaining_included === 'number' && (
+                {!trialExpired && typeof draftingQuota?.remaining_included === 'number' && (
                   <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
                     {draftingQuota.remaining_included} drafting actions
                   </span>
@@ -165,8 +202,18 @@ export default function Dashboard() {
                 <span className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
                   {wallet?.balance ?? 0} credits available
                 </span>
-                <button className="rounded-xl border border-primary/15 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-primary/5">
-                  {trial?.active ? 'Review Trial Limits' : 'Review Plan Limits'}
+                <button className={`rounded-xl border px-4 py-2 text-xs font-semibold transition-colors ${
+                  trialExpired || (allFeaturesExhausted && planCode === 'locked')
+                    ? 'border-primary bg-primary text-white hover:bg-primary-dark hover:border-primary-dark'
+                    : 'border-primary/15 text-slate-700 hover:bg-primary/5'
+                }`}>
+                  {trialExpired || (allFeaturesExhausted && planCode === 'locked')
+                    ? 'Upgrade Now'
+                    : allFeaturesExhausted
+                    ? 'Top Up Credits'
+                    : trial?.active
+                    ? 'Review Trial Limits'
+                    : 'Review Plan Limits'}
                 </button>
               </div>
             </div>
@@ -372,6 +419,64 @@ export default function Dashboard() {
           </table>
         </div>
       </section>
+
+      {/* ── AI Usage This Month ──────────────────────────── */}
+      {planCode && Object.keys(features || {}).length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-ink flex items-center gap-2 uppercase tracking-wide text-xs">
+              <span className="material-symbols-outlined text-primary text-lg">analytics</span>
+              AI Usage This Month
+            </h3>
+            {quotaDateLabel && (
+              <span className="text-[10px] text-slate-400 font-medium">resets {quotaDateLabel}</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {QUOTA_FEATURE_META.map(({ code, label, icon }) => {
+              const f = features?.[code];
+              if (!f) return null;
+              const limit = f.included_limit ?? 0;
+              const used = f.used_count ?? 0;
+              const remaining = f.remaining_included ?? Math.max(limit - used, 0);
+              const isUnlimited = limit >= 1000000;
+              const isLocked = !isUnlimited && limit === 0 && Boolean(f.hard_block);
+              const pct = isUnlimited ? 0 : limit > 0 ? Math.min((used / limit) * 100, 100) : 100;
+              const barColor = pct >= 90 ? 'bg-red-400' : pct >= 70 ? 'bg-amber-400' : 'bg-emerald-400';
+              const remainingColor = pct >= 90 ? 'text-red-600' : pct >= 70 ? 'text-amber-600' : 'text-emerald-700';
+              return (
+                <div key={code} className="rounded-xl border border-primary/10 bg-white p-3.5 shadow-sm flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-primary" style={{ fontSize: '15px' }}>{icon}</span>
+                    <span className="text-[11px] font-semibold text-slate-600 leading-tight">{label}</span>
+                  </div>
+                  {isLocked ? (
+                    <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400 self-start">Not in plan</span>
+                  ) : isUnlimited ? (
+                    <span className="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 self-start">∞ Unlimited</span>
+                  ) : (
+                    <>
+                      <div className="flex items-end justify-between">
+                        <span className={`text-xl font-black leading-none ${remainingColor}`}>{remaining}</span>
+                        <span className="text-[10px] text-slate-400 mb-0.5">/ {limit}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        {used} used{f.overage_credit_cost > 0 ? ` · ${f.overage_credit_cost} cr/extra` : ''}
+                      </p>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

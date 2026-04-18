@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux';
 import apiClient from '../../services/api';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import AuthShowcase from './AuthShowcase';
+import MamlaLogo from '../common/MamlaLogo';
 
 const USER_TYPE_OPTIONS = ['Lawyer', 'Client', 'Paralegal'];
 
@@ -85,9 +86,8 @@ export default function Signup() {
           </div>
 
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="material-symbols-outlined text-primary text-3xl icon-filled">gavel</span>
-            <span className="text-xl font-semibold tracking-tight text-ink">Mamla.AI</span>
+          <div className="lg:hidden flex items-center mb-8">
+            <MamlaLogo height={44} />
           </div>
 
           <div className="rounded-[1.75rem] border border-slate-200/80 bg-white p-7 shadow-card lg:p-8">

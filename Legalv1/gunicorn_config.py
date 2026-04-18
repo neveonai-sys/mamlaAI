@@ -1,11 +1,8 @@
 """
 Gunicorn configuration for production deployment
-Includes log rotation to prevent disk space issues
 """
 import multiprocessing
 import os
-from datetime import datetime
-from logging.handlers import TimedRotatingFileHandler
 
 # Server socket
 # BACKEND_PORT env var set by start_backend.sh (8000 prod, 8100 dev)
@@ -27,15 +24,13 @@ keepalive = 2
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
 
-now_date_str = datetime.now().strftime('%d-%m-%Y')
+# Access log — TimedRotatingFileHandler rotates at midnight, appending .YYYY-MM-DD suffix
+accesslog = os.path.join(LOG_DIR, 'gunicorn-access.log')
+access_log_format = '%(h)s "%(r)s" %(s)s %(b)s %(D)s'  # IP, request, status, bytes, time
 
-# Access log with rotation - simplified format for performance
-accesslog = os.path.join(LOG_DIR, f'{now_date_str}_gunicorn-access.log')
-access_log_format = '%(h)s "%(r)s" %(s)s %(b)s %(D)s'  # Minimal format: IP, request, status, bytes, time
-
-# Error log with rotation
-errorlog = os.path.join(LOG_DIR, f'{now_date_str}_gunicorn-error.log')
-loglevel = 'warning'  # Only warnings and errors (not INFO - reduces log volume)
+# Error log — use stderr so errors go to backend.log (captured by nohup in start_backend.sh)
+errorlog = '-'
+loglevel = 'warning'
 
 # Process naming
 proc_name = 'mamla_ai_gunicorn'
@@ -52,7 +47,7 @@ tmp_upload_dir = None
 # keyfile = '/path/to/ssl/key.pem'
 # certfile = '/path/to/ssl/cert.pem'
 
-# Log rotation configuration
+# Log rotation — TimedRotatingFileHandler rotates access log nightly
 logconfig_dict = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -64,36 +59,36 @@ logconfig_dict = {
         },
     },
     'handlers': {
-        'error_file': {
-            'class': 'logging.handlers.TimedRotatingFileHandler',
+        # stderr handler — errors bubble here → captured by nohup to backend.log
+        'error_console': {
+            'class': 'logging.StreamHandler',
             'formatter': 'generic',
-            'filename': os.path.join(LOG_DIR, f'{now_date_str}_gunicorn-error.log'),
-            'when': 'midnight',
-            'interval': 1,
-            'backupCount': 3,  # Keep only 3 days of logs
+            'stream': 'ext://sys.stderr',
         },
         'access_file': {
             'class': 'logging.handlers.TimedRotatingFileHandler',
             'formatter': 'generic',
-            'filename': os.path.join(LOG_DIR, f'{now_date_str}_gunicorn-access.log'),
+            'filename': os.path.join(LOG_DIR, 'gunicorn-access.log'),
             'when': 'midnight',
             'interval': 1,
-            'backupCount': 3,  # Keep only 3 days of logs
+            'backupCount': 3,
         },
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'generic',
-        },
+    },
+    # Override CONFIG_DEFAULTS root so it doesn't reference the removed 'console' handler.
+    # WARNING+ goes to stderr (→ backend.log via nohup redirect).
+    'root': {
+        'level': 'WARNING',
+        'handlers': ['error_console'],
     },
     'loggers': {
         'gunicorn.error': {
-            'handlers': ['error_file'],  # No console in production (performance)
-            'level': 'WARNING',  # Only warnings and errors
-            'propagate': False,
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': True,  # bubbles to root → stderr → backend.log
         },
         'gunicorn.access': {
             'handlers': ['access_file'],
-            'level': 'INFO',  # Keep access logs at INFO (useful for analytics)
+            'level': 'INFO',
             'propagate': False,
         },
     },

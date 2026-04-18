@@ -12,8 +12,6 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 import os
-from datetime import datetime
-from logging.handlers import TimedRotatingFileHandler
 from celery.schedules import crontab
 from dotenv import load_dotenv
 
@@ -205,8 +203,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'Legalv1.wsgi.application'
 
-# settings.py
-now_date_str = datetime.strftime(datetime.now().date(),'%d-%m-%Y')
+# ── Logging ───────────────────────────────────────────────────────────────
+# Absolute log path so logging works regardless of cwd (gunicorn, runserver, etc.)
+_is_dev = os.environ.get('DJANGO_MODE') == 'dev'
+_log_dir = BASE_DIR.parent / 'logs' / ('dev' if _is_dev else '')
+os.makedirs(_log_dir, exist_ok=True)
+
 DJANGO_LOG_LEVEL = os.getenv('DJANGO_LOG_LEVEL', 'INFO' if DEBUG else 'WARNING')
 LOGGING = {
     'version': 1,
@@ -220,7 +222,7 @@ LOGGING = {
     'handlers': {
         'file': {
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': f'../logs/{now_date_str}_django.log',
+            'filename': str(_log_dir / 'django.log'),
             'when': 'midnight',
             'interval': 1,
             'backupCount': 3,
@@ -258,6 +260,11 @@ LOGGING = {
 
 #frontend url
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://mamla.ai')
+
+# Admin emails — comma-separated; always resolve to 'internal' plan (unlimited quotas, no blocks).
+# Set in legalenv/legalenv.dev — never hardcode here.
+# Example: BRAIN_ADMIN_EMAILS=mems650@gmail.com,robin.mondal@gmail.com,neveon.ai@gmail.com
+BRAIN_ADMIN_EMAILS = os.getenv('BRAIN_ADMIN_EMAILS', '')
 
 #supabse details
 SUPABASE_URL = (os.getenv('SUPABASE_URL') or '').strip()

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import MamlaLogoIcon from '../common/MamlaLogoIcon';
 import { Link, useNavigate } from 'react-router-dom';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
@@ -18,13 +19,13 @@ const NEWS_ITEMS = [
 ];
 
 const FEATURES = [
-  { icon: 'calendar_month',  title: 'Calendar Management',          tag: 'Core', desc: 'Smart hearing date tracking, automated reminders, and cross-court calendar sync. Never miss a filing deadline or hearing date again.' },
   { icon: 'edit_note',       title: 'AI Drafting',                   tag: 'Core', desc: 'Generate petitions, affidavits, contracts and legal notices — court-formatted and ready to file, powered by AI trained on Indian legal formats.' },
+  { icon: 'search',          title: 'eCourt Integration',            tag: 'Live', desc: 'Pull live case status, orders, and cause lists from District Courts and High Courts. Supreme Court & Tribunal support coming soon.' },
+  { icon: 'calendar_month',  title: 'Calendar Management',          tag: 'Core', desc: 'Smart hearing date tracking, automated reminders, and cross-court calendar sync. Never miss a filing deadline or hearing date again.' },
   { icon: 'layers',          title: 'Agentic Document Analysis',     tag: 'Core', desc: 'Upload any legal document and let AI agents extract key clauses, identify risks, summarize holdings, and cross-reference precedents.' },
   { icon: 'track_changes',   title: 'Case Strategiser',              tag: 'Core', desc: 'AI-driven case strategy builder — analyzes facts, identifies applicable laws, suggests arguments, and maps potential outcomes.' },
-  { icon: 'people',          title: 'Client Lifecycle Management',   tag: 'Core', desc: 'Track every client from intake to resolution — communications, documents, billing milestones, and case progress in one place.' },
-  { icon: 'search',          title: 'eCourt Integration',            tag: 'Live', desc: 'Pull live case status, orders, and cause lists from District Courts and High Courts. Supreme Court & Tribunal support coming soon.' },
   { icon: 'format_quote',    title: 'Citation Search',               tag: 'Core', desc: 'Find relevant case citations across Indian courts. Search by section, act, keyword, or case name to build stronger arguments.' },
+  { icon: 'people',          title: 'Client Lifecycle Management',   tag: 'Core', desc: 'Track every client from intake to resolution — communications, documents, billing milestones, and case progress in one place.' },
   { icon: 'shield',          title: 'Secure & Private',              tag: null,   desc: 'End-to-end encryption for all client data. Your case files stay yours — built to meet legal-grade privacy and security standards.' },
 ];
 
@@ -69,7 +70,7 @@ const PRICING_PLANS = [
     period: '30 days',
     cta: 'Start Free',
     recommended: false,
-    items: ['24 Legal Chat queries', '8 Doc Analysis sessions', '20 AI Drafts', '12 Drafting actions', 'Case Registry (20 cases)', 'Calendar — unlimited', 'CNR Lookup (30/month)'],
+    items: ['24 Legal Chat queries', '8 Doc Analysis sessions', '20 AI Drafts', '12 Drafting actions', '2 Case Companion sessions', 'Case Registry (20 cases)', 'Calendar — unlimited', 'eCourts CNR Lookup (30/month)'],
   },
   {
     name: 'Vakil Starter',
@@ -832,13 +833,13 @@ export default function LandingPage() {
   }, []);
 
   const productItems = [
-    { icon: 'calendar_month',  label: 'Calendar Management',        desc: 'Smart hearing & deadline tracking',    href: '#features' },
     { icon: 'edit_note',       label: 'AI Drafting',                 desc: 'Generate court-ready legal documents', href: '#features' },
+    { icon: 'search',          label: 'eCourt Integration',          desc: 'District & High Court live feed',      href: '#features' },
     { icon: 'layers',          label: 'Agentic Doc Analysis',        desc: 'AI-powered document intelligence',     href: '#features' },
+    { icon: 'format_quote',    label: 'Citation Search',             desc: 'Find legal citations instantly',       href: '#features' },
+    { icon: 'calendar_month',  label: 'Calendar Management',        desc: 'Smart hearing & deadline tracking',    href: '#features' },
     { icon: 'track_changes',   label: 'Case Strategiser',            desc: 'Build winning case strategies',        href: '#features' },
     { icon: 'people',          label: 'Client Lifecycle Management', desc: 'End-to-end client tracking',           href: '#features' },
-    { icon: 'search',          label: 'eCourt Integration',          desc: 'District & High Court live feed',      href: '#features' },
-    { icon: 'format_quote',    label: 'Citation Search',             desc: 'Find legal citations instantly',       href: '#features' },
   ];
 
   const solutionItems = [
@@ -873,7 +874,7 @@ export default function LandingPage() {
           {/* Logo */}
           <Link to="/" className="flex flex-shrink-0 items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/6">
-              <span className="material-symbols-outlined text-lg text-primary-soft">account_balance</span>
+              <MamlaLogoIcon dark size={30} />
             </div>
             <span className="font-display text-lg font-semibold tracking-tight text-white">Mamla.AI</span>
           </Link>
@@ -1104,7 +1105,7 @@ export default function LandingPage() {
             <div>
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/6">
-                  <span className="material-symbols-outlined text-lg text-primary-soft">account_balance</span>
+                  <MamlaLogoIcon dark size={30} />
                 </div>
                 <span className="font-display text-lg font-semibold text-white">Mamla.AI</span>
               </div>

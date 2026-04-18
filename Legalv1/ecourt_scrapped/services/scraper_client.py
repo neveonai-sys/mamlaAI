@@ -12,7 +12,7 @@ import requests
 
 logger = logging.getLogger("django")
 
-SCRAPER_BASE = os.environ.get("ECOURTS_SCRAPER_BASE_URL", "http://localhost:8001/dc")
+SCRAPER_BASE = os.environ.get("ECOURTS_SCRAPER_BASE_URL")
 SCRAPER_TIMEOUT = int(os.environ.get("ECOURTS_SCRAPER_TIMEOUT", "120"))
 
 

@@ -5,6 +5,7 @@ import { setUser, clearUser } from '../../features/userSlice';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import apiClient from '../../services/api';
 import AuthShowcase from './AuthShowcase';
+import MamlaLogo from '../common/MamlaLogo';
 
 export default function Login() {
   const dispatch = useDispatch();
@@ -73,9 +74,8 @@ export default function Login() {
           </div>
 
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-10 text-primary">
-            <span className="material-symbols-outlined text-3xl icon-filled">gavel</span>
-            <span className="text-xl font-semibold">Mamla.AI</span>
+          <div className="lg:hidden flex items-center mb-10">
+            <MamlaLogo height={44} />
           </div>
 
           <div className="mb-8">

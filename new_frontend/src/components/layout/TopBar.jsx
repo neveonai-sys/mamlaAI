@@ -163,7 +163,9 @@ export default function TopBar({ onToggleSidebar, title }) {
   const { user_type } = useSelector((s) => s.user);
   const brainRemaining = features?.brain_doc_analysis?.remaining_included;
   const legalChatRemaining = features?.general_legal_chat?.remaining_included;
-  const planLabel = trial?.active ? 'Trial' : (planCode || 'Plan').replace(/_/g, ' ');
+  const planLabel = trial?.active
+    ? `Trial (${trial.daysRemaining != null ? trial.daysRemaining : ''}d)`
+    : (planCode || 'Plan').replace(/_/g, ' ');
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -523,7 +525,11 @@ export default function TopBar({ onToggleSidebar, title }) {
       <div className="flex items-center gap-2 ml-auto">
         {planCode && (
           <div className="hidden xl:flex items-center gap-2 mr-2">
-            <span className="rounded-full border border-primary/15 bg-primary-dark px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
+            <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white ${
+              trial?.active && (trial?.daysRemaining ?? 99) <= 3
+                ? 'border-amber-500 bg-amber-500'
+                : 'border-primary/15 bg-primary-dark'
+            }`}>
               {planLabel}
             </span>
             {typeof brainRemaining === 'number' && (

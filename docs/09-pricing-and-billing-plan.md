@@ -1,7 +1,7 @@
 # 09 — Pricing & Billing Plan
 
-> **Status:** PLANNING — Approved pricing architecture. Phase A (plan definitions) is the next implementation sprint. Payment gateway (Razorpay recommended) wired in a later sprint once confirmed.
-> Last updated: 2026-03-31
+> **Status:** Phase A COMPLETE — Plan definitions implemented. Phase B (billing backend + payment gateway) is the next sprint.
+> Last updated: 2026-04-18
 
 ---
 
@@ -87,7 +87,7 @@ Pro and Power already include eCourts — these add-ons are only meaningful for 
 
 | Add-on | Price | Includes |
 |--------|-------|---------|
-| **eCourts Basic** | ₹99/month | +20 order downloads, basic advocate search |
+| **eCourts Basic** | ₹299/month | +20 order downloads, basic advocate search |
 | **eCourts Pro** | ₹249/month | +100 order downloads, full advocate search, cause list |
 
 Add-ons renew monthly independently and can be cancelled anytime.
@@ -114,6 +114,8 @@ Pre-purchase credits to cover feature overage mid-cycle. Auto-top-up supported: 
 | Drafting action / suggestion | 2 |
 | AI Draft generation | 4 |
 | Case Companion session | 5 |
+| eCourts CNR / case lookup | 1 |
+| eCourts order PDF download | 3 |
 
 ---
 
@@ -143,13 +145,38 @@ Pre-purchase credits to cover feature overage mid-cycle. Auto-top-up supported: 
 
 ## 8. Implementation Phases
 
-### Phase A — Plan Definitions (no payments yet)
+### Phase A — Plan Definitions ✅ DONE (2026-04-18)
 
-Extend `Legalv1/core/entitlements.py`:
-- Add 7 new plan codes to `PLAN_FEATURES`: `nagrik_free`, `nagrik_basic`, `vakil_starter`, `vakil_pro`, `vakil_power`, `firm_basic`, `firm_pro`
-- Add 2 new feature codes to `FEATURE_ORDER`: `ecourts_case_lookup`, `ecourts_order_download`
-- Enforce `ecourts_order_download` quota in `ecourts_scraper/views.py` order download endpoint
-- Enforce `ecourts_case_lookup` quota for CNR lookup in `ecourts_scraper/views.py`
+**`Legalv1/core/entitlements.py`** — implemented:
+- Added 7 new plan codes to `PLAN_FEATURES`: `nagrik_free`, `nagrik_basic`, `vakil_starter`, `vakil_pro`, `vakil_power`, `firm_basic`, `firm_pro`
+- Added 2 new feature codes to `FEATURE_ORDER`: `ecourts_case_lookup`, `ecourts_order_download` (with per-plan quotas for all plans)
+- Added `PAID_PLANS` set — paid plan codes never hit trial→locked expiry check in Phase A
+- Updated `_effective_plan_code()` to handle all new plan codes via `PAID_PLANS`
+- Added **dev-mode bypass** in `authorize_feature_use()`: when `DEBUG=True`, all users are always allowed — no blocks in local development
+- Added `trial.days_remaining` to `get_entitlement_summary()` response
+
+**`Legalv1/Legalv1/settings.py`** — implemented:
+- Added `BRAIN_ADMIN_EMAILS = os.getenv('BRAIN_ADMIN_EMAILS', '')` — resolves to `internal` plan (unlimited, no blocks)
+- Set in `legalenv.dev` (not committed): `BRAIN_ADMIN_EMAILS=mems650@gmail.com,robin.mondal@gmail.com,neveon.ai@gmail.com`
+
+**Trial plan quotas** (what new users get on signup for 30 days):
+
+| Feature | Included | Hard block when 0? |
+|---------|:--------:|:------------------:|
+| Doc Analysis | 8 | No (wallet fallback) |
+| Legal Chat | 24 | No |
+| Drafting Actions | 12 | No |
+| Case Companion | 2 | No |
+| AI Suggestions | 0 | No |
+| AI Draft Generation | 20 | No |
+| eCourts CNR Lookup | 30 | No |
+| eCourts Order Download | 0 | **Yes** |
+
+Trial expires whichever comes first: **30 days elapsed** OR **wallet exhausted** (wallet top-up allowed during trial). After expiry, plan code becomes `locked` — wallet credits still work as soft grace.
+
+**Deferred to Phase B:**
+- Enforce `ecourts_order_download` quota in `ecourts_api/views.py`
+- Enforce `ecourts_case_lookup` quota in `ecourts_api/views.py`
 
 ### Phase B — Billing Backend
 

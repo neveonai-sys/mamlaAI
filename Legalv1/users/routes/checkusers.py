@@ -142,20 +142,14 @@ class Handleuserdata:
         https://example.com/verify-email?token=verification_token
         The user must click within 24 hours to verify.
         """
-        frontend_url = FRONTEND_URL  # Define this in settings
+        frontend_url = FRONTEND_URL
         verify_link = f"{frontend_url}/api/users/verify-email/?token={verification_token}"
-        subject = "Email Verification"
-        body = (
-            f"Hello {fname},\n\n"
-            f"Please click the link below to verify your email (valid for 24 hours):\n{verify_link}\n\n"
-            "Regards,\nYour Platform Team"
-        )
-        # send_email_celery.delay(email, subject, body)
+        subject, body = EmailTemplates.email_verification_link(fname, verify_link)
         obj = Handutilities()
         payload = {
-        "to_emails": email,
-        "subject": subject,
-        "body": body
+            "to_emails": email,
+            "subject": subject,
+            "body": body,
         }
         chk = obj.initiate_email(payload)
         logger.info(f"[DEBUG] Sending email to {email} with link {verify_link}")

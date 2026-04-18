@@ -21,6 +21,7 @@ fi
 
 echo "🎨 Setting up Frontend ($MODE mode)..."
 mkdir -p "$PROJECT_ROOT/logs"
+mkdir -p "$PROJECT_ROOT/logs/dev"
 
 if ! command -v node &>/dev/null || ! command -v npm &>/dev/null; then
     echo "Error: Node.js and npm are required but not installed."
@@ -52,8 +53,10 @@ if [ "$MODE" = "dev" ]; then
     echo "🔗 API proxy: /api → http://localhost:8100"
     kill -9 $(ps -fu $USER | grep -v grep | grep 'webpack serve' | awk '{print $2}') 2>/dev/null
     kill -9 $(ps -fu $USER | grep -v grep | grep webpack | awk '{print $2}') 2>/dev/null
-    nohup npm start > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
-    echo "  ✅ Dev server starting — logs: $PROJECT_ROOT/logs/frontend.log"
+    DEV_LOG="$PROJECT_ROOT/logs/dev/frontend.log"
+    [ -s "$DEV_LOG" ] && mv "$DEV_LOG" "$PROJECT_ROOT/logs/dev/frontend.$(date +%Y-%m-%d_%H%M).log"
+    nohup npm start > "$DEV_LOG" 2>&1 &
+    echo "  ✅ Dev server starting — logs: $DEV_LOG"
 else
     echo "🏭 Building Production Bundle..."
     echo "⚡ Minification: ENABLED | 📦 Code Splitting: ENABLED | 🔒 Source Maps: DISABLED"
