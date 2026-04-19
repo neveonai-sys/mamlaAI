@@ -1,7 +1,38 @@
 # 13 — Feature Charges by Plan
 
-> **Reference doc.** Reflects `Legalv1/core/entitlements.py` `PLAN_FEATURES` as of 2026-04-18.
+> **Reference doc.** Reflects `Legalv1/core/entitlements.py` `PLAN_FEATURES` as of 2026-04-19.
 > Update this whenever `PLAN_FEATURES` changes.
+
+---
+
+## eCourts Implementation Note
+
+Only **`ecourt_scrapped` v2** (FastAPI-based scraper proxy at `ECOURTS_SCRAPER_BASE_URL`) is active in production.
+
+| App | Status | Notes |
+|---|---|---|
+| `ecourt_scrapped` | ✅ **ACTIVE** | FastAPI scraper proxy — all eCourts traffic goes here |
+| `ecourts_scraper` | ⛔ DORMANT | Old Python scraper — disabled due to CAPTCHA issues |
+| `ecourts_api` | ⛔ DEPRECATED | Partner API reference — kept for code history only, not in runtime |
+
+eCourts features (`ecourts_case_lookup`, `ecourts_order_download`) cost **compute only** (CAPTCHA solving in the FastAPI layer). There are no per-call third-party charges, so quotas are intentionally generous.
+
+---
+
+## User Type Feature Separation
+
+Plans are split across two user types. Certain features are **hard-blocked** on Nagrik (citizen) plans because they are only useful to lawyers:
+
+| Feature | Vakil / Firm plans | Nagrik plans |
+|---|---|---|
+| Legal Chat | ✅ Available | ✅ Available |
+| Doc Analysis | ✅ Available | ✅ Available |
+| AI Draft Generation | ✅ Available | ✅ Available (limited quota) |
+| eCourts CNR Lookup | ✅ Available | ✅ Available (limited quota) |
+| eCourts Order Download | ✅ Available | ✅ Basic+ only (3/month); Free = blocked |
+| **Drafting Actions** | ✅ Available | ❌ Hard-blocked (lawyer workflow) |
+| **AI Suggestions** | ✅ Available | ❌ Hard-blocked (lawyer drafting tool) |
+| **Case Companion** | ✅ Available | ❌ Hard-blocked (case-registry/hearing workflow) |
 
 ---
 
@@ -55,11 +86,11 @@ Overage only kicks in when the plan's `included_limit` is exhausted **and** `har
 | Legal Chat | 24 | No |
 | Doc Analysis | 8 | No |
 | Drafting Actions | 12 | No |
-| AI Suggestions | 0 | No |
+| AI Suggestions | **5** | No |
 | AI Draft Generation | 20 | No |
 | Case Companion | 2 | No |
-| eCourts CNR Lookup | 30 | No |
-| eCourts Order Download | 0 | **Yes** |
+| eCourts CNR Lookup | **50** | No |
+| eCourts Order Download | **5** | No |
 
 > Trial wallet top-up: allowed. Overage credits can be purchased and used before the trial ends.
 > After trial expires: plan becomes `locked`. Wallet credits still work as soft grace for features with `hard_block: false`.
@@ -76,7 +107,7 @@ Overage only kicks in when the plan's `included_limit` is exhausted **and** `har
 | AI Suggestions | 0 | **Yes** (lawyer-only) |
 | AI Draft Generation | 1 | No |
 | Case Companion | 0 | **Yes** (lawyer-only) |
-| eCourts CNR Lookup | 5 | No |
+| eCourts CNR Lookup | **10** | No |
 | eCourts Order Download | 0 | **Yes** |
 
 ---
@@ -91,8 +122,8 @@ Overage only kicks in when the plan's `included_limit` is exhausted **and** `har
 | AI Suggestions | 0 | **Yes** (lawyer-only) |
 | AI Draft Generation | 5 | No |
 | Case Companion | 0 | **Yes** (lawyer-only) |
-| eCourts CNR Lookup | 15 | No |
-| eCourts Order Download | 0 | **Yes** |
+| eCourts CNR Lookup | **30** | No |
+| eCourts Order Download | **3** | No |
 
 ---
 
@@ -103,13 +134,11 @@ Overage only kicks in when the plan's `included_limit` is exhausted **and** `har
 | Legal Chat | 50 | No |
 | Doc Analysis | 15 | No |
 | Drafting Actions | 20 | No |
-| AI Suggestions | 0 | No |
+| AI Suggestions | **10** | No |
 | AI Draft Generation | 30 | No |
 | Case Companion | 3 | No |
-| eCourts CNR Lookup | 30 | No |
-| eCourts Order Download | 0 | **Yes** |
-
-> eCourts order downloads are hard-blocked on Starter. Users need Vakil Pro or the eCourts Basic add-on (₹299/month, +20 downloads).
+| eCourts CNR Lookup | **60** | No |
+| eCourts Order Download | **15** | No |
 
 ---
 
@@ -120,11 +149,11 @@ Overage only kicks in when the plan's `included_limit` is exhausted **and** `har
 | Legal Chat | 150 | No |
 | Doc Analysis | 40 | No |
 | Drafting Actions | 60 | No |
-| AI Suggestions | 20 | No |
+| AI Suggestions | **25** | No |
 | AI Draft Generation | 70 | No |
 | Case Companion | 10 | No |
 | eCourts CNR Lookup | ∞ Unlimited | No |
-| eCourts Order Download | 30 | No |
+| eCourts Order Download | **50** | No |
 
 ---
 
@@ -135,23 +164,23 @@ Overage only kicks in when the plan's `included_limit` is exhausted **and** `har
 | Legal Chat | 400 | No |
 | Doc Analysis | 100 | No |
 | Drafting Actions | 150 | No |
-| AI Suggestions | 60 | No |
+| AI Suggestions | **75** | No |
 | AI Draft Generation | 150 | No |
 | Case Companion | 30 | No |
 | eCourts CNR Lookup | ∞ Unlimited | No |
-| eCourts Order Download | 100 | No |
+| eCourts Order Download | **150** | No |
 
 ---
 
 ### Firm Basic ₹1,999/month (up to 3 seats — Vakil Pro quotas per seat)
 
-Same per-seat quotas as Vakil Pro. Shared wallet: ₹500.
+Same per-seat quotas as Vakil Pro (AI Suggestions: 25, eCourts Order Download: 50). Shared wallet: ₹500.
 
 ---
 
 ### Firm Pro ₹4,499/month (up to 8 seats — Vakil Power quotas per seat)
 
-Same per-seat quotas as Vakil Power. Shared wallet: ₹2,000.
+Same per-seat quotas as Vakil Power (AI Suggestions: 75, eCourts Order Download: 150). Shared wallet: ₹2,000.
 
 ---
 
@@ -162,11 +191,11 @@ Same per-seat quotas as Vakil Power. Shared wallet: ₹2,000.
 | Legal Chat | 120 |
 | Doc Analysis | 30 |
 | Drafting Actions | 40 |
-| AI Suggestions | 0 |
+| AI Suggestions | **20** |
 | AI Draft Generation | 60 |
 | Case Companion | 8 |
 | eCourts CNR Lookup | ∞ Unlimited |
-| eCourts Order Download | 30 |
+| eCourts Order Download | **40** |
 
 ---
 
@@ -184,17 +213,6 @@ Internal = admin emails in `BRAIN_ADMIN_EMAILS` env var. Enterprise = manually a
 | All features | 0 | Yes (soft grace via wallet) |
 
 Wallet credits still work on `locked` — user can top up and pay per-use until they upgrade. No feature has `hard_block: true` in the `locked` plan itself, so wallet is the only recourse.
-
----
-
-## eCourts Add-ons (Vakil Starter only)
-
-| Add-on | Price | What it adds |
-|---|---|---|
-| eCourts Basic | ₹299/month | +20 order downloads, basic advocate search |
-| eCourts Pro | ₹249/month | +100 order downloads, full advocate search, cause list |
-
-Add-ons are independent subscriptions, cancel anytime. Pro and Power already include eCourts — add-ons are only sold to Starter users.
 
 ---
 

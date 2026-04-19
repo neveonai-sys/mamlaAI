@@ -168,7 +168,7 @@ class Handleusermetadata:
         return resp["user"]
     
 
-    def create_newuser_and_insert_metadata(self, phone_number, fname, lname, email, password, user_type, whatsappOptIn, agreedTnC, user_status, barcode_id=None, case_ids=[], state=None, district=None, courts=[], user_id=None, prefilled=False):
+    def create_newuser_and_insert_metadata(self, phone_number, fname, lname, email, password, user_type, whatsappOptIn, agreedTnC, user_status, barcode_id=None, case_ids=[], state=None, district=None, courts=[], user_id=None, prefilled=False, organization=None):
         try:
             dtmstr = datetime.datetime.now(datetime.timezone.utc)
             user_id = user_id or self.generate_username(fname.lower(),lname.lower())+'_'+dtmstr.strftime("%Y%m%d%H%M%S")
@@ -204,6 +204,7 @@ class Handleusermetadata:
                             "agreedTnC": agreedTnC,
                             "user_status": user_status,
                             "barcode_id": barcode_id,
+                            "organization": organization,
                             "case_ids": case_ids,
                             "state": state,
                             "district": district,

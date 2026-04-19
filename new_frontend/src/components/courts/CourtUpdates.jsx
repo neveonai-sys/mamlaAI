@@ -133,14 +133,21 @@ function SubscriptionPanel({ onClose }) {
       .catch(() => {})
       .finally(() => setLoadingSubs(false));
     apiClient.get('users/get-states/')
-      .then((r) => setStates(r.data?.states ?? r.data ?? []))
+      .then((r) => {
+        const raw = r.data?.states ?? r.data ?? [];
+        setStates(raw.map((s) => (typeof s === 'string' ? s : s.name)));
+      })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!selState) { setDistricts([]); setSelDistrict(''); return; }
-    apiClient.get(`users/get-districts/?state=${encodeURIComponent(selState)}`)
-      .then((r) => { setDistricts(r.data?.districts ?? r.data ?? []); setSelDistrict(''); setCourts([]); setSelCourt(''); })
+    apiClient.get(`users/get-districts/?state_code=${encodeURIComponent(selState)}`)
+      .then((r) => { 
+        const raw = r.data?.districts ?? r.data ?? [];
+        setDistricts(raw.map((d) => (typeof d === 'string' ? d : d.name)));
+        setSelDistrict(''); setCourts([]); setSelCourt('');
+      })
       .catch(() => {});
   }, [selState]);
 

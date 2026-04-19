@@ -509,6 +509,46 @@ class EmailTemplates:
 </p>"""
         return subject, cls._html_wrap(content)
 
+    @classmethod
+    def draft_delivery_email(cls, lawyer_fname: str, client_fname: str, draft_title: str,
+                             draft_summary: str = '', note: str = '') -> tuple:
+        """
+        Email sent by a lawyer to a client with a legal draft attached (PDF + DOCX).
+        Returns (subject, html_body) tuple.
+        """
+        subject = f"Legal Draft from {lawyer_fname} — {draft_title}"
+        note_block = (
+            f"""<div style="background:#f8fafc;border-left:3px solid #FF9800;padding:12px 16px;
+                     margin:16px 0;border-radius:0 8px 8px 0;">
+  <p style="margin:0;font-size:13px;color:#374151;"><strong>Note from {lawyer_fname}:</strong><br>
+  {note}</p>
+</div>"""
+            if note else ''
+        )
+        summary_block = (
+            f"""<p style="color:#6b7280;font-size:13px;line-height:1.6;">
+  <strong>Document summary:</strong><br>{draft_summary}
+</p>"""
+            if draft_summary else ''
+        )
+        content = f"""
+<p>Dear <strong>{client_fname}</strong>,</p>
+<p>Your advocate <strong>{lawyer_fname}</strong> has prepared the following legal document for you
+   and shared it via <strong>{cls.COMPANY_NAME}</strong>:</p>
+<p style="font-size:16px;font-weight:700;color:#0f2544;">&#8220;{draft_title}&#8221;</p>
+{note_block}
+{summary_block}
+<p>The full draft is attached to this email for your convenience.</p>
+<p style="color:#6b7280;font-size:13px;">
+  Please review the document carefully. If you have questions or need changes, reach out to your
+  advocate or log into {cls.COMPANY_NAME} to track your case.
+</p>
+<p style="color:#9ca3af;font-size:12px;margin-top:24px;">
+  This document was generated and shared using {cls.COMPANY_NAME}. Do not reply to this email —
+  contact your advocate directly for any queries.
+</p>"""
+        return subject, cls._html_wrap(content)
+
     # ── System Notifications ──────────────────────────────────────────────────
 
     @classmethod

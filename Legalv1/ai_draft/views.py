@@ -1089,3 +1089,146 @@ def guide_generate(request):
         return JsonResponse({'error': result.get('error', 'Draft generation failed.')}, status=400)
     _finalize_draft_quota(request, 'ai_draft_generation', decision)
     return JsonResponse({'session_id': result['session_id']})
+
+
+# ── Draft Email Delivery ────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@supabase_required
+def send_draft_to_client(request):
+    """
+    POST /api/aidrafts/send_draft/
+    Body: {
+      session_id: str,
+      to_emails:  [str],   # max 5
+      cc_emails:  [str],   # optional
+      note:       str,     # optional lawyer note
+      format:     'docx' | 'pdf'   # default 'docx'
+    }
+    Generates draft attachment in the requested format and emails it.
+    """
+    import base64
+    import re
+    from io import BytesIO
+    import resend
+    from django.conf import settings
+    from core.email_templates import EmailTemplates
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+    supa_user = request.supabase_user
+    user_id   = supa_user.get('user_id')
+    user_type = supa_user.get('user_type', 'Client')
+
+    # Only lawyers/paralegals can send drafts to clients
+    if user_type == 'Client':
+        return JsonResponse({'error': 'Only lawyers can send drafts to clients.'}, status=403)
+
+    session_id  = (data.get('session_id') or '').strip()
+    to_emails   = data.get('to_emails', [])
+    cc_emails   = data.get('cc_emails', [])
+    note        = (data.get('note') or '').strip()
+    send_format = (data.get('format') or 'docx').lower()
+
+    if send_format not in ('docx', 'pdf'):
+        return JsonResponse({'error': "format must be 'docx' or 'pdf'."}, status=400)
+    if not session_id:
+        return JsonResponse({'error': 'session_id is required.'}, status=400)
+    if not isinstance(to_emails, list) or not to_emails:
+        return JsonResponse({'error': 'to_emails must be a non-empty list.'}, status=400)
+    if len(to_emails) > 5:
+        return JsonResponse({'error': 'Maximum 5 recipients allowed.'}, status=400)
+
+    # Basic email format validation
+    _email_re = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+    for addr in to_emails + (cc_emails if isinstance(cc_emails, list) else []):
+        if not _email_re.match(addr):
+            return JsonResponse({'error': f'Invalid email address: {addr}'}, status=400)
+
+    obj = CreateupdatefetchAIdrafts(user_id)
+
+    # ── Get draft sections ───────────────────────────────────────────────────
+    sections_result = obj.retrieve_sections_of_draft(session_id)
+    draft_sections  = sections_result.get('mssg') or []
+    if not draft_sections:
+        return JsonResponse({'error': 'Draft not found or has no sections.'}, status=404)
+
+    # ── Build attachment ─────────────────────────────────────────────────────
+    safe_title = re.sub(r'[^\w\s-]', '', session_id)[:30].strip()
+    lawyer_fname = supa_user.get('fname', 'Your Advocate')
+
+    if send_format == 'docx':
+        docx_result = obj.prepare_content_for_download(session_id)
+        if not docx_result.get('mssg'):
+            return JsonResponse({'error': 'Could not generate DOCX.'}, status=500)
+        file_bytes    = docx_result['mssg'].getvalue()
+        file_name     = f'{safe_title}.docx'
+        content_label = 'DOCX'
+    else:
+        # PDF via ReportLab
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+            from reportlab.lib.units import inch
+        except ImportError:
+            return JsonResponse({'error': 'PDF generation is not available on this server. Please choose DOCX.'}, status=503)
+
+        pdf_buffer = BytesIO()
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=A4,
+                                rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+        styles       = getSampleStyleSheet()
+        style_normal = styles['Normal']
+        style_normal.fontName = 'Helvetica'
+        style_heading = styles['Heading1']
+        flowables = []
+        for section in draft_sections:
+            section_name = section.get('section_name', '')
+            content      = section.get('content', '')
+            if section_name:
+                flowables.append(Paragraph(section_name, style_heading))
+                flowables.append(Spacer(1, 0.1 * inch))
+            for line in content.split('\n'):
+                flowables.append(Paragraph(line or '&nbsp;', style_normal))
+                flowables.append(Spacer(1, 0.05 * inch))
+            flowables.append(Spacer(1, 0.25 * inch))
+        doc.build(flowables)
+        pdf_buffer.seek(0)
+        file_bytes    = pdf_buffer.getvalue()
+        file_name     = f'{safe_title}.pdf'
+        content_label = 'PDF'
+
+    # ── Build email ──────────────────────────────────────────────────────────
+    client_fname = to_emails[0].split('@')[0].replace('.', ' ').replace('_', ' ').title()
+    subject, html_body = EmailTemplates.draft_delivery_email(
+        lawyer_fname=lawyer_fname,
+        client_fname=client_fname,
+        draft_title=safe_title or 'Legal Draft',
+        note=note,
+    )
+
+    # ── Send via Resend ──────────────────────────────────────────────────────
+    try:
+        resend.api_key = settings.RESEND_API_KEY
+        params = {
+            'from':    settings.EMAIL_FROM,
+            'to':      to_emails,
+            'subject': subject,
+            'html':    html_body,
+            'attachments': [{
+                'filename': file_name,
+                'content':  base64.b64encode(file_bytes).decode(),
+            }],
+        }
+        if cc_emails:
+            params['cc'] = cc_emails
+        result = resend.Emails.send(params)
+        logger.info(f"[send_draft_to_client] Email sent ({content_label}): {result.get('id')} to {to_emails}")
+        return JsonResponse({'sent': True, 'to': to_emails, 'format': send_format, 'email_id': result.get('id')})
+    except Exception:
+        logger.error(f"[send_draft_to_client] Resend error: {traceback.format_exc()}")
+        return JsonResponse({'error': 'Failed to send email. Please try again.'}, status=500)
+

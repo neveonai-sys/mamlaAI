@@ -38,6 +38,8 @@ authenticated_urlpatterns = [
     path('guide/message/', views.guide_message),
     path('guide/upload_doc/', views.guide_upload_doc),
     path('guide/generate/', views.guide_generate),
+    # ── Draft email delivery ──
+    path('send_draft/', views.send_draft_to_client),
 ]
 
 # Test draft endpoints (no authentication required, rate limited)

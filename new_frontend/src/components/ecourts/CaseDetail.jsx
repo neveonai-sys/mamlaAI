@@ -6,6 +6,7 @@ import {
   normalizeCaseData,
   unwrapEcourtsPayload,
 } from './common/ecourtsApi';
+import apiClient from '../../services/api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,9 @@ export default function CaseDetail() {
   const [refreshing, setRefreshing]         = useState(false);
   const [downloadError, setDownloadError]   = useState('');
   const [downloadingIndex, setDownloadingIndex] = useState(null);
+  const [downloadedBlobs, setDownloadedBlobs]   = useState({}); // orderIndex → Blob
+  const [analyzingIndex, setAnalyzingIndex]     = useState(null);
+  const [analyzeError, setAnalyzeError]         = useState('');
   const [copied, setCopied]                 = useState(false);
   const [historyOpen, setHistoryOpen]       = useState(true);
   const [transfersOpen, setTransfersOpen]   = useState(false);
@@ -153,6 +157,8 @@ export default function CaseDetail() {
       const blob = new Blob([response.data], {
         type: response.headers['content-type'] || 'application/pdf',
       });
+      // Store blob so "Analyze with AI" can access it without re-downloading
+      setDownloadedBlobs((prev) => ({ ...prev, [orderIndex]: blob }));
       const blobUrl = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       const disposition = response.headers['content-disposition'] || '';
@@ -178,6 +184,65 @@ export default function CaseDetail() {
       setDownloadError(message);
     } finally {
       setDownloadingIndex(null);
+    }
+  }
+
+  /**
+   * Upload a previously-downloaded order PDF to TalkDoc and open a chat session.
+   * Uses the stored Blob from downloadedBlobs[orderIndex].
+   */
+  async function handleAnalyzeWithAI(orderIndex) {
+    const blob = downloadedBlobs[orderIndex];
+    if (!blob) return;
+    setAnalyzeError('');
+    setAnalyzingIndex(orderIndex);
+    try {
+      const order = orders[orderIndex];
+      const safeDate = (order?.order_date || '').replace(/[/\\]/g, '-');
+      const filename = `court-order-${orderIndex + 1}${safeDate ? '-' + safeDate : ''}.pdf`;
+
+      // 1. Upload to TalkDoc
+      const formData = new FormData();
+      formData.append('file', blob, filename);
+      const uploadRes = await apiClient.post('talkdoc/upload/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const docId = uploadRes.data?.doc_id || uploadRes.data?.id;
+      if (!docId) throw new Error('Upload did not return a document ID.');
+
+      // 2. Poll until indexed (max 30s, 2s interval)
+      let indexed = uploadRes.data?.status === 'indexed' || uploadRes.data?.indexed;
+      if (!indexed) {
+        for (let attempt = 0; attempt < 15; attempt++) {
+          await new Promise((r) => window.setTimeout(r, 2000));
+          try {
+            const statusRes = await apiClient.get(`talkdoc/docs/${docId}/`);
+            if (statusRes.data?.status === 'indexed' || statusRes.data?.indexed) {
+              indexed = true;
+              break;
+            }
+            if (statusRes.data?.status === 'failed') {
+              throw new Error('Document indexing failed. Please try again.');
+            }
+          } catch (pollErr) {
+            // If the endpoint 404s, proceed optimistically
+            if (pollErr.response?.status === 404) { indexed = true; break; }
+            throw pollErr;
+          }
+        }
+      }
+
+      // 3. Create a TalkDoc session with this document
+      const sessionRes = await apiClient.post('talkdoc/create_session/', { doc_ids: [docId] });
+      const sessionId = sessionRes.data?.id || sessionRes.data?.session_id;
+      if (!sessionId) throw new Error('Could not create analysis session.');
+
+      // 4. Navigate to document workspace
+      navigate(`/documents/${sessionId}`);
+    } catch (err) {
+      setAnalyzeError(err.response?.data?.error || err.message || 'Analysis failed. Please try again.');
+    } finally {
+      setAnalyzingIndex(null);
     }
   }
 
@@ -484,6 +549,12 @@ export default function CaseDetail() {
                 {downloadError}
               </div>
             ) : null}
+            {analyzeError ? (
+              <div className="flex items-center gap-2 border-b-2 border-black bg-amber-50 px-4 py-2 text-xs text-amber-700 font-sans">
+                <span className="material-symbols-outlined text-sm">warning</span>
+                {analyzeError}
+              </div>
+            ) : null}
             <table className="w-full border-collapse">
               <tbody>
                 <tr>
@@ -504,15 +575,37 @@ export default function CaseDetail() {
                     <td className={TD}>
                       {/* pdf_params holds the POST body needed by /api/ecourts/v2/case/order-pdf/ */}
                       {order.pdf_params ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDownload(order.index)}
-                          disabled={downloadingIndex === order.index}
-                          className="text-xs font-sans underline disabled:opacity-50 hover:opacity-70"
-                          style={{ color: COURT_BLUE }}
-                        >
-                          {downloadingIndex === order.index ? 'Downloading…' : '⬇ PDF'}
-                        </button>
+                        <div className="flex flex-col items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(order.index)}
+                            disabled={downloadingIndex === order.index}
+                            className="text-xs font-sans underline disabled:opacity-50 hover:opacity-70"
+                            style={{ color: COURT_BLUE }}
+                          >
+                            {downloadingIndex === order.index ? 'Downloading…' : '⬇ PDF'}
+                          </button>
+                          {downloadedBlobs[order.index] && (
+                            <button
+                              type="button"
+                              onClick={() => handleAnalyzeWithAI(order.index)}
+                              disabled={analyzingIndex === order.index}
+                              className="flex items-center gap-0.5 text-[10px] font-bold rounded-md px-2 py-0.5 bg-primary text-white disabled:opacity-50 hover:bg-primary/85 transition-colors"
+                            >
+                              {analyzingIndex === order.index ? (
+                                <>
+                                  <span className="material-symbols-outlined text-xs animate-spin" style={{ fontSize: '12px' }}>progress_activity</span>
+                                  Analyzing…
+                                </>
+                              ) : (
+                                <>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>smart_toy</span>
+                                  Analyze with AI
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       ) : '—'}
                     </td>
                   </tr>

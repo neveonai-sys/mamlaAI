@@ -275,19 +275,30 @@ def verify_barcode(request):
 
 @api_view(['GET'])
 def get_states(request):
-    # Fetch states from DB or any source
-    obj = Handleuserdata()
-    res = obj.get_state_district_court_list()
-    return JsonResponse(res, status=200)
+    """GET /api/users/get-states/ — public endpoint for signup dropdown."""
+    try:
+        obj = Handleuserdata()
+        data = obj.get_state_district_court_list()  # returns {'states': [str, ...]}
+        states = data.get('states', [])
+        # Normalise to [{state_code, name}] — use name as code since collection has no separate code
+        return JsonResponse([{'state_code': s, 'name': s} for s in states], safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
 
 @api_view(['GET'])
 def get_districts(request):
-    state = request.GET.get('state', '').strip()
-    if not state:
-        return JsonResponse({'error': 'state query parameter is required.'}, status=400)
-    obj = Handleuserdata()
-    res = obj.get_state_district_court_list(state=state)
-    return JsonResponse(res, status=200)
+    """GET /api/users/get-districts/?state_code=X — public endpoint for signup dropdown."""
+    # state_code here is the state name string (collection key)
+    state_code = request.GET.get('state_code', '').strip()
+    if not state_code:
+        return JsonResponse({'error': 'state_code query parameter is required.'}, status=400)
+    try:
+        obj = Handleuserdata()
+        data = obj.get_state_district_court_list(state=state_code)  # returns {'districts': [str, ...]}
+        districts = data.get('districts', [])
+        return JsonResponse([{'dist_code': d, 'name': d} for d in districts], safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
 
 @api_view(['GET'])
 def get_courts(request):

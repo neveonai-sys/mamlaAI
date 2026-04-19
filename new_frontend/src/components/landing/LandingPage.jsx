@@ -62,7 +62,7 @@ const PERSONAS = [
   },
 ];
 
-const PRICING_PLANS = [
+const LAWYER_PLANS = [
   {
     name: 'Free Trial',
     subtitle: 'Explore with no commitment',
@@ -70,7 +70,7 @@ const PRICING_PLANS = [
     period: '30 days',
     cta: 'Start Free',
     recommended: false,
-    items: ['24 Legal Chat queries', '8 Doc Analysis sessions', '20 AI Drafts', '12 Drafting actions', '2 Case Companion sessions', 'Case Registry (20 cases)', 'Calendar — unlimited', 'eCourts CNR Lookup (30/month)'],
+    items: ['24 Legal Chat queries', '8 Doc Analysis sessions', '20 AI Drafts', '12 Drafting actions', '5 AI Suggestions', '2 Case Companion sessions', 'eCourts CNR Lookup (50/month)', 'Order PDF Downloads (5/month)'],
   },
   {
     name: 'Vakil Starter',
@@ -79,7 +79,7 @@ const PRICING_PLANS = [
     period: '/month',
     cta: 'Join Beta',
     recommended: false,
-    items: ['50 Legal Chat queries', '15 Doc Analysis sessions', '30 AI Drafts', '20 Drafting actions', 'Case Registry (20 cases)', 'Calendar — unlimited', 'CNR Lookup (30/month)'],
+    items: ['50 Legal Chat queries', '15 Doc Analysis sessions', '30 AI Drafts', '20 Drafting actions', '10 AI Suggestions', '3 Case Companion sessions', 'CNR Lookup (60/month)', 'Order Downloads (15/month)'],
   },
   {
     name: 'Vakil Pro',
@@ -88,7 +88,7 @@ const PRICING_PLANS = [
     period: '/month',
     cta: 'Join Beta — Lock Price',
     recommended: true,
-    items: ['150 Legal Chat queries', '40 Doc Analysis sessions', '70 AI Drafts', '60 Drafting actions', 'Case Registry (100 cases)', 'eCourts cause list & search', '15 AI Hearing Prep sessions', 'Order PDF Downloads (30/month)'],
+    items: ['150 Legal Chat queries', '40 Doc Analysis sessions', '70 AI Drafts', '60 Drafting actions', '25 AI Suggestions', '10 Case Companion sessions', 'Unlimited eCourts CNR Lookup', 'Order Downloads (50/month)'],
   },
   {
     name: 'Vakil Power',
@@ -97,9 +97,34 @@ const PRICING_PLANS = [
     period: '/month',
     cta: 'Join Beta — Lock Price',
     recommended: false,
-    items: ['400 Legal Chat queries', '100 Doc Analysis sessions', '150 AI Drafts', '150 Drafting actions', 'Unlimited Case Registry', 'Unlimited eCourts access', '50 AI Hearing Prep sessions', 'Priority support'],
+    items: ['400 Legal Chat queries', '100 Doc Analysis sessions', '150 AI Drafts', '150 Drafting actions', '75 AI Suggestions', '30 Case Companion sessions', 'Unlimited eCourts CNR Lookup', 'Order Downloads (150/month)', 'Priority support'],
   },
 ];
+
+const NAGRIK_PLANS = [
+  {
+    name: 'Nagrik Free',
+    subtitle: 'For citizens seeking legal help',
+    price: '₹0',
+    period: '30 days',
+    cta: 'Start Free',
+    recommended: false,
+    items: ['5 Legal Chat queries', '2 Doc Analysis sessions', '1 AI Draft', 'eCourts CNR Lookup (10/month)', 'Track your case status', 'Plain-language summaries'],
+    blocked: ['Drafting Actions — Lawyer only', 'AI Suggestions — Lawyer only', 'Case Companion — Lawyer only'],
+  },
+  {
+    name: 'Nagrik Basic',
+    subtitle: 'For active litigants',
+    price: '₹79',
+    period: '/month',
+    cta: 'Join Beta',
+    recommended: true,
+    items: ['30 Legal Chat queries', '8 Doc Analysis sessions', '5 AI Drafts', 'eCourts CNR Lookup (30/month)', 'Order PDF Downloads (3/month)', 'Document upload & analysis'],
+    blocked: ['Drafting Actions — Lawyer only', 'AI Suggestions — Lawyer only', 'Case Companion — Lawyer only'],
+  },
+];
+
+const PRICING_PLANS = LAWYER_PLANS;
 
 const FAQS = [
   { q: 'Is Mamla.AI drafting output admissible in court?', a: "AI-generated drafts are working tools, not final submissions. Every document must be reviewed, edited, and approved by the responsible advocate before filing. Mamla.AI helps you get to a strong first draft faster — the professional judgement remains yours." },
@@ -330,7 +355,75 @@ function SolutionsSection() {
   );
 }
 
+function PlanCard({ plan, dark }) {
+  return (
+    <div
+      className={`relative flex flex-col rounded-[20px] border p-7 transition-all ${
+        plan.recommended
+          ? 'border-primary/30 bg-background-dark text-white shadow-elevated'
+          : dark
+          ? 'border-slate-700 bg-slate-800'
+          : 'border-slate-200 bg-background-light'
+      }`}
+    >
+      {plan.recommended && (
+        <div className="absolute -top-px left-1/2 -translate-x-1/2 rounded-b-lg bg-primary px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white">
+          Recommended
+        </div>
+      )}
+      <div className="mb-5">
+        <p className={`mb-1.5 text-[10px] font-black uppercase tracking-[0.18em] ${plan.recommended ? 'text-primary-soft/70' : 'text-primary/70'}`}>
+          {plan.name}
+        </p>
+        <div className="flex items-baseline gap-1">
+          <span className={`font-display text-4xl font-bold ${plan.recommended ? 'text-white' : 'text-ink'}`}>
+            {plan.price}
+          </span>
+          <span className={`text-sm ${plan.recommended ? 'text-white/50' : 'text-graphite'}`}>
+            {plan.period}
+          </span>
+        </div>
+        <p className={`mt-1 text-xs ${plan.recommended ? 'text-white/45' : 'text-graphite'}`}>
+          {plan.subtitle}
+        </p>
+      </div>
+      <ul className="mb-4 flex flex-grow flex-col gap-2.5">
+        {plan.items.map((item) => (
+          <li key={item} className={`flex items-start gap-2 text-[13px] ${plan.recommended ? 'text-white/70' : 'text-graphite'}`}>
+            <span className={`material-symbols-outlined mt-0.5 flex-shrink-0 text-base ${plan.recommended ? 'text-primary-soft/60' : 'text-emerald-500'}`}>
+              check_circle
+            </span>
+            {item}
+          </li>
+        ))}
+        {plan.blocked && plan.blocked.map((item) => (
+          <li key={item} className="flex items-start gap-2 text-[13px] text-slate-400">
+            <span className="material-symbols-outlined mt-0.5 flex-shrink-0 text-base text-slate-300">
+              block
+            </span>
+            {item}
+          </li>
+        ))}
+      </ul>
+      <Link
+        to="/signup"
+        className={`mt-auto block rounded-[12px] py-3 text-center text-sm font-bold transition-all hover:-translate-y-0.5 ${
+          plan.recommended
+            ? 'bg-white text-background-dark hover:bg-primary-soft'
+            : 'border border-primary/20 bg-white text-primary hover:bg-primary/5'
+        }`}
+      >
+        {plan.cta}
+      </Link>
+    </div>
+  );
+}
+
 function PricingSection() {
+  const [activeTab, setActiveTab] = useState('lawyer');
+  const plans = activeTab === 'lawyer' ? LAWYER_PLANS : NAGRIK_PLANS;
+  const cols = plans.length === 2 ? 'md:grid-cols-2 max-w-3xl mx-auto' : 'md:grid-cols-2 lg:grid-cols-4';
+
   return (
     <section id="pricing" className="border-t border-slate-200 bg-white py-24">
       <div className="mx-auto max-w-7xl px-6">
@@ -342,66 +435,50 @@ function PricingSection() {
           <p className="mt-4 text-sm text-graphite">
             Currently in private beta. Join now to lock in early-adopter pricing.
           </p>
-        </div>
-        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {PRICING_PLANS.map((plan) => (
-            <div
-              key={plan.name}
-              className={`relative flex flex-col rounded-[20px] border p-7 transition-all ${
-                plan.recommended
-                  ? 'border-primary/30 bg-background-dark text-white shadow-elevated'
-                  : 'border-slate-200 bg-background-light'
+          {/* Tab toggle */}
+          <div className="mt-8 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 gap-1">
+            <button
+              onClick={() => setActiveTab('lawyer')}
+              className={`rounded-lg px-5 py-2 text-sm font-bold transition-all ${
+                activeTab === 'lawyer'
+                  ? 'bg-background-dark text-white shadow-sm'
+                  : 'text-slate-600 hover:text-ink'
               }`}
             >
-              {plan.recommended && (
-                <div className="absolute -top-px left-1/2 -translate-x-1/2 rounded-b-lg bg-primary px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white">
-                  Recommended
-                </div>
-              )}
-              <div className="mb-5">
-                <p className={`mb-1.5 text-[10px] font-black uppercase tracking-[0.18em] ${plan.recommended ? 'text-primary-soft/70' : 'text-primary/70'}`}>
-                  {plan.name}
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className={`font-display text-4xl font-bold ${plan.recommended ? 'text-white' : 'text-ink'}`}>
-                    {plan.price}
-                  </span>
-                  <span className={`text-sm ${plan.recommended ? 'text-white/50' : 'text-graphite'}`}>
-                    {plan.period}
-                  </span>
-                </div>
-                <p className={`mt-1 text-xs ${plan.recommended ? 'text-white/45' : 'text-graphite'}`}>
-                  {plan.subtitle}
-                </p>
-              </div>
-              <ul className="mb-7 flex flex-grow flex-col gap-2.5">
-                {plan.items.map((item) => (
-                  <li key={item} className={`flex items-start gap-2 text-[13px] ${plan.recommended ? 'text-white/70' : 'text-graphite'}`}>
-                    <span className={`material-symbols-outlined mt-0.5 flex-shrink-0 text-base ${plan.recommended ? 'text-primary-soft/60' : 'text-primary/50'}`}>
-                      check_circle
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to="/signup"
-                className={`block rounded-[12px] py-3 text-center text-sm font-bold transition-all hover:-translate-y-0.5 ${
-                  plan.recommended
-                    ? 'bg-white text-background-dark hover:bg-primary-soft'
-                    : 'border border-primary/20 bg-white text-primary hover:bg-primary/5'
-                }`}
-              >
-                {plan.cta}
-              </Link>
-            </div>
-          ))}
+              <span className="material-symbols-outlined text-base align-middle mr-1.5">balance</span>
+              For Lawyers &amp; Firms
+            </button>
+            <button
+              onClick={() => setActiveTab('nagrik')}
+              className={`rounded-lg px-5 py-2 text-sm font-bold transition-all ${
+                activeTab === 'nagrik'
+                  ? 'bg-background-dark text-white shadow-sm'
+                  : 'text-slate-600 hover:text-ink'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base align-middle mr-1.5">person</span>
+              For Citizens (Nagrik)
+            </button>
+          </div>
         </div>
+
+        {activeTab === 'nagrik' && (
+          <p className="mt-4 text-center text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 max-w-xl mx-auto">
+            <span className="material-symbols-outlined text-amber-500 text-sm align-middle mr-1">info</span>
+            Nagrik plans give citizens access to legal information, document understanding, and eCourts tracking.
+            Drafting, Case Companion, and AI Suggestions are professional tools reserved for lawyers.
+          </p>
+        )}
+
+        <div className={`mt-10 grid gap-5 ${cols}`}>
+          {plans.map((plan) => <PlanCard key={plan.name} plan={plan} />)}
+        </div>
+
         <div className="mt-10 rounded-[16px] border border-slate-200 bg-background-light px-7 py-5 text-center">
           <p className="text-sm text-graphite">
-            Need access for a litigant (₹79/mo) or running a law firm?{' '}
+            Running a law firm?{' '}
             <a href="mailto:neveon.ai@gmail.com" className="font-semibold text-primary hover:underline">
-              Contact us for Nyaya Firm plans →
+              Contact us for Firm Basic (₹1,999) and Firm Pro (₹4,499) plans →
             </a>
           </p>
         </div>

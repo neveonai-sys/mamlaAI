@@ -478,6 +478,15 @@ export default function DraftingWorkspace() {
   const suggestionQuotaNotice = buildQuotaNotice(suggestionQuota, error);
   const suggestionPromptDisabled = suggestionQuota?.allowed === false;
 
+  // Send-to-client modal state
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendToEmails, setSendToEmails] = useState('');
+  const [sendCcEmails, setSendCcEmails] = useState('');
+  const [sendNote, setSendNote] = useState('');
+  const [sendLoading, setSendLoading] = useState(false);
+  const [sendFormat, setSendFormat] = useState('docx');
+  const [sendResult, setSendResult] = useState(null); // { ok: bool, message: str }
+
   function normalizeDraftForEntries(draftFor) {
     if (!draftFor) return [];
     if (Array.isArray(draftFor)) return draftFor;
@@ -658,7 +667,9 @@ export default function DraftingWorkspace() {
     apiClient.get('users/filter_with_details/').then((r) => setFilterData(r.data)).catch(() => {});
     refreshSavedDrafts();
     apiClient.get('users/get-states/').then((r) => {
-      setStates(r.data?.states ?? r.data ?? []);
+      const raw = r.data?.states ?? r.data ?? [];
+      // Normalise: old API returned plain strings, new returns [{state_code,name}]
+      setStates(raw.map((s) => (typeof s === 'string' ? s : s.name)));
     }).catch(() => {});
     apiClient.get('aidrafts/get_supported_languages').then((r) => {
       setLanguages(r.data?.languages ?? r.data ?? []);
@@ -715,8 +726,10 @@ export default function DraftingWorkspace() {
   // Load districts when state changes
   useEffect(() => {
     if (!selectedState) { setDistricts([]); setSelectedDistrict(''); return; }
-    apiClient.get(`users/get-districts/?state=${encodeURIComponent(selectedState)}`).then((r) => {
-      setDistricts(r.data?.districts ?? r.data ?? []);
+    apiClient.get(`users/get-districts/?state_code=${encodeURIComponent(selectedState)}`).then((r) => {
+      const raw = r.data?.districts ?? r.data ?? [];
+      // Normalise: old API returned plain strings, new returns [{dist_code,name}]
+      setDistricts(raw.map((d) => (typeof d === 'string' ? d : d.name)));
       setSelectedDistrict('');
       setSelectedCourt('');
       setCourts([]);
@@ -1155,6 +1168,28 @@ export default function DraftingWorkspace() {
       setSaveStatus('saved');
     } catch {
       setError('Failed to revert draft.');
+    }
+  }
+
+  async function handleSendDraft(e) {
+    e.preventDefault();
+    setSendLoading(true);
+    setSendResult(null);
+    try {
+      const toList = sendToEmails.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+      const ccList = sendCcEmails.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+      await apiClient.post('aidrafts/send_draft/', {
+        session_id: sessionId,
+        to_emails: toList,
+        cc_emails: ccList,
+        note: sendNote.trim(),
+        format: sendFormat,
+      });
+      setSendResult({ ok: true, message: `Draft sent to ${toList.join(', ')} as ${sendFormat.toUpperCase()}` });
+    } catch (err) {
+      setSendResult({ ok: false, message: err.response?.data?.error || 'Failed to send. Please try again.' });
+    } finally {
+      setSendLoading(false);
     }
   }
 
@@ -1878,6 +1913,15 @@ export default function DraftingWorkspace() {
             <span className="material-symbols-outlined text-base">download</span>
             Export
           </button>
+          {!isClientUser && sessionId && (
+            <button
+              className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-amber-600 transition-all"
+              onClick={() => { setSendResult(null); setShowSendModal(true); }}
+            >
+              <span className="material-symbols-outlined text-base">forward_to_inbox</span>
+              Send to Client
+            </button>
+          )}
         </div>
       </header>
 
@@ -2022,6 +2066,139 @@ export default function DraftingWorkspace() {
           />
         )}
       </div>
+
+      {/* ── Send to Client modal ─────────────────────────────────────────── */}
+      {showSendModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ background: 'rgba(10,20,40,0.65)', backdropFilter: 'blur(4px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget && !sendLoading) setShowSendModal(false); }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-elevated overflow-hidden">
+            {/* Header */}
+            <div className="bg-background-dark px-6 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">AI Draft</p>
+                <h3 className="text-lg font-black text-white mt-0.5">Send to Client</h3>
+              </div>
+              <button
+                onClick={() => setShowSendModal(false)}
+                disabled={sendLoading}
+                className="rounded-xl p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+            <div className="h-0.5 bg-gradient-to-r from-[#FF9800] via-[#FF9800]/60 to-transparent" />
+
+            {sendResult ? (
+              <div className="px-6 py-8 flex flex-col items-center gap-4 text-center">
+                <span
+                  className={`material-symbols-outlined text-5xl ${sendResult.ok ? 'text-emerald-500' : 'text-red-400'}`}
+                >
+                  {sendResult.ok ? 'check_circle' : 'error'}
+                </span>
+                <p className="text-sm font-semibold text-ink">{sendResult.message}</p>
+                {sendResult.ok && (
+                  <p className="text-xs text-slate-400">The attachment was sent successfully.</p>
+                )}
+                <button
+                  onClick={() => setShowSendModal(false)}
+                  className="mt-2 rounded-xl bg-primary px-6 py-2 text-sm font-bold text-white"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSendDraft} className="px-6 py-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Attachment Format</label>
+                  <div className="flex gap-2">
+                    {[{ val: 'docx', icon: 'description', label: 'DOCX' }, { val: 'pdf', icon: 'picture_as_pdf', label: 'PDF' }].map(({ val, icon, label }) => (
+                      <button
+                        key={val} type="button"
+                        onClick={() => setSendFormat(val)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-all ${
+                          sendFormat === val
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-primary/40'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-base">{icon}</span>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    To <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={sendToEmails}
+                    onChange={(e) => setSendToEmails(e.target.value)}
+                    placeholder="client@email.com, another@email.com"
+                    required
+                    className="w-full rounded-xl border border-primary/20 bg-slate-50 px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <p className="mt-1 text-[10px] text-slate-400">Comma-separated. Max 5 recipients.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">CC</label>
+                  <input
+                    type="text"
+                    value={sendCcEmails}
+                    onChange={(e) => setSendCcEmails(e.target.value)}
+                    placeholder="optional@email.com"
+                    className="w-full rounded-xl border border-primary/20 bg-slate-50 px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Note to client</label>
+                  <textarea
+                    value={sendNote}
+                    onChange={(e) => setSendNote(e.target.value)}
+                    placeholder="Optional message that will appear in the email body…"
+                    rows={3}
+                    className="w-full rounded-xl border border-primary/20 bg-slate-50 px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  The draft will be sent as a single <strong>{sendFormat.toUpperCase()}</strong> attachment.
+                </p>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowSendModal(false)}
+                    disabled={sendLoading}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sendLoading || !sendToEmails.trim()}
+                    className="rounded-xl bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {sendLoading ? (
+                      <>
+                        <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-base">send</span>
+                        Send Draft
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

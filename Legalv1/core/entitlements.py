@@ -20,15 +20,16 @@ FEATURE_ORDER = (
 
 PLAN_FEATURES = {
     # ── Trial (new user default — 30 days) ──────────────────────────────────
+    # eCourts served by ecourt_scrapped v2 (FastAPI proxy) — cost is compute only.
     'trial': {
         'brain_doc_analysis':     {'included_limit': 8,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 24, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 12, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'case_companion':         {'included_limit': 2,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 5,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ai_draft_generation':    {'included_limit': 20, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
-        'ecourts_case_lookup':    {'included_limit': 30, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
-        'ecourts_order_download': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': True},
+        'ecourts_case_lookup':    {'included_limit': 50, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 5,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
     # ── Vakil Starter ₹299/month ─────────────────────────────────────────────
     'vakil_starter': {
@@ -36,10 +37,10 @@ PLAN_FEATURES = {
         'general_legal_chat':     {'included_limit': 50, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 20, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'case_companion':         {'included_limit': 3,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 10, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ai_draft_generation':    {'included_limit': 30, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
-        'ecourts_case_lookup':    {'included_limit': 30, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
-        'ecourts_order_download': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': True},
+        'ecourts_case_lookup':    {'included_limit': 60, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 15, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
     # ── Vakil Pro ₹699/month ─────────────────────────────────────────────────
     'vakil_pro': {
@@ -47,10 +48,10 @@ PLAN_FEATURES = {
         'general_legal_chat':     {'included_limit': 150,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'case_companion':         {'included_limit': 10,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions':         {'included_limit': 20,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 25,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ai_draft_generation':    {'included_limit': 70,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
         'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ecourts_order_download': {'included_limit': 30,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 50,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
     # ── Vakil Power ₹1,299/month ─────────────────────────────────────────────
     'vakil_power': {
@@ -58,32 +59,32 @@ PLAN_FEATURES = {
         'general_legal_chat':     {'included_limit': 400,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'case_companion':         {'included_limit': 30,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions':         {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 75,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ai_draft_generation':    {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
         'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ecourts_order_download': {'included_limit': 100,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
-    # ── Nagrik Free (trial-style expiry — TODO: 7d cap when Nagrik UX launches)
+    # ── Nagrik Free (trial-style expiry — citizen plan, lawyer features hard-blocked)
     'nagrik_free': {
         'brain_doc_analysis':     {'included_limit': 2,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 5,  'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
-        'brain_drafting_actions': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': True},
-        'case_companion':         {'included_limit': 0,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': True},
-        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': True},
+        'brain_drafting_actions': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': True},   # lawyer-only
+        'case_companion':         {'included_limit': 0,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': True},   # lawyer-only
+        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': True},   # lawyer-only
         'ai_draft_generation':    {'included_limit': 1,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
-        'ecourts_case_lookup':    {'included_limit': 5,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 10, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ecourts_order_download': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': True},
     },
-    # ── Nagrik Basic ₹79/month ───────────────────────────────────────────────
+    # ── Nagrik Basic ₹79/month (citizen plan, lawyer features hard-blocked) ──
     'nagrik_basic': {
         'brain_doc_analysis':     {'included_limit': 8,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 30, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
-        'brain_drafting_actions': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': True},
-        'case_companion':         {'included_limit': 0,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': True},
-        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': True},
+        'brain_drafting_actions': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': True},   # lawyer-only
+        'case_companion':         {'included_limit': 0,  'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': True},   # lawyer-only
+        'ai_suggestions':         {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': True},   # lawyer-only
         'ai_draft_generation':    {'included_limit': 5,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
-        'ecourts_case_lookup':    {'included_limit': 15, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
-        'ecourts_order_download': {'included_limit': 0,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': True},
+        'ecourts_case_lookup':    {'included_limit': 30, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 3,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
     # ── Firm Basic ₹1,999/month (= Vakil Pro quotas per seat) ───────────────
     'firm_basic': {
@@ -91,10 +92,10 @@ PLAN_FEATURES = {
         'general_legal_chat':     {'included_limit': 150,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'case_companion':         {'included_limit': 10,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions':         {'included_limit': 20,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 25,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ai_draft_generation':    {'included_limit': 70,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
         'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ecourts_order_download': {'included_limit': 30,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 50,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
     # ── Firm Pro ₹4,499/month (= Vakil Power quotas per seat) ───────────────
     'firm_pro': {
@@ -102,10 +103,10 @@ PLAN_FEATURES = {
         'general_legal_chat':     {'included_limit': 400,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'case_companion':         {'included_limit': 30,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions':         {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 75,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ai_draft_generation':    {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
         'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ecourts_order_download': {'included_limit': 100,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
     # ── Pro (legacy plan code — kept for backward compatibility) ────────────
     'pro': {
@@ -113,10 +114,10 @@ PLAN_FEATURES = {
         'general_legal_chat':     {'included_limit': 120,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
         'brain_drafting_actions': {'included_limit': 40,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'case_companion':         {'included_limit': 8,       'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
-        'ai_suggestions':         {'included_limit': 0,       'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 20,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ai_draft_generation':    {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
         'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
-        'ecourts_order_download': {'included_limit': 30,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 40,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
     # ── Enterprise / Internal (unlimited) ───────────────────────────────────
     'enterprise': {

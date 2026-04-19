@@ -54,7 +54,7 @@ if [ "$MODE" = "dev" ]; then
     kill -9 $(ps -fu $USER | grep -v grep | grep 'webpack serve' | awk '{print $2}') 2>/dev/null
     kill -9 $(ps -fu $USER | grep -v grep | grep webpack | awk '{print $2}') 2>/dev/null
     DEV_LOG="$PROJECT_ROOT/logs/dev/frontend.log"
-    [ -s "$DEV_LOG" ] && mv "$DEV_LOG" "$PROJECT_ROOT/logs/dev/frontend.$(date +%Y-%m-%d_%H%M).log"
+    [ -s "$DEV_LOG" ] && mv "$DEV_LOG" "$PROJECT_ROOT/logs/dev/frontend.$(date +%Y-%m-%d).log"
     nohup npm start > "$DEV_LOG" 2>&1 &
     echo "  ✅ Dev server starting — logs: $DEV_LOG"
 else

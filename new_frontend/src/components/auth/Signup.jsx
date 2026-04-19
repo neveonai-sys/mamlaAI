@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import apiClient from '../../services/api';
@@ -6,17 +6,35 @@ import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import AuthShowcase from './AuthShowcase';
 import MamlaLogo from '../common/MamlaLogo';
 
-const USER_TYPE_OPTIONS = ['Lawyer', 'Client', 'Paralegal'];
+const USER_TYPE_OPTIONS = [
+  { value: 'Lawyer',    label: 'Lawyer',           desc: 'I practice law' },
+  { value: 'Client',   label: 'Nagrik (Citizen)',  desc: 'I need legal help' },
+  { value: 'Paralegal', label: 'Paralegal',         desc: 'I assist a legal team' },
+];
+
+const INPUT_CLS = `w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg
+                   focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all`;
+const ICON_INPUT_CLS = `w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg
+                         focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all`;
+const LABEL_CLS = 'block text-sm font-semibold mb-2 text-slate-700';
 
 export default function Signup() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
     email: '',
-    organization: '',
+    phone: '',
+    whatsappOptIn: false,
     user_type: 'Lawyer',
+    barcode_id: '',
+    law_firm_name: '',
+    state_code: '',
+    state_name: '',
+    dist_code: '',
+    dist_name: '',
     password: '',
   });
   const [showPwd, setShowPwd] = useState(false);
@@ -25,24 +43,105 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Email existence check
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [emailExists, setEmailExists] = useState(null); // null | true | false
+
+  // Court location dropdowns
+  const [states, setStates] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+
+  // Load states on mount
+  useEffect(() => {
+    apiClient.get('users/get-states/')
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : [];
+        setStates(data);
+      })
+      .catch(() => {}); // optional field — silent fail
+  }, []);
+
+  // Load districts when state changes
+  useEffect(() => {
+    if (!form.state_code) {
+      setDistricts([]);
+      return;
+    }
+    setLoadingDistricts(true);
+    setDistricts([]);
+    apiClient.get(`users/get-districts/?state_code=${form.state_code}`)
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : [];
+        setDistricts(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDistricts(false));
+  }, [form.state_code]);
+
   function handleChange(e) {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+    const { name, value, type, checked } = e.target;
+    setForm((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+  }
+
+  function handleStateChange(e) {
+    const opt = e.target.options[e.target.selectedIndex];
+    setForm((f) => ({
+      ...f,
+      state_code: e.target.value,
+      state_name: opt.text === '— Select State —' ? '' : opt.text,
+      dist_code: '',
+      dist_name: '',
+    }));
+  }
+
+  function handleDistrictChange(e) {
+    const opt = e.target.options[e.target.selectedIndex];
+    setForm((f) => ({
+      ...f,
+      dist_code: e.target.value,
+      dist_name: opt.text === '— Select District —' ? '' : opt.text,
+    }));
+  }
+
+  async function handleEmailBlur() {
+    const email = form.email.trim();
+    if (!email.includes('@')) return;
+    setEmailChecking(true);
+    setEmailExists(null);
+    try {
+      const res = await apiClient.post('users/check-existing-user/', { email });
+      setEmailExists(res.data?.exists ?? null);
+    } catch {
+      setEmailExists(null); // don't block on network error
+    } finally {
+      setEmailChecking(false);
+    }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+
     if (!agreed) {
       setError('Please accept the terms and conditions to continue.');
+      return;
+    }
+    if (emailExists === true) {
+      setError('An account with this email already exists. Please sign in instead.');
+      return;
+    }
+    if (form.phone && !/^\d{10}$/.test(form.phone)) {
+      setError('Enter a valid 10-digit mobile number (without country code).');
       return;
     }
     if (form.password.length < 8) {
       setError('Password must be at least 8 characters.');
       return;
     }
+
     setLoading(true);
     dispatch(beginBlocking({ message: 'Creating your account...' }));
-
     try {
       await apiClient.post('users/onboard/', {
         fname: form.firstName,
@@ -51,6 +150,13 @@ export default function Signup() {
         password: form.password,
         user_type: form.user_type,
         agreedTnC: true,
+        phonenumber: form.phone ? `+91${form.phone}` : '',
+        whatsappOptIn: form.whatsappOptIn,
+        barcode_id: form.user_type === 'Lawyer' ? form.barcode_id.trim() : '',
+        organization: form.user_type === 'Lawyer' ? form.law_firm_name.trim() : '',
+        state: form.state_name,
+        district: form.dist_name,
+        courts: [],
       });
       setSuccess('Account created! Please check your email to confirm, then sign in.');
     } catch (err) {
@@ -96,202 +202,256 @@ export default function Signup() {
               <p className="font-medium text-slate-600">Start your Mamla.AI workspace. No credit card required.</p>
             </div>
 
-          {success ? (
-            <div className="flex flex-col items-center gap-4 text-center py-8">
-              <span className="material-symbols-outlined text-primary text-6xl icon-filled">mark_email_read</span>
-              <h3 className="text-xl font-bold text-ink">Check Your Email</h3>
-              <p className="text-sm text-slate-500">{success}</p>
-              <Link to="/login" className="btn-primary mt-2">Go to Sign In</Link>
-            </div>
-          ) : (
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              {/* Name row */}
-              <div className="grid grid-cols-2 gap-3">
+            {success ? (
+              <div className="flex flex-col items-center gap-4 text-center py-8">
+                <span className="material-symbols-outlined text-primary text-6xl icon-filled">mark_email_read</span>
+                <h3 className="text-xl font-bold text-ink">Check Your Email</h3>
+                <p className="text-sm text-slate-500">{success}</p>
+                <Link to="/login" className="btn-primary mt-2">Go to Sign In</Link>
+              </div>
+            ) : (
+              <form className="space-y-5" onSubmit={handleSubmit}>
+
+                {/* ── Name ── */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={LABEL_CLS} htmlFor="firstName">First Name</label>
+                    <input
+                      id="firstName" name="firstName" type="text" required
+                      placeholder="Priya" value={form.firstName} onChange={handleChange}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS} htmlFor="lastName">Last Name</label>
+                    <input
+                      id="lastName" name="lastName" type="text" required
+                      placeholder="Sharma" value={form.lastName} onChange={handleChange}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                </div>
+
+                {/* ── Email ── */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-slate-700" htmlFor="firstName">
-                    First Name
-                  </label>
-                  <input
-                    id="firstName"
-                    name="firstName"
-                    type="text"
-                    required
-                    placeholder="Priya"
-                    value={form.firstName}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg
-                               focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                  />
+                  <label className={LABEL_CLS} htmlFor="email">Professional Email</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">mail</span>
+                    <input
+                      id="email" name="email" type="email" required autoComplete="email"
+                      placeholder="you@lawfirm.com" value={form.email}
+                      onChange={(e) => { handleChange(e); setEmailExists(null); }}
+                      onBlur={handleEmailBlur}
+                      className={`${ICON_INPUT_CLS} ${emailExists === true ? 'border-red-400 focus:ring-red-300' : emailExists === false ? 'border-emerald-400 focus:ring-emerald-300' : ''}`}
+                    />
+                  </div>
+                  {emailChecking && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+                      <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                      Checking…
+                    </p>
+                  )}
+                  {emailExists === true && !emailChecking && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
+                      <span className="material-symbols-outlined text-sm">error</span>
+                      An account with this email already exists.{' '}
+                      <Link to="/login" className="underline font-semibold">Sign in</Link>
+                    </p>
+                  )}
+                  {emailExists === false && !emailChecking && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
+                      <span className="material-symbols-outlined text-sm">check_circle</span>
+                      Email is available.
+                    </p>
+                  )}
                 </div>
+
+                {/* ── Phone ── */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-slate-700" htmlFor="lastName">
-                    Last Name
-                  </label>
-                  <input
-                    id="lastName"
-                    name="lastName"
-                    type="text"
-                    required
-                    placeholder="Doe"
-                    value={form.lastName}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg
-                               focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-slate-700" htmlFor="email">
-                  Professional Email
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">mail</span>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    placeholder="jane@lawfirm.com"
-                    value={form.email}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg
-                               focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Organization */}
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-slate-700" htmlFor="organization">
-                  Law Firm / Organization
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">corporate_fare</span>
-                  <input
-                    id="organization"
-                    name="organization"
-                    type="text"
-                    placeholder="Doe &amp; Associates"
-                    value={form.organization}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg
-                               focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* User type */}
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-slate-700">
-                  Role
-                </label>
-                <div className="flex gap-2">
-                  {USER_TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, user_type: opt }))}
-                      className={`flex-1 py-2.5 text-sm font-semibold rounded-lg border transition-all ${
-                        form.user_type === opt
-                          ? 'bg-primary text-ivory border-primary'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-primary/50'
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-slate-700" htmlFor="password">
-                  Secure Password
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPwd ? 'text' : 'password'}
-                    required
-                    placeholder="••••••••"
-                    value={form.password}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-lg
-                               focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPwd((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    <span className="material-symbols-outlined text-xl">
-                      {showPwd ? 'visibility_off' : 'visibility'}
+                  <label className={LABEL_CLS} htmlFor="phone">WhatsApp / Mobile Number</label>
+                  <div className="flex gap-2 items-stretch">
+                    <span className="inline-flex items-center px-3 rounded-lg border border-slate-200 bg-slate-100 text-slate-500 text-sm font-semibold select-none">
+                      +91
                     </span>
-                  </button>
+                    <input
+                      id="phone" name="phone" type="tel"
+                      maxLength={10} pattern="[0-9]{10}"
+                      placeholder="9876543210"
+                      value={form.phone} onChange={handleChange}
+                      className={`flex-1 ${INPUT_CLS}`}
+                    />
+                  </div>
+                  <label className="mt-2 flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox" name="whatsappOptIn"
+                      checked={form.whatsappOptIn} onChange={handleChange}
+                      className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30 bg-white flex-shrink-0"
+                    />
+                    <span className="text-xs text-slate-600">Send case updates on WhatsApp</span>
+                  </label>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-500">At least 8 characters, including a number and symbol.</p>
-              </div>
 
-              {/* Terms */}
-              <div className="flex items-start gap-3 py-1">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  className="h-4 w-4 mt-0.5 rounded border-slate-300 text-primary focus:ring-primary/30 bg-white flex-shrink-0"
-                />
-                <label htmlFor="terms" className="text-sm text-slate-600">
-                  I agree to the{' '}
-                  <a href="#" className="font-semibold text-primary hover:text-primary/80">
-                    Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a href="#" className="font-semibold text-primary hover:text-primary/80">
-                    Privacy Policy
-                  </a>
-                </label>
-              </div>
-
-              {/* Error */}
-              {error && (
-                <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  <span className="material-symbols-outlined text-base flex-shrink-0">error</span>
-                  {error}
+                {/* ── User type ── */}
+                <div>
+                  <label className={LABEL_CLS}>I am a</label>
+                  <div className="flex gap-2">
+                    {USER_TYPE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value} type="button"
+                        onClick={() => setForm((f) => ({ ...f, user_type: opt.value, barcode_id: '', law_firm_name: '' }))}
+                        className={`flex-1 py-2.5 px-2 text-sm font-semibold rounded-lg border transition-all text-center ${
+                          form.user_type === opt.value
+                            ? 'bg-primary text-ivory border-primary'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-primary/50'
+                        }`}
+                      >
+                        <span className="block text-sm font-bold">{opt.label}</span>
+                        <span className={`block text-[10px] mt-0.5 ${form.user_type === opt.value ? 'text-ivory/70' : 'text-slate-400'}`}>
+                          {opt.desc}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
 
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 text-base font-bold text-ivory bg-primary hover:bg-primary/90
-                           rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2
-                           focus:ring-primary transition-all active:scale-[0.98]
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="material-symbols-outlined text-xl animate-spin">progress_activity</span>
-                    Creating Account…
-                  </span>
-                ) : (
-                  'Create Account'
+                {/* ── Lawyer-only fields ── */}
+                {form.user_type === 'Lawyer' && (
+                  <div className="space-y-4 rounded-xl border border-primary/10 bg-slate-50 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Lawyer Details</p>
+                    <div>
+                      <label className={LABEL_CLS} htmlFor="barcode_id">Bar Council Enrolment No.</label>
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">badge</span>
+                        <input
+                          id="barcode_id" name="barcode_id" type="text"
+                          placeholder="MH/1234/2010"
+                          value={form.barcode_id} onChange={handleChange}
+                          className={ICON_INPUT_CLS}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={LABEL_CLS} htmlFor="law_firm_name">Law Firm / Chamber Name <span className="font-normal text-slate-400">(optional)</span></label>
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">corporate_fare</span>
+                        <input
+                          id="law_firm_name" name="law_firm_name" type="text"
+                          placeholder="Doe &amp; Associates"
+                          value={form.law_firm_name} onChange={handleChange}
+                          className={ICON_INPUT_CLS}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </button>
-            </form>
-          )}
+
+                {/* ── Court location (state + district, all user types, optional) ── */}
+                <div>
+                  <label className={LABEL_CLS}>
+                    Primary Court Location{' '}
+                    <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* State */}
+                    <div>
+                      <select
+                        value={form.state_code} onChange={handleStateChange}
+                        className={`${INPUT_CLS} text-sm`}
+                      >
+                        <option value="">— Select State —</option>
+                        {states.map((s) => (
+                          <option key={s.state_code} value={s.state_code}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* District */}
+                    <div>
+                      <select
+                        value={form.dist_code} onChange={handleDistrictChange}
+                        disabled={!form.state_code || loadingDistricts}
+                        className={`${INPUT_CLS} text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        <option value="">
+                          {loadingDistricts ? 'Loading…' : !form.state_code ? '— Select State first —' : '— Select District —'}
+                        </option>
+                        {districts.map((d) => (
+                          <option key={d.dist_code} value={d.dist_code}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Password ── */}
+                <div>
+                  <label className={LABEL_CLS} htmlFor="password">Secure Password</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
+                    <input
+                      id="password" name="password"
+                      type={showPwd ? 'text' : 'password'}
+                      required placeholder="••••••••"
+                      value={form.password} onChange={handleChange}
+                      className={`${ICON_INPUT_CLS} pr-12`}
+                    />
+                    <button
+                      type="button" onClick={() => setShowPwd((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <span className="material-symbols-outlined text-xl">
+                        {showPwd ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-500">At least 8 characters, including a number and symbol.</p>
+                </div>
+
+                {/* ── Terms ── */}
+                <div className="flex items-start gap-3 py-1">
+                  <input
+                    id="terms" type="checkbox"
+                    checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
+                    className="h-4 w-4 mt-0.5 rounded border-slate-300 text-primary focus:ring-primary/30 bg-white flex-shrink-0"
+                  />
+                  <label htmlFor="terms" className="text-sm text-slate-600">
+                    I agree to the{' '}
+                    <a href="#" className="font-semibold text-primary hover:text-primary/80">Terms of Service</a>{' '}
+                    and{' '}
+                    <a href="#" className="font-semibold text-primary hover:text-primary/80">Privacy Policy</a>
+                  </label>
+                </div>
+
+                {/* ── Error ── */}
+                {error && (
+                  <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    <span className="material-symbols-outlined text-base flex-shrink-0">error</span>
+                    {error}
+                  </div>
+                )}
+
+                {/* ── Submit ── */}
+                <button
+                  type="submit" disabled={loading}
+                  className="w-full py-4 text-base font-bold text-ivory bg-primary hover:bg-primary/90
+                             rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2
+                             focus:ring-primary transition-all active:scale-[0.98]
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+                      Creating Account…
+                    </span>
+                  ) : (
+                    'Create Account'
+                  )}
+                </button>
+              </form>
+            )}
 
             <p className="mt-6 text-center text-sm text-slate-500">
               Already have an account?{' '}
-              <Link to="/login" className="font-semibold text-primary hover:text-primary/80">
-                Sign In
-              </Link>
+              <Link to="/login" className="font-semibold text-primary hover:text-primary/80">Sign In</Link>
             </p>
           </div>
         </div>
@@ -299,3 +459,4 @@ export default function Signup() {
     </div>
   );
 }
+

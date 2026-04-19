@@ -88,6 +88,7 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | POST | `guide/upload_doc/` | Supabase | Process newly uploaded docs mid-conversation. Body: `{conv_id, document_ids}`. Returns `{reply}`. |
 | POST | `guide/generate/` | Supabase | Trigger draft generation from the gathered context. Consumes `ai_draft_generation` quota. Body: `{conv_id}`. Returns `{session_id}`. |
 | GET | `list/` | Supabase | Flat list of saved drafts for the current user. Query: optional `?case_id=<id>` — returns only drafts linked to that case. Response key: `results`. |
+| POST | `send_draft/` | Supabase | Send draft to client by email. Body: `{session_id, to_emails[], cc_emails?, note?, format?}`. `format` is `'docx'` (default) or `'pdf'`. Returns `{sent, to, format, email_id}`. Lawyer/Paralegal only. |
 
 ---
 

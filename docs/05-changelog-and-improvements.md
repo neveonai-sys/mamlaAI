@@ -201,6 +201,19 @@ All 18 items implemented and verified (0 editor errors).
 | **`favicon.svg` updated** | `mamlaAI_ground_zero/frontend/public/favicon.svg` | Navy tile, courthouse-M with dome/pillars/M diagonals, saffron steps + neural node. 64×64. |
 | **Logo integrated into app** | `Sidebar.jsx` · `AuthShowcase.jsx` · `LandingPage.jsx` · `Login.jsx` · `Signup.jsx` | All brand logo slots replaced with `MamlaLogoIcon` or `MamlaLogo` components. |
 
+### Signup Enhancements + State/District Fix + Send Draft to Client (2026-04-19)
+
+| Change | Location | Purpose |
+|--------|----------|---------|
+| **Signup: phone, barcode, org, state/district fields** | `mamlaAI_ground_zero/frontend/src/components/auth/Signup.jsx` (full rewrite) | New fields: phone (+91 prefix, 10-digit), WhatsApp opt-in checkbox, Bar Council Enrolment No. (`barcode_id`, Lawyer-only), Law Firm/Chamber Name (`organization`, Lawyer-only), state/district cascading dropdowns (optional, all users). Email existence check on blur with inline feedback. Submits `phonenumber: +91${phone}`, `barcode_id`, `organization`, `state`, `district`, `courts: []`. |
+| **Backend: `organization` + `phonenumber` fields on signup** | `Legalv1/users/routes/usermetadata.py` · `Legalv1/users/supabase_views.py` | `create_newuser_and_insert_metadata` accepts `organization=None` param; `user_details` doc now stores `barcode_id` and `organization`. `supabase_views.py` extracts `organization` from request body and passes it through. |
+| **State/district dropdowns: use `state_district_court_data`** | `Legalv1/users/views.py` (`get_states`, `get_districts`) | Reverted from `master_data.get_states/districts()` (which hit empty `ecourts_states`/`ecourts_districts` collections and fell back to live CAPTCHA-blocked crawler) back to `Handleuserdata().get_state_district_court_list()` (reads pre-populated `state_district_court_data`). Response: `[{state_code, name}]` / `[{dist_code, name}]`. `get_districts` reads `?state_code=` query param. |
+| **State/district response normalisation in UI consumers** | `DraftingWorkspace.jsx` · `CourtUpdates.jsx` · `CaseRegistry.jsx` | All three components now normalize `raw.map(s => typeof s === 'string' ? s : s.name)` so both legacy string arrays and new `{state_code, name}` objects work without React "Objects are not valid as a React child" crash. District fetch uses `?state_code=` param. |
+| **"Send to Client" button visibility fix** | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` | Button used `bg-saffron` — not defined in Tailwind config — making it transparent (white text on white header). Changed to `bg-amber-500 hover:bg-amber-600`. |
+| **`send_draft_to_client` view rewrite** | `Legalv1/ai_draft/views.py` | Root cause of 404: `from reportlab...` imports at function top raised `ImportError`, caught by `@supabase_required`'s broad `except Exception`, surfaced as auth error. Also removed redundant second `find_one` via raw mongo that returned `None`. New function: format param (`'docx'`\|`'pdf'`, default `'docx'`), uses `obj.retrieve_sections_of_draft(session_id)` then `prepare_content_for_download()` for DOCX or conditional `import reportlab` for PDF, sends single attachment. Fixed `firstname`→`fname` for lawyer name. Dead duplicate function body removed. |
+| **`reportlab` installed** | `miniconda3` Django env | Required for PDF generation in `send_draft_to_client`. `pip install reportlab`. |
+| **Format selector in Send to Client modal** | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` | Added `sendFormat` state (default `'docx'`). DOCX/PDF toggle buttons in modal. `handleSendDraft` now sends `format: sendFormat`. Hint text and success message reflect selected format. |
+
 ### Email HTML Branding + Body Consolidation (2026-04-19)
 
 | Change | Location | Purpose |

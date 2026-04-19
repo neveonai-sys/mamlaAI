@@ -401,13 +401,17 @@ function CreateCaseModal({ onClose, onCreate, prefillClientId, prefillClientName
   const [inviteErr, setInviteErr] = useState('');
 
   useEffect(() => {
-    apiClient.get('users/get-states/').then(r => setStates(r.data?.states ?? r.data ?? [])).catch(() => {});
+    apiClient.get('users/get-states/').then(r => {
+      const raw = r.data?.states ?? r.data ?? [];
+      setStates(raw.map((s) => (typeof s === 'string' ? s : s.name)));
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!courtState) { setDistricts([]); setCourtDistrict(''); setCourts([]); setCourtName(''); return; }
-    apiClient.get(`users/get-districts/?state=${encodeURIComponent(courtState)}`).then(r => {
-      setDistricts(r.data?.districts ?? r.data ?? []);
+    apiClient.get(`users/get-districts/?state_code=${encodeURIComponent(courtState)}`).then(r => {
+      const raw = r.data?.districts ?? r.data ?? [];
+      setDistricts(raw.map((d) => (typeof d === 'string' ? d : d.name)));
       setCourtDistrict('');
       setCourts([]);
       setCourtName('');

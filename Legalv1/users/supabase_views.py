@@ -108,11 +108,12 @@ def onboarding_new_user(request):
         courts = req_body.get('courts', [])
         if isinstance(courts, str):
             courts = [courts]
+        organization = req_body.get('organization', '')
 
         whatsapp_opt_in = req_body.get('whatsappOptIn', False)
         agreed_tnc = req_body.get('agreedTnC', False)
         obj = Handleusermetadata()
-        chk = obj.create_newuser_and_insert_metadata(phone_number=phone_number, fname=fname, lname=lname, email=email, password=password, user_type=user_type, whatsappOptIn=whatsapp_opt_in, agreedTnC=agreed_tnc, user_status="A", barcode_id=barcode_id, case_ids=case_ids, state=state, district=district, courts=courts)
+        chk = obj.create_newuser_and_insert_metadata(phone_number=phone_number, fname=fname, lname=lname, email=email, password=password, user_type=user_type, whatsappOptIn=whatsapp_opt_in, agreedTnC=agreed_tnc, user_status="A", barcode_id=barcode_id, case_ids=case_ids, state=state, district=district, courts=courts, organization=organization)
         if chk:
             return JsonResponse({"message": "Onboarded successfully."}, status=200)
         return JsonResponse({"message": "Onboarding Failed."}, status=400)

@@ -144,7 +144,9 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
                 <p className="text-sm font-semibold text-white truncate">
                   {firstname} {lastname}
                 </p>
-                <p className="text-xs font-medium text-white/72 truncate">{user_type}</p>
+                <p className="text-xs font-medium text-white/72 truncate">
+                  {user_type === 'Client' ? 'Nagrik (Citizen)' : user_type}
+                </p>
               </div>
             )}
             {!collapsed && (

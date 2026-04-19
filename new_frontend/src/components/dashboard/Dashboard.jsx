@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import apiClient from '../../services/api';
+import WelcomeModal from '../common/WelcomeModal';
 
 function MetricCard({ label, value, sub, subColor }) {
   return (
@@ -57,24 +58,34 @@ function QuickActionCard({ icon, title, desc, to }) {
 }
 
 const QUOTA_FEATURE_META = [
-  { code: 'general_legal_chat',     label: 'Legal Chat',       icon: 'forum' },
-  { code: 'brain_doc_analysis',     label: 'Doc Analysis',     icon: 'description' },
-  { code: 'ai_draft_generation',    label: 'AI Drafts',        icon: 'auto_awesome' },
-  { code: 'brain_drafting_actions', label: 'Drafting Actions', icon: 'edit_note' },
-  { code: 'case_companion',         label: 'Case Companion',   icon: 'psychology' },
-  { code: 'ai_suggestions',         label: 'AI Suggestions',   icon: 'lightbulb' },
-  { code: 'ecourts_case_lookup',    label: 'eCourts Lookup',   icon: 'gavel' },
-  { code: 'ecourts_order_download', label: 'Order Downloads',  icon: 'download' },
+  { code: 'general_legal_chat',     label: 'Legal Chat',       icon: 'forum',        lawyerOnly: false },
+  { code: 'brain_doc_analysis',     label: 'Doc Analysis',     icon: 'description',  lawyerOnly: false },
+  { code: 'ai_draft_generation',    label: 'AI Drafts',        icon: 'auto_awesome', lawyerOnly: false },
+  { code: 'brain_drafting_actions', label: 'Drafting Actions', icon: 'edit_note',    lawyerOnly: true  },
+  { code: 'case_companion',         label: 'Case Companion',   icon: 'psychology',   lawyerOnly: true  },
+  { code: 'ai_suggestions',         label: 'AI Suggestions',   icon: 'lightbulb',    lawyerOnly: true  },
+  { code: 'ecourts_case_lookup',    label: 'eCourts Lookup',   icon: 'gavel',        lawyerOnly: false },
+  { code: 'ecourts_order_download', label: 'Order Downloads',  icon: 'download',     lawyerOnly: false },
 ];
 
 export default function Dashboard() {
-  const { firstname } = useSelector((s) => s.user);
+  const { firstname, email, user_type } = useSelector((s) => s.user);
   const { planCode, trial, wallet, quotaResetAt, features } = useSelector((s) => s.entitlements);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   const [savedDrafts, setSavedDrafts] = useState([]);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // Show welcome modal once per account
+  useEffect(() => {
+    if (!email || !planCode) return;
+    const key = `mamla_welcome_shown_${email}`;
+    if (!localStorage.getItem(key)) {
+      setShowWelcome(true);
+    }
+  }, [email, planCode]);
 
   useEffect(() => {
     // Fetch dashboard summary and actual saved drafts in parallel
@@ -111,16 +122,29 @@ export default function Dashboard() {
     ? new Date(trial.endsAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     : '';
 
+  const isLawyerUser = user_type !== 'Client';
+
   return (
     <div className="p-8 space-y-8 max-w-7xl">
+      {showWelcome && (
+        <WelcomeModal
+          userType={user_type}
+          email={email}
+          planCode={planCode}
+          trialEndsAt={trial?.endsAt}
+          onClose={() => setShowWelcome(false)}
+        />
+      )}
       {/* ── Welcome & Metrics ────────────────────────────────── */}
       <section>
         <div className="mb-6">
           <h2 className="text-2xl font-black text-ink tracking-tight">
-            {greeting}, {firstname || 'Counselor'}
+            {greeting}, {firstname || (isLawyerUser ? 'Counselor' : 'there')}
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            Here&apos;s your legal workspace overview for today.
+            {isLawyerUser
+              ? "Here\u2019s your legal workspace overview for today."
+              : "Here\u2019s your case and document overview."}
           </p>
         </div>
 
@@ -433,9 +457,21 @@ export default function Dashboard() {
             )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {QUOTA_FEATURE_META.map(({ code, label, icon }) => {
+            {QUOTA_FEATURE_META.map(({ code, label, icon, lawyerOnly }) => {
               const f = features?.[code];
               if (!f) return null;
+              // For Nagrik users, show lawyer-only features as greyed-out unavailable cards
+              if (lawyerOnly && !isLawyerUser) {
+                return (
+                  <div key={code} className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 flex flex-col gap-2 opacity-60">
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-slate-300" style={{ fontSize: '15px' }}>{icon}</span>
+                      <span className="text-[11px] font-semibold text-slate-400 leading-tight">{label}</span>
+                    </div>
+                    <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400 self-start">Lawyer plan only</span>
+                  </div>
+                );
+              }
               const limit = f.included_limit ?? 0;
               const used = f.used_count ?? 0;
               const remaining = f.remaining_included ?? Math.max(limit - used, 0);
