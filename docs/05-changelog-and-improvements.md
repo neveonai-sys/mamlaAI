@@ -223,6 +223,12 @@ All 18 items implemented and verified (0 editor errors).
 | **Inline reminder bodies removed** | `Legalv1/utilities/routes/utils.py` (`send_notification_email`, `send_consolidated_notification`) | Both methods replaced inline "Best regards, Your Team" bodies with `EmailTemplates.meeting_reminder()` and `EmailTemplates.daily_meetings_summary()` calls. |
 | **Email verification body consolidated** | `Legalv1/users/routes/checkusers.py` (`send_email_verification_link`) | Inline plain-text verification body replaced with `EmailTemplates.email_verification_link(fname, verify_link)` call. |
 
+### Marketing Presentation Rebuild (2026-05-09)
+
+| Change | Location | Purpose |
+|--------|----------|---------|
+| **Full rewrite of `Adalatai_Presentation.md`** | `Adalatai_Presentation.md` | Replaced the stale July 2024 placeholder deck (generic bullets, USD pricing, outdated tech stack) with a complete 16-slide marketing deck covering the current product state. Written for a non-technical marketing audience. Covers: one-line pitch, problem/solution split by user type (Vakil / Nagrik / Nyaya Firm), feature explanation in plain language, Guided Drafting differentiator narrative, full updated pricing table (all plans in ₹ INR), "A Day in the Life" story for a district court lawyer, market size with India-specific data, revenue model (subscriptions + credits + add-ons + B2B), What Is Already Live summary, 6-month roadmap, competitive comparison table, call-to-action / sales motion guide, and appendices for pricing reference card, objection handling, and glossary. |
+
 ---
 
 ## 3. What Was Intentionally Not Changed

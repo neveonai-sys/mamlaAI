@@ -6,10 +6,15 @@ from pathlib import Path
 
 from bson import ObjectId
 from django.http import JsonResponse
+from django_ratelimit.decorators import ratelimit
 from rest_framework.decorators import api_view
 
 from core.entitlements import authorize_feature_use, consume_feature_use
 from core.init_clients import get_mongo_client, get_mongo_db
+from core.chitchat_guard import CHITCHAT_LLM_STUB, _REPLY_ACK, check_chitchat, has_legal_signal
+from core.input_sanitizer import PromptInjectionError, sanitize_user_input
+from core.intent_gate import classify_intent, should_use_gate
+from core.output_validator import parse_and_validate_json
 from core.response_utils import error_response
 from talkdoc.storage import upload_bytes
 from talkdoc.tasks import ingest_document
@@ -24,6 +29,7 @@ from .auth import (
 from .llm_router import call_llm, get_tier_config, parse_json_response
 from .prompts import (
     ISSUE_CLASSIFIER_SYSTEM,
+    PROMPT_VERSION,
     QUERY_REWRITE_SYSTEM,
     build_case_companion_system,
     build_doc_qa_system,
@@ -260,8 +266,12 @@ def _store_assistant_message(session, response_text, citations, llm_response, st
         'citations': citations,
         'tier_used': llm_response.get('tier', ''),
         'tokens_used': llm_response.get('usage', {}).get('total_tokens', 0),
+        'prompt_tokens': llm_response.get('usage', {}).get('prompt_tokens', 0),
+        'completion_tokens': llm_response.get('usage', {}).get('completion_tokens', 0),
+        'latency_ms': llm_response.get('latency_ms', 0),
         'model': llm_response.get('model', ''),
         'provider': llm_response.get('provider', ''),
+        'prompt_version': PROMPT_VERSION,
         'app_name': session.get('app_name', ''),
         'created_at': datetime.utcnow(),
     }
@@ -465,6 +475,7 @@ def delete_session(request, session_id):
 
 @api_view(['POST'])
 @brain_api_key_required(scopes=['doc_qa'])
+@ratelimit(key='user', rate='30/m', block=True)
 def send_message(request, session_id):
     owner_id = _owner_id(request)
     session = _session_lookup(owner_id, session_id)
@@ -472,15 +483,37 @@ def send_message(request, session_id):
         return error_response('session not found', status=404)
 
     data = _json_body(request)
-    text = (data.get('text') or data.get('query') or '').strip()
-    if not text:
+    raw_text = (data.get('text') or data.get('query') or '').strip()
+    if not raw_text:
         return error_response('query is empty', status=400)
+
+    try:
+        text = sanitize_user_input(raw_text, tier='t2')
+    except PromptInjectionError as exc:
+        return error_response(str(exc), status=400)
 
     decision = _authorize_internal_feature(request, 'brain_doc_analysis')
     if decision and not decision.get('allowed'):
         return _quota_error_response(decision['message'], decision['quota'], decision['status_code'])
 
     _store_user_message(session, text, {'app_name': _app_name(request)})
+
+    # --- Tier-0 chitchat guard (zero LLM cost) ---
+    is_cc, cc_reply = check_chitchat(text)
+    if not is_cc and should_use_gate(text) and not has_legal_signal(text):
+        # Ambiguous short input — use free model to classify intent
+        if classify_intent(text) == 'chitchat':
+            is_cc, cc_reply = True, _REPLY_ACK
+    if is_cc:
+        stub = {**CHITCHAT_LLM_STUB, 'text': cc_reply}
+        _store_assistant_message(session, cc_reply, [], stub)
+        return JsonResponse({
+            'message': cc_reply,
+            'answer': cc_reply,
+            'citations': [],
+            'rewritten_query': text,
+            'quota': None,
+        })
 
     rewritten_query, rewrite_response = _rewrite_query(text, session.get('domain_key', 'legal'))
     doc_ids = [str(doc_id) for doc_id in session.get('doc_ids', [])]
@@ -537,6 +570,7 @@ def start_case_companion(request):
 
 @api_view(['POST'])
 @brain_api_key_required(scopes=['case_companion'])
+@ratelimit(key='user', rate='30/m', block=True)
 def case_companion_advise(request, session_id):
     owner_id = _owner_id(request)
     session = _session_lookup(owner_id, session_id)
@@ -546,9 +580,14 @@ def case_companion_advise(request, session_id):
         return error_response('session is not a case companion session', status=400)
 
     data = _json_body(request)
-    text = (data.get('text') or data.get('query') or data.get('facts') or '').strip()
-    if not text:
+    raw_text = (data.get('text') or data.get('query') or data.get('facts') or '').strip()
+    if not raw_text:
         return error_response('facts are required', status=400)
+
+    try:
+        text = sanitize_user_input(raw_text, tier='t3')
+    except PromptInjectionError as exc:
+        return error_response(str(exc), status=400)
 
     decision = _authorize_internal_feature(request, 'case_companion')
     if decision and not decision.get('allowed'):
@@ -556,6 +595,22 @@ def case_companion_advise(request, session_id):
 
     session['app_name'] = _app_name(request)
     _store_user_message(session, text, {'app_name': session['app_name']})
+
+    # --- Tier-0 chitchat guard (zero LLM cost) ---
+    is_cc, cc_reply = check_chitchat(text)
+    if not is_cc and should_use_gate(text) and not has_legal_signal(text):
+        if classify_intent(text) == 'chitchat':
+            is_cc, cc_reply = True, _REPLY_ACK
+    if is_cc:
+        stub = {**CHITCHAT_LLM_STUB, 'text': cc_reply}
+        _store_assistant_message(session, cc_reply, [], stub)
+        quota = _finalize_quota(request, 'case_companion', decision)
+        return JsonResponse({
+            'message': cc_reply,
+            'answer': cc_reply,
+            'citations': [],
+            'quota': quota,
+        })
 
     classifier_messages = [
         {'role': 'system', 'content': ISSUE_CLASSIFIER_SYSTEM},
@@ -599,7 +654,7 @@ def case_companion_advise(request, session_id):
         },
     ]
     t3_response = call_llm(reasoning_messages, tier='t3')
-    structured = parse_json_response(t3_response['text'], fallback=None)
+    structured = parse_and_validate_json(t3_response['text'], scenario='brain:t3', fallback=None)
     if structured is None:
         structured = {
             'summary': t3_response['text'],
@@ -624,6 +679,98 @@ def case_companion_advise(request, session_id):
     )
     structured['quota'] = _finalize_quota(request, 'case_companion', decision)
     return JsonResponse(structured)
+
+
+@api_view(['GET'])
+@brain_api_key_required
+def usage_stats(request):
+    """
+    Return aggregated token usage for the authenticated owner.
+
+    Query params:
+      period=daily|monthly  (default: monthly)
+      feature=<str>         (optional — filter by app_name/feature)
+
+    Response:
+      {
+        "period": "monthly",
+        "total_tokens": 12400,
+        "prompt_tokens": 8000,
+        "completion_tokens": 4400,
+        "avg_latency_ms": 820,
+        "message_count": 42,
+        "breakdown": [{"date": "2026-05-01", "tokens": 1200}, ...]
+      }
+    """
+    from datetime import timedelta
+    from core.circuit_breaker import get_circuit_breaker, PROVIDER_OPENAI, PROVIDER_OPENROUTER
+
+    owner_id = _owner_id(request)
+    period   = request.GET.get('period', 'monthly')
+    feature  = request.GET.get('feature', '').strip()
+
+    now   = datetime.utcnow()
+    if period == 'daily':
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    match_stage = {
+        'owner_id': owner_id,
+        'role': 'assistant',
+        'created_at': {'$gte': start},
+    }
+    if feature:
+        match_stage['app_name'] = feature
+
+    # aggregate via session join
+    pipeline = [
+        {'$match': {'owner_id': owner_id, 'deleted': False}},
+        {'$lookup': {
+            'from': 'brain_messages',
+            'localField': '_id',
+            'foreignField': 'session_id',
+            'as': 'messages',
+        }},
+        {'$unwind': '$messages'},
+        {'$match': {
+            'messages.role': 'assistant',
+            'messages.created_at': {'$gte': start},
+            **({'messages.app_name': feature} if feature else {}),
+        }},
+        {'$group': {
+            '_id': None,
+            'total_tokens':      {'$sum': '$messages.tokens_used'},
+            'prompt_tokens':     {'$sum': '$messages.prompt_tokens'},
+            'completion_tokens': {'$sum': '$messages.completion_tokens'},
+            'avg_latency_ms':    {'$avg': '$messages.latency_ms'},
+            'message_count':     {'$sum': 1},
+        }},
+    ]
+    results = list(_db()['brain_sessions'].aggregate(pipeline))
+    agg = results[0] if results else {}
+
+    total_tokens  = agg.get('total_tokens', 0)
+    message_count = agg.get('message_count', 0)
+
+    # Cost warning: check against entitlement quota (rough heuristic: tokens > 75 % of 100k default)
+    WARN_THRESHOLD = int(os.getenv('BRAIN_USAGE_WARN_TOKENS', '75000'))
+    if total_tokens >= WARN_THRESHOLD:
+        logger.warning(
+            '[USAGE] owner_id=%s period=%s total_tokens=%d exceeds warn threshold=%d',
+            owner_id, period, total_tokens, WARN_THRESHOLD,
+        )
+
+    return JsonResponse({
+        'period':            period,
+        'since':             start.isoformat() + 'Z',
+        'total_tokens':      total_tokens,
+        'prompt_tokens':     agg.get('prompt_tokens', 0),
+        'completion_tokens': agg.get('completion_tokens', 0),
+        'avg_latency_ms':    round(agg.get('avg_latency_ms') or 0),
+        'message_count':     message_count,
+        'usage_warning':     total_tokens >= WARN_THRESHOLD,
+    })
 
 
 @api_view(['POST'])

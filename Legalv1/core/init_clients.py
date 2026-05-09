@@ -48,14 +48,21 @@ class DatabaseClients:
                 )
             self._mongo_client = MongoClient(
                 mongo_uri,
-                maxPoolSize=100,  # Maximum number of connections in the pool
-                minPoolSize=10,   # Minimum number of connections to maintain
-                maxIdleTimeMS=30000,  # Close idle connections after 30s
-                connectTimeoutMS=10000,  # Fail fast if can't connect
-                socketTimeoutMS=30000,    # Wait 30s for query responses
-                serverSelectionTimeoutMS=5000,  # Timeout for server selection
+                maxPoolSize=100,       # Maximum connections in the pool
+                minPoolSize=0,         # Don't hold idle connections — Atlas closes them anyway,
+                                       # triggering AutoReconnect noise in the background thread.
+                                       # PyMongo reconnects on demand with no user impact.
+                maxIdleTimeMS=25000,   # Close our idle connections after 25 s — *before* Atlas's
+                                       # idle-connection timeout fires (typically 30–60 s on Atlas).
+                                       # Prevents the race where Atlas closes first and PyMongo's
+                                       # pool maintenance logs spurious AutoReconnect errors.
+                connectTimeoutMS=10000,          # Fail fast if can't open a new connection
+                socketTimeoutMS=30000,           # Wait up to 30 s for a query response
+                serverSelectionTimeoutMS=5000,   # Give up server selection after 5 s
+                heartbeatFrequencyMS=30000,      # Topology heartbeat interval (default 10 s → 30 s
+                                                 # reduces connection churn against Atlas).
                 retryWrites=True,
-                retryReads=True
+                retryReads=True,
             )
             # Test the connection
             self._mongo_client.admin.command('ping')

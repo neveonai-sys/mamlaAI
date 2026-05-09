@@ -6,6 +6,7 @@ BaseAgent handles:
   - Structured logging with agent identity tag
   - Exception wrapping → always returns {"ok": bool, ...}
   - Shared helpers for DB access and user context
+  - Optional JSON output validation via OUTPUT_SCHEMA
 """
 import logging
 import traceback
@@ -19,9 +20,15 @@ class BaseAgent:
 
     Concrete agents override _run(inputs, db, supa_user) → dict.
     The public run() method wraps _run() with exception handling.
+
+    Optional class-level attribute:
+      OUTPUT_SCHEMA: dict  — if defined, LLM JSON output will be validated
+                            against this schema via output_validator.  Keys:
+                            'required' (list[str]) and 'types' (dict[str, type]).
     """
 
     name: str = 'BaseAgent'
+    OUTPUT_SCHEMA: dict | None = None
 
     def run(self, inputs: dict, db, supa_user: dict) -> dict:
         """
@@ -47,6 +54,24 @@ class BaseAgent:
     def _run(self, inputs: dict, db, supa_user: dict) -> dict:
         raise NotImplementedError(f"{self.name} must implement _run()")
 
+    def validate_json_output(self, text: str, fallback: dict | None = None) -> dict | None:
+        """
+        Validate LLM JSON output against self.OUTPUT_SCHEMA if defined.
+        Returns validated dict on success, or *fallback* if schema is missing
+        or validation fails (logs the error, does not raise).
+        """
+        if self.OUTPUT_SCHEMA is None:
+            return safe_json_loads(text) or fallback
+        try:
+            from core.output_validator import LLMOutputValidationError, _extract_json, _validate_schema
+            import json as _json
+            json_str = _extract_json(text)
+            data = _json.loads(json_str)
+            validated = _validate_schema(data, self.OUTPUT_SCHEMA, self.name)
+            return validated
+        except Exception as exc:
+            logger.warning('[AGENT:%s] output validation failed: %s', self.name, exc)
+            return fallback
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Shared helpers used across multiple agents

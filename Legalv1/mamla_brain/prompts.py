@@ -1,3 +1,9 @@
+# ---------------------------------------------------------------------------
+# Prompt versioning — bump this when any prompt template changes.
+# Version is stored in brain_messages so regressions can be tracked.
+# ---------------------------------------------------------------------------
+PROMPT_VERSION = 'v1.0'
+
 DOMAIN_PROFILES = {
     'legal': {
         'label': 'Legal',

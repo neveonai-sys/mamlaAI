@@ -69,6 +69,7 @@ APP_OPENAI_MODELS: dict = {
     "create_drafts:fill_draft":     os.getenv("OPENAI_CREATE_DRAFTS_MODEL",   "gpt-4o"),
     "create_drafts:update_draft":   os.getenv("OPENAI_CREATE_DRAFTS_MODEL",   "gpt-4o"),
     # Brain tiers — all stay on stronger models; kept as OpenAI slugs
+    "brain:t0":                     os.getenv("BRAIN_T0_OPENAI_MODEL",        "gpt-4o-mini"),   # intent gate fallback
     "brain:t1":                     os.getenv("BRAIN_T1_OPENAI_MODEL",        "gpt-4o-mini"),
     "brain:t2":                     os.getenv("BRAIN_T2_OPENAI_MODEL",        "gpt-4o-mini"),
     "brain:t3":                     os.getenv("BRAIN_T3_OPENAI_MODEL",        "gpt-4o"),
@@ -87,6 +88,7 @@ APP_OPENROUTER_MODELS: dict = {
     "create_drafts:fill_draft":     os.getenv("OPENROUTER_CREATE_DRAFTS_MODEL",       "openai/gpt-4o"),
     "create_drafts:update_draft":   os.getenv("OPENROUTER_CREATE_DRAFTS_MODEL",       "openai/gpt-4o"),
     # Mamla-Brain tiers (pre-wired; activated when mamla_brain app is deployed)
+    "brain:t0":                     os.getenv("BRAIN_T0_MODEL",               "meta-llama/llama-3.2-1b-instruct:free"),  # free intent gate
     "brain:t1":                     os.getenv("BRAIN_T1_MODEL",                       "meta-llama/llama-3.1-8b-instruct"),
     "brain:t2":                     os.getenv("BRAIN_T2_MODEL",                       "anthropic/claude-3-haiku"),
     "brain:t3":                     os.getenv("BRAIN_T3_MODEL",                       "anthropic/claude-sonnet-4-5"),

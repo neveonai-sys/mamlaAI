@@ -15,4 +15,5 @@ urlpatterns = [
     path('v1/case-companion/start/', views.start_case_companion),
     path('v1/case-companion/<str:session_id>/advise/', views.case_companion_advise),
     path('v1/admin/keys/', views.generate_admin_api_key),
+    path('v1/usage/', views.usage_stats),
 ]
