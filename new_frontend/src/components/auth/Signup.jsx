@@ -38,6 +38,8 @@ export default function Signup() {
     password: '',
   });
   const [showPwd, setShowPwd] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -135,8 +137,19 @@ export default function Signup() {
       setError('Enter a valid 10-digit mobile number (without country code).');
       return;
     }
-    if (form.password.length < 8) {
-      setError('Password must be at least 8 characters.');
+    const pwdRules = {
+      length: form.password.length >= 8,
+      upper: /[A-Z]/.test(form.password),
+      lower: /[a-z]/.test(form.password),
+      number: /[0-9]/.test(form.password),
+      symbol: /[^A-Za-z0-9]/.test(form.password),
+    };
+    if (!Object.values(pwdRules).every(Boolean)) {
+      setError('Password must be at least 8 characters and include 1 uppercase letter, 1 lowercase letter, 1 number, and 1 symbol.');
+      return;
+    }
+    if (confirmPassword !== form.password) {
+      setError('Passwords do not match. Please re-enter your password.');
       return;
     }
 
@@ -403,7 +416,80 @@ export default function Signup() {
                       </span>
                     </button>
                   </div>
-                  <p className="mt-1.5 text-xs text-slate-500">At least 8 characters, including a number and symbol.</p>
+                  {form.password.length > 0 && (() => {
+                    const rules = [
+                      { key: 'length', label: 'At least 8 characters',    ok: form.password.length >= 8 },
+                      { key: 'upper',  label: '1 uppercase letter (A–Z)', ok: /[A-Z]/.test(form.password) },
+                      { key: 'lower',  label: '1 lowercase letter (a–z)', ok: /[a-z]/.test(form.password) },
+                      { key: 'number', label: '1 number (0–9)',            ok: /[0-9]/.test(form.password) },
+                      { key: 'symbol', label: '1 symbol (!@#$…)',          ok: /[^A-Za-z0-9]/.test(form.password) },
+                    ];
+                    const allOk = rules.every((r) => r.ok);
+                    return (
+                      <div className={`mt-2 rounded-lg border px-3 py-2.5 ${
+                        allOk ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+                      }`}>
+                        <ul className="space-y-1">
+                          {rules.map((r) => (
+                            <li key={r.key} className="flex items-center gap-2 text-xs">
+                              <span className={`material-symbols-outlined text-sm ${
+                                r.ok ? 'text-emerald-600' : 'text-slate-300'
+                              }`}>
+                                {r.ok ? 'check_circle' : 'radio_button_unchecked'}
+                              </span>
+                              <span className={r.ok ? 'text-emerald-700 font-medium' : 'text-slate-500'}>{r.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })()}
+                  {form.password.length === 0 && (
+                    <p className="mt-1.5 text-xs text-slate-400">At least 8 characters including 1 uppercase, 1 lowercase, 1 number, and 1 symbol.</p>
+                  )}
+                </div>
+
+                {/* ── Confirm Password ── */}
+                <div>
+                  <label className={LABEL_CLS} htmlFor="confirmPassword">Confirm Password</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
+                    <input
+                      id="confirmPassword" name="confirmPassword"
+                      type={showConfirmPwd ? 'text' : 'password'}
+                      required placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={`${ICON_INPUT_CLS} pr-12 ${
+                        confirmPassword.length > 0
+                          ? confirmPassword === form.password
+                            ? 'border-emerald-400 focus:ring-emerald-300'
+                            : 'border-red-400 focus:ring-red-300'
+                          : ''
+                      }`}
+                    />
+                    <button
+                      type="button" onClick={() => setShowConfirmPwd((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <span className="material-symbols-outlined text-xl">
+                        {showConfirmPwd ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                  {confirmPassword.length > 0 && (
+                    confirmPassword === form.password ? (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-600">
+                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                        Passwords match.
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs text-red-600">
+                        <span className="material-symbols-outlined text-sm">error</span>
+                        Passwords do not match.
+                      </p>
+                    )
+                  )}
                 </div>
 
                 {/* ── Terms ── */}
