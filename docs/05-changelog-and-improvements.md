@@ -229,6 +229,26 @@ All 18 items implemented and verified (0 editor errors).
 |--------|----------|---------|
 | **Full rewrite of `Adalatai_Presentation.md`** | `Adalatai_Presentation.md` | Replaced the stale July 2024 placeholder deck (generic bullets, USD pricing, outdated tech stack) with a complete 16-slide marketing deck covering the current product state. Written for a non-technical marketing audience. Covers: one-line pitch, problem/solution split by user type (Vakil / Nagrik / Nyaya Firm), feature explanation in plain language, Guided Drafting differentiator narrative, full updated pricing table (all plans in ₹ INR), "A Day in the Life" story for a district court lawyer, market size with India-specific data, revenue model (subscriptions + credits + add-ons + B2B), What Is Already Live summary, 6-month roadmap, competitive comparison table, call-to-action / sales motion guide, and appendices for pricing reference card, objection handling, and glossary. |
 
+### Mobile App Setup (Capacitor) — Phase 1 & 2 (2026-05-12)
+
+| Change | Location | Purpose |
+|--------|----------|---------|
+| **Capacitor + Android setup** | `frontend/capacitor.config.ts` (new), `frontend/android/` (new) | Wrapped React SPA in native Capacitor shell. Config: appId=`ai.mamla.app`, webDir=`dist`. Generated Android native project via `npx cap add android`. |
+| **CORS origins for native** | `Legalv1/Legalv1/settings.py` | Added `capacitor://localhost` and `http://localhost` to `CORS_ALLOWED_ORIGINS` to allow HttpOnly cookie fallback. |
+| **Bearer token auth (request interceptor)** | `frontend/src/services/api.js` | On native platform: read `access_token` from `@capacitor/preferences` (encrypted device storage) and inject as `Authorization: Bearer <token>` header. Web flow via HttpOnly cookie unchanged. |
+| **Bearer token storage (on login)** | `frontend/src/components/auth/Login.jsx` | After successful login on native: store `access_token` (from `login-user/` response) in `Preferences` for use on all subsequent requests. |
+| **Bearer token pre-check (auth probe)** | `frontend/src/AppContent.js` | On app start, check native Preferences for token before calling `check-auth/`. If no token, skip network call and clear user. Avoids unnecessary 401 round-trip. |
+| **Bearer token cleanup (logout)** | `frontend/src/components/layout/Sidebar.jsx` | On logout (native only): clear token from `Preferences` via `Preferences.remove()`. |
+| **API response includes token** | `Legalv1/users/supabase_views.py` (`login_user` view) | Added `access_token` to JSON response body (used by native; web ignores it since token is in cookie). |
+| **Viewport meta for mobile** | `frontend/public/index.html` | Added `viewport-fit=cover` (iPhone notch) and `apple-mobile-web-app-capable` (PWA) meta tags. |
+| **Npm build scripts** | `frontend/package.json` | Added `cap:sync` (copy web → android), `cap:android` (full build, skip Studio launch on headless). |
+| **Setup documentation** | `docs/15-mobile-capacitor-setup.md` (new) | Complete guide: JDK/Android SDK installation, build workflow, APK download & install, troubleshooting, next steps. |
+| **Quick-ref update** | `docs/00-agent-quickref.md` | Added mobile guide entry to task routing table. |
+
+**Status:** Phases 1–2 complete and tested. APK builds successfully; auth loop fixed; app installs and runs on Android emulator/device.
+
+**Not yet implemented (Phase 3–6):** Camera/file upload, push notifications, mobile UI polish, store submissions.
+
 ---
 
 ## 3. What Was Intentionally Not Changed

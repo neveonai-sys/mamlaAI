@@ -1122,32 +1122,16 @@ export default function CalendarPage() {
 
         <section className="overflow-hidden rounded-[28px] border border-primary/10 bg-white shadow-[0_20px_40px_rgba(49,31,14,0.08)]">
           <div className="border-b border-primary/10 bg-white/85 px-6 py-5 backdrop-blur-sm">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-3xl font-black tracking-tight text-ink">{currentRange.label}</h2>
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                    {filteredEvents.length} live events
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-slate-500">
-                  Hearings, deadlines, and consultations — all in one place.
-                </p>
+            {/* Row 1: title + view controls */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-3xl font-black tracking-tight text-ink">{currentRange.label}</h2>
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                  {filteredEvents.length} live events
+                </span>
               </div>
 
-              <div className="flex w-full max-w-xl flex-col gap-3">
-                <div className="flex items-center gap-3 rounded-full border border-primary/10 bg-primary/5 px-4 py-3">
-                  <span className="material-symbols-outlined text-slate-400">search</span>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search cases, clients, locations, or notes"
-                    className="w-full bg-transparent text-sm text-ink placeholder:text-slate-400 outline-none"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex flex-wrap gap-2">
                     {[
                       ['dayGridMonth', 'Month'],
@@ -1184,8 +1168,19 @@ export default function CalendarPage() {
                       <span className="material-symbols-outlined text-base">refresh</span>
                     </button>
                   </div>
-                </div>
               </div>
+            </div>
+
+            {/* Row 2: search bar — always full width, never competes with date */}
+            <div className="mt-4 flex items-center gap-3 rounded-full border border-primary/10 bg-primary/5 px-4 py-3">
+              <span className="material-symbols-outlined text-slate-400">search</span>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search cases, clients, locations, or notes"
+                className="w-full bg-transparent text-sm text-ink placeholder:text-slate-400 outline-none"
+              />
             </div>
           </div>
 

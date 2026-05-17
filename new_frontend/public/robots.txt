@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /drafting
+Disallow: /documents
+Disallow: /calendar
+Disallow: /cases
+Disallow: /sessions
+Disallow: /ecourts
+Disallow: /feedback
+Disallow: /my-case
+
+Sitemap: https://mamla.ai/sitemap.xml

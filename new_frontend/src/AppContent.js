@@ -5,10 +5,14 @@ import { setUser, clearUser } from './features/userSlice';
 import { clearEntitlements, setEntitlements } from './features/entitlementsSlice';
 import { refreshEntitlements } from './features/entitlementsActions';
 import apiClient from './services/api';
+import { NATIVE_TOKEN_KEY } from './services/api';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 
 // ─── Lazy-loaded screens ─────────────────────────────────────────────────────
+const MinimalLanding     = lazy(() => import('./components/landing/MinimalLanding'));
 const LandingPage        = lazy(() => import('./components/landing/LandingPage'));
 const Login              = lazy(() => import('./components/auth/Login'));
 const Signup             = lazy(() => import('./components/auth/Signup'));
@@ -51,7 +55,7 @@ const ClientCasePage     = lazy(() => import('./components/cases/ClientCasePage'
 const GuidedDraftingPage = lazy(() => import('./components/drafting/GuidedDraftingPage'));
 
 // ─── Public routes that skip auth check ─────────────────────────────────────
-const PUBLIC_ROUTES = ['/', '/login', '/signup', '/reset-password'];
+const PUBLIC_ROUTES = ['/', '/login', '/signup', '/reset-password', '/website'];
 
 function GlobalSpinner() {
   return (
@@ -93,32 +97,46 @@ export default function AppContent() {
     // If we already have a Redux session skip
     if (isAuthenticated === true) return;
 
-    // Check auth via cookie (HttpOnly cookie auto-sent with withCredentials:true)
-    apiClient
-      .get('users/check-auth/')
-      .then((res) => {
-        if (res.data?.isAuthenticated) {
-          dispatch(setUser({
-            firstname: res.data.firstname,
-            lastname: res.data.lastname,
-            email: res.data.email_id,
-            user_type: res.data.user_type,
-            sessions: res.data.sessions,
-          }));
-          if (res.data.entitlements) {
-            dispatch(setEntitlements(res.data.entitlements));
-          } else {
-            refreshEntitlements(dispatch);
-          }
-        } else {
+    // Check auth via cookie (web) or Bearer token (native — injected by api.js interceptor).
+    // On native, verify we actually have a stored token before hitting the network;
+    // if there's none the user hasn't logged in yet and we avoid an unnecessary 401 round-trip.
+    const probe = async () => {
+      if (Capacitor.isNativePlatform()) {
+        const { value } = await Preferences.get({ key: NATIVE_TOKEN_KEY });
+        if (!value) {
           dispatch(clearUser());
           dispatch(clearEntitlements());
+          return;
         }
-      })
-      .catch(() => {
-        dispatch(clearUser());
-        dispatch(clearEntitlements());
-      });
+      }
+
+      apiClient
+        .get('users/check-auth/')
+        .then((res) => {
+          if (res.data?.isAuthenticated) {
+            dispatch(setUser({
+              firstname: res.data.firstname,
+              lastname: res.data.lastname,
+              email: res.data.email_id,
+              user_type: res.data.user_type,
+              sessions: res.data.sessions,
+            }));
+            if (res.data.entitlements) {
+              dispatch(setEntitlements(res.data.entitlements));
+            } else {
+              refreshEntitlements(dispatch);
+            }
+          } else {
+            dispatch(clearUser());
+            dispatch(clearEntitlements());
+          }
+        })
+        .catch(() => {
+          dispatch(clearUser());
+          dispatch(clearEntitlements());
+        });
+    };
+    probe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
@@ -126,7 +144,8 @@ export default function AppContent() {
     <Suspense fallback={<GlobalSpinner />}>
       <Routes>
         {/* ── Public ──────────────────────────────────────────────────── */}
-        <Route path="/"               element={<LandingPage />} />
+        <Route path="/"               element={<MinimalLanding />} />
+        <Route path="/website"        element={<LandingPage />} />
         <Route path="/login"          element={<Login />} />
         <Route path="/signup"         element={<Signup />} />
         <Route path="/reset-password" element={<ResetPassword />} />
@@ -146,7 +165,7 @@ export default function AppContent() {
             {/* /clients route removed — onboarding now via CaseRegistry modal */}
             {/* <Route path="/clients"         element={<ClientOnboarding />} /> */}
             {/* <Route path="/clients/:clientId" element={<ClientProfile />} /> */}
-            {/* <Route path="/sessions"        element={<Sessions />} /> */}
+            <Route path="/sessions"        element={<Sessions />} />
             <Route path="/feedback"        element={<Feedback />} />
 
             {/* eCourts nested */}

@@ -5,6 +5,7 @@ import apiClient from '../../services/api';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import AuthShowcase from './AuthShowcase';
 import MamlaLogo from '../common/MamlaLogo';
+import { useIconFont } from '../../hooks/useIconFont';
 
 const USER_TYPE_OPTIONS = [
   { value: 'Lawyer',    label: 'Lawyer',           desc: 'I practice law' },
@@ -19,6 +20,7 @@ const ICON_INPUT_CLS = `w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-2
 const LABEL_CLS = 'block text-sm font-semibold mb-2 text-slate-700';
 
 export default function Signup() {
+  useIconFont();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 

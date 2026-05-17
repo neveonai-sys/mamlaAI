@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import MamlaLogoIcon from '../common/MamlaLogoIcon';
 import { Link, useNavigate } from 'react-router-dom';
+import { useIconFont } from '../../hooks/useIconFont';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -891,6 +892,7 @@ function ContactSection() {
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  useIconFont();
   const [scrolled, setScrolled] = useState(false);
   const [openDD, setOpenDD] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);

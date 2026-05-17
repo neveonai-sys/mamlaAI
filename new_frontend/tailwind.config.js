@@ -16,9 +16,9 @@ module.exports = {
         'ivory-dark': '#e2e8f0',
       },
       fontFamily: {
-        display: ['Source Serif 4', 'serif'],
-        sans: ['IBM Plex Sans', 'sans-serif'],
-        serif: ['Source Serif 4', 'serif'],
+        display: ['Inter', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
+        serif: ['Lora', 'serif'],
       },
       borderRadius: {
         DEFAULT: '0.25rem',

@@ -1,240 +1,193 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import apiClient from '../../services/api';
+import { setUser } from '../../features/userSlice';
 
-function SessionCard({ session, onClick, isActive }) {
+function formatDate(str) {
+  if (!str) return '—';
+  try {
+    return new Date(str).toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return str;
+  }
+}
+
+function DeviceIcon({ deviceType }) {
+  const type = deviceType?.toLowerCase() ?? '';
+  const icon = type.includes('mobile') ? 'smartphone' : type.includes('tablet') ? 'tablet' : 'computer';
+  return <span className="material-symbols-outlined text-2xl text-primary/60">{icon}</span>;
+}
+
+function SessionCard({ session, onSignOut, signingOut }) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left p-4 rounded-xl border transition-all ${
-        isActive
-          ? 'bg-primary/5 border-primary/30'
-          : 'bg-ivory border-primary/10 hover:border-primary/20 hover:bg-primary/5'
+    <div
+      className={`rounded-2xl border p-5 transition-all ${
+        session.is_current
+          ? 'border-primary/30 bg-primary/5'
+          : 'border-primary/10 bg-white hover:border-primary/20'
       }`}
     >
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-sm font-semibold text-ink line-clamp-1">
-          {session.session_name || session.matter || `Session ${session.session_number || ''}`}
-        </p>
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-          session.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-        }`}>
-          {session.is_active ? 'Active' : 'Closed'}
-        </span>
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 mt-0.5">
+          <DeviceIcon deviceType={session.device_type} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-sm font-bold text-ink truncate">
+              {session.device_type || 'Unknown device'}
+            </span>
+            {session.is_current && (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wide">
+                This device
+              </span>
+            )}
+          </div>
+          <div className="space-y-0.5">
+            {session.ip_address && (
+              <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[14px]">location_on</span>
+                {session.location && session.location !== 'Unknown' ? `${session.location} · ` : ''}
+                {session.ip_address}
+              </p>
+            )}
+            <p className="text-xs text-slate-500 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px]">login</span>
+              Signed in {formatDate(session.login_time)}
+            </p>
+            <p className="text-xs text-slate-400 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px]">schedule</span>
+              Last active {formatDate(session.last_activity)}
+            </p>
+          </div>
+        </div>
       </div>
-      <p className="text-xs text-slate-500 flex items-center gap-1.5">
-        <span className="material-symbols-outlined text-xs">forum</span>
-        {session.message_count || 0} messages
-      </p>
-      <p className="text-[10px] text-slate-400 mt-1">
-        {session.updated_at ? new Date(session.updated_at).toLocaleDateString('en-IN') : '—'}
-      </p>
-    </button>
+
+      {!session.is_current && (
+        <div className="mt-4 pt-4 border-t border-primary/10 flex justify-end">
+          <button
+            onClick={() => onSignOut(session.session_id)}
+            disabled={signingOut === session.session_id}
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-600
+                       transition-colors hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {signingOut === session.session_id ? 'Signing out…' : 'Sign out this device'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
 export default function Sessions() {
-  const [sessions, setSessions] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [filter, setFilter] = useState('all');
+  const dispatch = useDispatch();
+  const reduxUser = useSelector((s) => s.user);
+  const [sessions, setSessions] = useState(reduxUser.sessions ?? []);
+  const [loading, setLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(null);
+  const [error, setError] = useState('');
 
+  // Refresh sessions from check-auth on mount so data is always current
   useEffect(() => {
-    apiClient.get('talkdoc/sessions/')
-      .then((r) => setSessions(r.data?.results ?? r.data ?? []))
-      .catch(() => {})
+    setLoading(true);
+    apiClient.get('users/check-auth/')
+      .then((res) => {
+        if (res.data?.sessions) {
+          setSessions(res.data.sessions);
+          dispatch(setUser({
+            firstname: res.data.firstname ?? reduxUser.firstname,
+            lastname: res.data.lastname ?? reduxUser.lastname,
+            email: res.data.email_id ?? reduxUser.email,
+            user_type: res.data.user_type ?? reduxUser.user_type,
+            sessions: res.data.sessions,
+          }));
+        }
+      })
+      .catch(() => setError('Could not load sessions. Please refresh the page.'))
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadMessages(sessionId) {
+  async function handleSignOut(sessionId) {
+    setSigningOut(sessionId);
+    setError('');
     try {
-      const r = await apiClient.get(`talkdoc/session_messages/?session_id=${sessionId}`);
-      setMessages(r.data?.results ?? r.data?.messages ?? []);
-    } catch {
-      setMessages([]);
-    }
-  }
-
-  function handleSelectSession(session) {
-    setSelected(session);
-    loadMessages(session.id);
-  }
-
-  async function handleSend() {
-    if (!input.trim() || !selected || chatLoading) return;
-    const text = input.trim();
-    setInput('');
-    setMessages((m) => [...m, { role: 'user', content: text }]);
-    setChatLoading(true);
-    try {
-      const r = await apiClient.post('talkdoc/query/', {
-        session_id: selected.id,
-        query: text,
-      });
-      setMessages((m) => [
-        ...m,
-        {
-          role: 'assistant',
-          content: r.data?.answer || r.data?.response || 'No response',
-          citations: r.data?.citations ?? [],
-        },
-      ]);
+      await apiClient.post('users/invalidate-session/', { session_id: sessionId });
+      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
     } catch (err) {
-      setMessages((m) => [
-        ...m,
-        { role: 'assistant', content: err.response?.data?.error || 'Sorry, could not process that.' },
-      ]);
+      setError(err.response?.data?.error_message || 'Failed to sign out that device. Please try again.');
     } finally {
-      setChatLoading(false);
+      setSigningOut(null);
     }
   }
 
-  const filtered = sessions.filter((s) => {
-    if (filter === 'active') return s.is_active;
-    if (filter === 'closed') return !s.is_active;
-    return true;
-  });
+  const currentSession = sessions.find((s) => s.is_current);
+  const otherSessions = sessions.filter((s) => !s.is_current);
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left: session list */}
-      <aside className="w-80 border-r border-primary/10 bg-slate-50 flex flex-col">
-        <div className="p-4 border-b border-primary/10">
-          <h2 className="font-bold text-ink mb-3">Sessions</h2>
-          <div className="flex gap-1">
-            {['all', 'active', 'closed'].map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded transition-all capitalize ${
-                  filter === f
-                    ? 'bg-primary text-ivory'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:border-primary/50'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
+    <div className="p-6 max-w-2xl mx-auto">
+      <div className="mb-6">
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-primary">Security</p>
+        <h1 className="mt-2 text-2xl font-black text-ink tracking-tight">Active Login Sessions</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          These devices are currently signed in to your account. Sign out any devices you don't recognise.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
-          {loading ? (
-            [1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-ivory rounded-xl animate-pulse" />
-            ))
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-10">
-              <span className="material-symbols-outlined text-slate-300 text-4xl block mb-2">forum</span>
-              <p className="text-xs text-slate-400">No sessions found</p>
-            </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-28 rounded-2xl border border-primary/10 bg-white animate-pulse" />
+          ))}
+        </div>
+      ) : sessions.length === 0 ? (
+        <div className="rounded-2xl border border-primary/10 bg-white p-10 text-center">
+          <span className="material-symbols-outlined text-slate-300 text-5xl block mb-3">devices</span>
+          <p className="text-sm font-semibold text-slate-500">No session data available.</p>
+          <p className="text-xs text-slate-400 mt-1">Try refreshing the page.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {currentSession && (
+            <section>
+              <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 mb-3">
+                Current device
+              </h2>
+              <SessionCard session={currentSession} onSignOut={handleSignOut} signingOut={signingOut} />
+            </section>
+          )}
+
+          {otherSessions.length > 0 ? (
+            <section>
+              <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 mb-3">
+                Other signed-in devices
+              </h2>
+              <div className="space-y-3">
+                {otherSessions.map((s) => (
+                  <SessionCard
+                    key={s.session_id}
+                    session={s}
+                    onSignOut={handleSignOut}
+                    signingOut={signingOut}
+                  />
+                ))}
+              </div>
+            </section>
           ) : (
-            filtered.map((s) => (
-              <SessionCard
-                key={s.id}
-                session={s}
-                onClick={() => handleSelectSession(s)}
-                isActive={selected?.id === s.id}
-              />
-            ))
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 text-sm text-slate-500">
+              No other devices are signed in.
+            </div>
           )}
         </div>
-      </aside>
-
-      {/* Right: chat view */}
-      <div className="flex-1 flex flex-col bg-background-light overflow-hidden">
-        {selected ? (
-          <>
-            {/* Session header */}
-            <div className="h-14 border-b border-primary/10 bg-ivory flex items-center px-6 gap-3 flex-shrink-0">
-              <span className="material-symbols-outlined text-primary">forum</span>
-              <div>
-                <p className="text-sm font-bold text-ink">
-                  {selected.session_name || selected.matter || 'Session'}
-                </p>
-                <p className="text-xs text-slate-400">
-                  {selected.message_count || messages.length} messages
-                </p>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
-              {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'bg-primary text-ivory rounded-br-sm'
-                        : 'bg-white border border-primary/10 text-ink rounded-bl-sm shadow-sm'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                    {msg.citations && msg.citations.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-primary/20 space-y-0.5">
-                        {msg.citations.map((c, ci) => (
-                          <p key={ci} className="text-xs text-ivory/70">
-                            [{ci + 1}] {c.filename || c.doc_name} — p.{c.page}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {chatLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white border border-primary/10 rounded-2xl rounded-bl-sm px-4 py-3">
-                    <div className="flex gap-1">
-                      {[0, 150, 300].map((d) => (
-                        <span
-                          key={d}
-                          className="w-2 h-2 bg-primary rounded-full animate-bounce"
-                          style={{ animationDelay: `${d}ms` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Input (only for active sessions) */}
-            {selected.is_active && (
-              <div className="p-4 border-t border-primary/10 bg-ivory flex gap-3 flex-shrink-0">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Continue the conversation…"
-                  className="flex-1 bg-primary/5 border border-primary/20 rounded-lg px-4 py-2.5 text-sm text-ink
-                             placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={chatLoading || !input.trim()}
-                  className="size-10 bg-primary text-ivory rounded-lg flex items-center justify-center
-                             hover:bg-primary/90 transition-all disabled:opacity-40"
-                >
-                  <span className="material-symbols-outlined">send</span>
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
-            <span className="material-symbols-outlined text-slate-300 text-6xl">forum</span>
-            <div>
-              <h3 className="text-lg font-bold text-ink mb-1">Select a Session</h3>
-              <p className="text-sm text-slate-400 max-w-xs">
-                Choose a document chat session from the left panel to view the conversation.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

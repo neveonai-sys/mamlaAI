@@ -4,8 +4,10 @@ import { useDispatch } from 'react-redux';
 import apiClient from '../../services/api';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import AuthShowcase from './AuthShowcase';
+import { useIconFont } from '../../hooks/useIconFont';
 
 export default function ResetPassword() {
+  useIconFont();
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();

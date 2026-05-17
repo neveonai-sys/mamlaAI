@@ -4,10 +4,15 @@ import { useDispatch } from 'react-redux';
 import { setUser, clearUser } from '../../features/userSlice';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import apiClient from '../../services/api';
+import { NATIVE_TOKEN_KEY } from '../../services/api';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import AuthShowcase from './AuthShowcase';
 import MamlaLogo from '../common/MamlaLogo';
+import { useIconFont } from '../../hooks/useIconFont';
 
 export default function Login() {
+  useIconFont();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -24,9 +29,15 @@ export default function Login() {
 
     try {
       // Backend handles Supabase auth and sets HttpOnly cookie
-      await apiClient.post('users/login-user/', { email, password });
+      const loginRes = await apiClient.post('users/login-user/', { email, password });
 
-      // Fetch user info via cookie (auto-sent by browser)
+      // On native (Android/iOS), store the access token in encrypted device storage.
+      // On web, the HttpOnly cookie set by the backend is used automatically.
+      if (Capacitor.isNativePlatform() && loginRes.data?.access_token) {
+        await Preferences.set({ key: NATIVE_TOKEN_KEY, value: loginRes.data.access_token });
+      }
+
+      // Fetch user info via cookie (web) or Bearer token (native, injected by api.js interceptor)
       const res = await apiClient.get('users/check-auth/');
       if (res.data?.isAuthenticated) {
         dispatch(setUser({

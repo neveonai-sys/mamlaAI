@@ -4,6 +4,9 @@ import MamlaLogoIcon from '../common/MamlaLogoIcon';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearUser } from '../../features/userSlice';
 import apiClient from '../../services/api';
+import { NATIVE_TOKEN_KEY } from '../../services/api';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import clsx from 'clsx';
 
 // ─── Navigation items ────────────────────────────────────────────────────────
@@ -47,6 +50,9 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
     try {
       await apiClient.post('users/sign-out-user/', { scope: 'local' });
     } catch (_) { /* ignore — cookie will be cleared by backend */ }
+    if (Capacitor.isNativePlatform()) {
+      await Preferences.remove({ key: NATIVE_TOKEN_KEY });
+    }
     dispatch(clearUser());
     navigate('/login', { replace: true });
   }

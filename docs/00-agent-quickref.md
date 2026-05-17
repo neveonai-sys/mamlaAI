@@ -22,6 +22,7 @@
 | **Unified Case Hub + context-aware workflow — COMPLETE (2026-04-04)** | `docs/10-unified-casehub-plan.md` |
 | **Agentic Guided Drafting Flow (conversational intake → draft generation)** | `docs/11-agentic-guided-drafting-plan.md` |
 | **Pricing, billing plans, user types, payment gateway architecture** | `docs/09-pricing-and-billing-plan.md` |
+| **Mobile app (Capacitor) — Android/iOS setup, JWT/Bearer auth, build workflow** | `docs/15-mobile-capacitor-setup.md` |
 
 ---
 

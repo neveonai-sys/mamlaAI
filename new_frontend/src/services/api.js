@@ -1,4 +1,8 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
+
+export const NATIVE_TOKEN_KEY = 'mamla_access_token';
 
 // ─── Determine base URL ───────────────────────────────────────────────────────
 function getBaseURL() {
@@ -16,8 +20,19 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Auth is handled via HttpOnly cookie (set by backend on login).
-// withCredentials:true above ensures the browser sends it automatically.
+// ─── Request interceptor: inject Bearer token on native (Capacitor) ──────────
+// On web, auth is handled via HttpOnly cookie (sent automatically via withCredentials).
+// On native (Android/iOS), HttpOnly cookies don't cross origins, so we use
+// Bearer token stored in @capacitor/preferences (encrypted device storage).
+apiClient.interceptors.request.use(async (config) => {
+  if (Capacitor.isNativePlatform()) {
+    const { value } = await Preferences.get({ key: NATIVE_TOKEN_KEY });
+    if (value) {
+      config.headers['Authorization'] = `Bearer ${value}`;
+    }
+  }
+  return config;
+});
 
 function shouldRedirectToLogin(error) {
   const status = error?.response?.status;

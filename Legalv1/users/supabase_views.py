@@ -183,6 +183,7 @@ def supabase_login(request):
             'firstname': fname,
             'lastname': lname,
             'user_type': user_type,
+            'access_token': access_token,  # used by native (Capacitor) clients only
         })
 
         # Set the access token in an HttpOnly, Secure cookie

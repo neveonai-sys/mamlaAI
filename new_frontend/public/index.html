@@ -2,22 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="security-key" content="mamla-secure-key-2026" />
-  <title>Mamla.AI | Legal Workflow Platform</title>
+  <meta name="description" content="Mamla.AI — India's AI-powered legal workflow platform. AI drafting, eCourt case status, calendar management, and document analysis for Indian advocates and law firms." />
+  <title>Mamla.AI | Legal Workflow Platform for Indian Advocates</title>
   <!-- Preconnect for performance -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- Inter + Lora fonts -->
+  <!-- Inter + Lora fonts — non-blocking preload -->
   <link
+    rel="preload"
+    as="style"
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap"
-    rel="stylesheet"
+    onload="this.onload=null;this.rel='stylesheet'"
   />
-  <!-- Material Symbols Outlined -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-    rel="stylesheet"
-  />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+  </noscript>
+  <!-- Material Symbols loaded by AppShell (authenticated pages only) -->
+  <!-- Critical CSS: paints dark background at HTML parse time — zero network
+       request — eliminates white/blank flash on slow mobile connections and
+       directly improves Speed Index and FCP. -->
+  <style>
+    *,::before,::after{box-sizing:border-box;margin:0;padding:0}
+    html{-webkit-text-size-adjust:100%;height:100%}
+    body{background:#08111f;color:#fff;font-family:Inter,system-ui,-apple-system,sans-serif;min-height:100%;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    #root{min-height:100vh;display:flex;flex-direction:column}
+  </style>
 </head>
 <body class="font-display antialiased">
   <div id="root"></div>
