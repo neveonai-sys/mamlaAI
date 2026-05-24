@@ -7,6 +7,7 @@ import { getCase } from '../../services/casesApi';
 import DOMPurify from 'dompurify';
 import { refreshEntitlements } from '../../features/entitlementsActions';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+import { saveAndShare } from '../../utils/nativeFileUtils';
 
 function buildQuotaNotice(quota, fallbackMessage = '') {
   if (!quota) return null;
@@ -1007,12 +1008,7 @@ export default function DraftingWorkspace() {
   async function handleDownloadSampleTemplate() {
     try {
       const res = await apiClient.get('aidrafts/download_template', { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'sample_template.docx';
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveAndShare(res.data, 'sample_template.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     } catch {
       alert('Download failed. Please try again.');
     }
@@ -1119,12 +1115,10 @@ export default function DraftingWorkspace() {
     if (!sessionId) return;
     try {
       const res = await apiClient.post('aidrafts/export/', { session_id: sessionId, format }, { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${draftTitle}.${format}`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const mimeType = format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      await saveAndShare(res.data, `${draftTitle}.${format}`, mimeType);
     } catch {
       alert('Export failed. Please try again.');
     }

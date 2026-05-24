@@ -245,7 +245,7 @@ All 18 items implemented and verified (0 editor errors).
 | **Setup documentation** | `docs/15-mobile-capacitor-setup.md` (new) | Complete guide: JDK/Android SDK installation, build workflow, APK download & install, troubleshooting, next steps. |
 | **Quick-ref update** | `docs/00-agent-quickref.md` | Added mobile guide entry to task routing table. |
 
-**Status:** Phases 1–2 complete and tested. APK builds successfully; auth loop fixed; app installs and runs on Android emulator/device.
+**Status:** Phases 1–2 complete and tested. APK build and install verified with `npx cap sync` + `./gradlew assembleDebug`; native bearer-token auth now functioning alongside unchanged web cookie auth.
 
 **Not yet implemented (Phase 3–6):** Camera/file upload, push notifications, mobile UI polish, store submissions.
 

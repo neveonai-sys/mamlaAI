@@ -13,6 +13,7 @@ This folder contains **professional documentation** for the codebase so that any
 | [02-backend-legalv1.md](./02-backend-legalv1.md) | Django backend: apps, auth flow, DB, env, entry points | Working on API, auth, or backend logic |
 | [03-frontend-webpack.md](./03-frontend-webpack.md) | Frontend guide for the active MamlaAI UI and the previous webpack UI | Working on UI, routes, or frontend API calls |
 | [04-api-reference.md](./04-api-reference.md) | Consolidated API endpoints, auth requirements, patterns | Implementing or changing APIs |
+| [16-project-graphify.md](./16-project-graphify.md) | End-to-end project graph for backend, frontend, and integrations | Use as the canonical map for AI assistants and developers |
 | [05-changelog-and-improvements.md](./05-changelog-and-improvements.md) | Code review summary, what was done, incremental improvement plans | Planning next steps or continuing refactors |
 | [06-ecourts-scraper.md](./06-ecourts-scraper.md) | eCourts scraper: architecture, APIs, cache/jobs, Celery, env, conventions | Working on eCourts APIs, scrapers, or court-data features |
 

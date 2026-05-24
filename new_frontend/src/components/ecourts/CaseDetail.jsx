@@ -7,6 +7,7 @@ import {
   unwrapEcourtsPayload,
 } from './common/ecourtsApi';
 import apiClient from '../../services/api';
+import { saveAndShare } from '../../utils/nativeFileUtils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -159,17 +160,11 @@ export default function CaseDetail() {
       });
       // Store blob so "Analyze with AI" can access it without re-downloading
       setDownloadedBlobs((prev) => ({ ...prev, [orderIndex]: blob }));
-      const blobUrl = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
       const disposition = response.headers['content-disposition'] || '';
-      const filenameMatch = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
-      anchor.href = blobUrl;
-      const safeDate = (order.order_date || '').replace(/[/\\]/g, '-');
-      anchor.download = filenameMatch?.[1] || `court-order-${orderIndex + 1}${safeDate ? '-' + safeDate : ''}.pdf`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      window.URL.revokeObjectURL(blobUrl);
+      const filenameMatch = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";\/]+)"?/i);
+      const safeDate = (order.order_date || '').replace(/[\/\\]/g, '-');
+      const filename = filenameMatch?.[1] || `court-order-${orderIndex + 1}${safeDate ? '-' + safeDate : ''}.pdf`;
+      await saveAndShare(blob, filename, 'application/pdf');
     } catch (err) {
       let message = 'Download failed. Please try again.';
       try {

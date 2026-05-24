@@ -39,4 +39,6 @@ Legalv1/celerybeat-schedule.dir
 Legalv1/legalenv
 Legalv1/legalenv.dev
 
+graphify-out/
+mamlaAI_ground_zero/frontend/graphify-out/
 new_frontend/public/stitch/*

@@ -26,7 +26,7 @@ def supabase_required(view_func):
     def decorated_function(request, *args, **kwargs):
         # Check if authentication should be bypassed for this request
         if getattr(request, 'bypass_supabase_auth', False):
-            logger.debug("[supabase_required] Bypassing auth check for test endpoint")
+            # logger.debug("[supabase_required] Bypassing auth check for test endpoint")
             # Ensure we have an anonymous user
             if not hasattr(request, 'user') or request.user.is_anonymous:
                 from django.contrib.auth.models import AnonymousUser
@@ -52,7 +52,7 @@ def supabase_required(view_func):
         try:
             supabase_user = verify_supabase_token(access_token)
             request.supabase_user = supabase_user
-            logger.debug(f"[supabase_required] Authenticated user: {supabase_user.get('email', 'No email')}")
+            # logger.debug(f"[supabase_required] Authenticated user: {supabase_user.get('email', 'No email')}")
             return view_func(request, *args, **kwargs)
             
         except Exception as e:

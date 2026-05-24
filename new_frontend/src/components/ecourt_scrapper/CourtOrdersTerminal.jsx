@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+import { saveAndShare } from '../../utils/nativeFileUtils';
 
 import LocationCascade from './LocationCascade';
 import {
@@ -137,14 +138,8 @@ export default function CourtOrdersTerminal() {
   async function handleDownloadPdf(pdfParams, label) {
     try {
       const res = await orderPdf(pdfParams);
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = label ? `${label}.pdf` : `court-order-${Date.now()}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const filename = label ? `${label}.pdf` : `court-order-${Date.now()}.pdf`;
+      await saveAndShare(new Blob([res.data], { type: 'application/pdf' }), filename, 'application/pdf');
     } catch {
       setError('Failed to download PDF.');
     }

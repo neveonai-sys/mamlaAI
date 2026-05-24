@@ -52,6 +52,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3001',  # dev frontend
     'capacitor://localhost',  # Capacitor native Android/iOS
     'http://localhost',       # Capacitor Android fallback
+    'https://localhost',
 ]
 
 # REST Framework and OpenAPI (Swagger) - schema only when DEBUG=True (see core.views)

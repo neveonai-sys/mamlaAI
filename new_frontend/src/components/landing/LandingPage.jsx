@@ -214,7 +214,7 @@ function NavDropdown({ label, items, isOpen, onToggle, onClose }) {
       </button>
 
       {isOpen && (
-        <div className="app-fade-in absolute top-[calc(100%+8px)] left-0 z-[200] min-w-[260px] rounded-[14px] border border-white/10 bg-[#08111F] p-2 shadow-elevated">
+        <div className="app-fade-in absolute top-[calc(100%+8px)] left-0 z-[200] w-[min(260px,calc(100vw-2rem))] rounded-[14px] border border-white/10 bg-[#08111F] p-2 shadow-elevated" style={{maxWidth:'calc(100vw - 1rem)'}}>
           {items.map((item) => (
             <a
               key={item.label}
@@ -991,7 +991,7 @@ export default function LandingPage() {
 
           {/* Right: auth + burger */}
           <div className="flex items-center gap-3">
-            <Link to="/login" className="hidden px-4 py-2 text-sm font-semibold text-white/70 transition-colors hover:text-white md:block">
+            <Link to="/login" className="px-4 py-2 text-sm font-semibold text-white/70 transition-colors hover:text-white">
               Sign in
             </Link>
             <Link

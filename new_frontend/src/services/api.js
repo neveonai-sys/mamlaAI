@@ -9,13 +9,16 @@ function getBaseURL() {
   if (process.env.REACT_APP_API_BASE_URL) {
     return process.env.REACT_APP_API_BASE_URL;
   }
+  if (Capacitor.isNativePlatform()) {
+    return 'https://mamla.ai/api/';
+  }
   // In dev, webpack-dev-server proxies /api → :8000 so we just use relative
   return '/api/';
 }
 
 const apiClient = axios.create({
   baseURL: getBaseURL(),
-  withCredentials: true,
+  withCredentials: !Capacitor.isNativePlatform(),
   timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -30,9 +33,38 @@ apiClient.interceptors.request.use(async (config) => {
     if (value) {
       config.headers['Authorization'] = `Bearer ${value}`;
     }
+    // Temporary native debug: log outgoing request details
+    try {
+      console.log('[native-debug] api request:', { method: config.method, url: config.url, data: config.data });
+    } catch (e) {
+      console.error('[native-debug] api request log failed', e);
+    }
   }
   return config;
 });
+
+// Temporary native debug: log responses and response errors for diagnosis
+apiClient.interceptors.response.use(
+  (response) => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const url = response?.config?.url || '';
+        if (url.includes('users/login-user')) {
+          console.log('[native-debug] api response for login-user', response.status, response.data);
+        }
+      } catch (e) {
+        console.error('[native-debug] api response log failed', e);
+      }
+    }
+    return response;
+  },
+  (error) => {
+    if (Capacitor.isNativePlatform()) {
+      console.error('[native-debug] api response error', error?.response?.status, error?.response?.data, error?.message);
+    }
+    return Promise.reject(error);
+  },
+);
 
 function shouldRedirectToLogin(error) {
   const status = error?.response?.status;

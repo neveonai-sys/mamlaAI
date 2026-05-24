@@ -39,7 +39,15 @@ def optimize_aidrafts_indexes():
         IndexModel([('created_on', DESCENDING)], name='created_on_idx'),
         IndexModel([('last_updated_on', DESCENDING)], name='last_updated_idx'),
         IndexModel([('status', ASCENDING), ('last_updated_on', DESCENDING)], name='status_updated_idx'),
-        # Text index removed due to Bengali language conflict in existing data
+        # Text index on draft_name — language_override set to '_text_lang_override' (a field that never
+        # exists in our documents) so MongoDB never tries to interpret our 'language' field as a
+        # MongoDB text-search language token (which would reject values like 'Hindi', 'Bengali', etc.)
+        IndexModel(
+            [('draft_name', TEXT)],
+            name='draft_name_text_index',
+            default_language='english',
+            language_override='_text_lang_override'
+        ),
     ]
     
     try:

@@ -99,6 +99,10 @@ def initiate_drafting_session(request):
         data.get('language', 'English')
     )
 
+    if not session_id:
+        logger.error('[initiate_drafting_session] session creation failed — insert_one returned empty id')
+        return JsonResponse({'error': 'Failed to create draft session. Please try again.'}, status=500)
+
     # fetch the freshly‑generated sections
     draft_sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
     draft_name = f"Untitled {datetime.datetime.now().strftime('%Y‑%m‑d %H:%M')}"

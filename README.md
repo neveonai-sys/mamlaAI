@@ -57,6 +57,7 @@ Mamla.AI gives lawyers a full AI-assisted workspace to manage cases, clients, do
 ### Other
 - **Court Update Subscriptions** — subscribe to specific courts; receive daily cause-list alerts
 - **Search** — OpenSearch-backed document search with index management
+- **Mobile App** — Full build instructions in `docs/15-mobile-capacitor-setup.md`
 - **WhatsApp Webhook** — integrated (low priority; left stable)
 
 ---

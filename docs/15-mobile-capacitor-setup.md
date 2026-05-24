@@ -1,7 +1,7 @@
 # 15 — Mobile App Setup (Capacitor)
 
 **Status:** Phase 1 & 2 Complete (Auth Fixed)  
-**Date:** May 2026  
+**Date:** May 24, 2026  
 **Platform:** Android (iOS setup pending)
 
 ---
@@ -11,6 +11,8 @@
 Mamla.AI now wraps the existing React/Webpack frontend in **Capacitor**, a native shell for iOS and Android apps. This guide covers all setup steps, code changes, and build/deploy workflows.
 
 **Key constraint:** HttpOnly cookies don't cross origins in native WebViews. **Solution:** Bearer tokens stored in `@capacitor/preferences` (encrypted device storage).
+
+**Latest validation:** built web assets, synced Capacitor, and assembled the Android debug APK successfully. The native Android APK is available at `frontend/android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ---
 

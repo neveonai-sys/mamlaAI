@@ -15,6 +15,7 @@
 | Any frontend change (routes, Redux, Axios, components) | `docs/03-frontend-webpack.md` |
 | eCourts / court data / scraper | `docs/06-ecourts-scraper.md` |
 | Big picture / repo layout | `docs/01-architecture-overview.md` |
+| Project graph / system map | `docs/16-project-graphify.md` |
 | What was last changed / what to do next | `docs/05-changelog-and-improvements.md` |
 | Local dev setup, start commands, env vars | `docs/00-running-locally.md` |
 | Mamla Brain framework (RAG+LLM, Case Companion, external API) | `docs/07-mamla-brain-framework.md` |

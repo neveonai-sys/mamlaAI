@@ -31,27 +31,45 @@ export default function Login() {
       // Backend handles Supabase auth and sets HttpOnly cookie
       const loginRes = await apiClient.post('users/login-user/', { email, password });
 
-      // On native (Android/iOS), store the access token in encrypted device storage.
-      // On web, the HttpOnly cookie set by the backend is used automatically.
-      if (Capacitor.isNativePlatform() && loginRes.data?.access_token) {
-        await Preferences.set({ key: NATIVE_TOKEN_KEY, value: loginRes.data.access_token });
+      // Temporary native debug: log raw login response for diagnosis
+      if (Capacitor.isNativePlatform()) {
+        console.log('[native-debug] login response:', { status: loginRes.status, data: loginRes.data });
       }
 
-      // Fetch user info via cookie (web) or Bearer token (native, injected by api.js interceptor)
-      const res = await apiClient.get('users/check-auth/');
-      if (res.data?.isAuthenticated) {
+      // On native (Android/iOS): store token then set user directly from login response
+      // (avoids a second check-auth/ call which can race against Preferences.set).
+      // On web: HttpOnly cookie is set by backend, so we verify via check-auth/ as before.
+      if (Capacitor.isNativePlatform()) {
+        if (!loginRes.data?.access_token) throw new Error('Login failed. Please try again.');
+        await Preferences.set({ key: NATIVE_TOKEN_KEY, value: loginRes.data.access_token });
         dispatch(setUser({
-          firstname: res.data.firstname,
-          lastname: res.data.lastname,
-          email: res.data.email_id,
-          user_type: res.data.user_type,
-          sessions: res.data.sessions,
+          firstname: loginRes.data.firstname,
+          lastname: loginRes.data.lastname,
+          email: loginRes.data.email,
+          user_type: loginRes.data.user_type,
         }));
         navigate('/dashboard', { replace: true });
       } else {
-        throw new Error('Authentication check failed.');
+        // Web: verify via cookie-based check-auth
+        const res = await apiClient.get('users/check-auth/');
+        if (res.data?.isAuthenticated) {
+          dispatch(setUser({
+            firstname: res.data.firstname,
+            lastname: res.data.lastname,
+            email: res.data.email_id,
+            user_type: res.data.user_type,
+            sessions: res.data.sessions,
+          }));
+          navigate('/dashboard', { replace: true });
+        } else {
+          throw new Error('Authentication check failed.');
+        }
       }
     } catch (err) {
+      // Temporary native debug: log error details to device log
+      if (Capacitor.isNativePlatform()) {
+        console.error('[native-debug] login error:', err?.response?.status, err?.response?.data, err?.message);
+      }
       const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Login failed.';
       setError(msg);
       dispatch(clearUser());
