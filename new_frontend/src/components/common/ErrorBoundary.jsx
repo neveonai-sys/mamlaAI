@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import posthog from 'posthog-js';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -12,8 +13,8 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    // Could log to a monitoring service here
     console.error('ErrorBoundary caught:', error, info);
+    posthog?.captureException(error, { extra: { componentStack: info?.componentStack } });
   }
 
   render() {

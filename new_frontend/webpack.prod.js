@@ -4,6 +4,22 @@ const webpack = require('webpack');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
+const fs = require('fs');
+const path = require('path');
+
+// Load .env into process.env (only sets vars not already in environment)
+const envPath = path.resolve(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  fs.readFileSync(envPath, 'utf8').split('\n').forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx < 1) return;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim();
+    if (!(key in process.env)) process.env[key] = val;
+  });
+}
 
 const apiBaseUrl =
   process.env.REACT_APP_API_BASE_URL || 'https://mamla.ai/api/';
@@ -69,6 +85,9 @@ module.exports = merge(common, {
       'process.env.REACT_APP_API_BASE_URL': JSON.stringify(apiBaseUrl),
       'process.env.REACT_APP_SUPABASE_URL': JSON.stringify(process.env.REACT_APP_SUPABASE_URL || ''),
       'process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY || ''),
+      'process.env.REACT_APP_POSTHOG_KEY': JSON.stringify(process.env.REACT_APP_POSTHOG_KEY || ''),
+      'process.env.REACT_APP_POSTHOG_HOST': JSON.stringify(process.env.REACT_APP_POSTHOG_HOST || ''),
+      'process.env.REACT_APP_ADMIN_EMAILS': JSON.stringify(process.env.REACT_APP_ADMIN_EMAILS || ''),
     }),
   ],
 });

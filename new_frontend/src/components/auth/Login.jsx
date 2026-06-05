@@ -10,11 +10,13 @@ import { Preferences } from '@capacitor/preferences';
 import AuthShowcase from './AuthShowcase';
 import MamlaLogo from '../common/MamlaLogo';
 import { useIconFont } from '../../hooks/useIconFont';
+import { usePostHog } from '@posthog/react';
 
 export default function Login() {
   useIconFont();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -48,6 +50,8 @@ export default function Login() {
           email: loginRes.data.email,
           user_type: loginRes.data.user_type,
         }));
+        posthog?.identify(email, { email, user_type: loginRes.data.user_type });
+        posthog?.capture('user_logged_in', { user_type: loginRes.data.user_type, platform: 'native' });
         navigate('/dashboard', { replace: true });
       } else {
         // Web: verify via cookie-based check-auth
@@ -60,6 +64,8 @@ export default function Login() {
             user_type: res.data.user_type,
             sessions: res.data.sessions,
           }));
+          posthog?.identify(res.data.email_id, { email: res.data.email_id, user_type: res.data.user_type });
+          posthog?.capture('user_logged_in', { user_type: res.data.user_type, platform: 'web' });
           navigate('/dashboard', { replace: true });
         } else {
           throw new Error('Authentication check failed.');

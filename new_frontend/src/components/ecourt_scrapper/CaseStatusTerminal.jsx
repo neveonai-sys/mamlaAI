@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+import { usePostHog } from '@posthog/react';
 
 import LocationCascade from './LocationCascade';
 import {
@@ -24,6 +25,7 @@ const MODES = [
 export default function CaseStatusTerminal() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const posthog = usePostHog();
 
   const SESSION_KEY = 'caseStatusSearchState';
 
@@ -141,6 +143,7 @@ export default function CaseStatusTerminal() {
     setSearched(true);
     setResults([]);
     sessionStorage.removeItem(SESSION_KEY); // clear stale state before new search
+    posthog?.capture('ecourts_case_searched', { search_mode: activeMode });
 
     // --- CNR mode: navigate directly ---
     if (activeMode === 'cnr') {

@@ -12,6 +12,7 @@ from supabase_required import supabase_required
 from django.core.cache import cache
 import traceback
 import logging
+from core.analytics import record_usage_event
 from core.entitlements import authorize_feature_use, consume_feature_use, get_feature_quota_payload
 
 logger = logging.getLogger('django')
@@ -239,6 +240,8 @@ def suggest_section(request):
     chk = obj.update_content_using_AI_with_user_input(session_id, section_id, suggestion)
 
     if chk.get('mssg'):
+        _u = chk.get('usage') or {}
+        record_usage_event(request, 'ai_draft', _u.get('model', ''), _u.get('prompt_tokens', 0), _u.get('completion_tokens', 0))
         ai_update_count = obj.update_ai_suggested_content_count(session_id)
         wallet_credits_charged = 0
         message_key = ''

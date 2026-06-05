@@ -6,6 +6,7 @@ from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view
 from django_ratelimit.decorators import ratelimit
 from supabase_required import supabase_required  # your decorator
+from core.analytics import record_usage_event
 from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import chat_complete
 from core.entitlements import authorize_feature_use, consume_feature_use, get_feature_quota_payload
@@ -743,7 +744,8 @@ def send_message(request, session_id: str):
 
     # 4) call LLM via centralized client
     app_scenario = 'talkdoc:rag' if sess.get('has_docs') else 'talkdoc:general'
-    answer = chat_complete(messages=messages, app_scenario=app_scenario, temperature=0.2)
+    answer, _usage = chat_complete(messages=messages, app_scenario=app_scenario, temperature=0.2, return_usage=True)
+    record_usage_event(request, 'talkdoc', _usage['model'], _usage['prompt_tokens'], _usage['completion_tokens'])
 
     # 5) citations only for document-based chats
     citations = []
@@ -996,7 +998,8 @@ def query_v2(request):
         messages.append({"role": "user", "content": text})
 
     app_scenario = 'talkdoc:rag' if session_doc_ids else 'talkdoc:general'
-    answer = chat_complete(messages=messages, app_scenario=app_scenario, temperature=0.2)
+    answer, _usage = chat_complete(messages=messages, app_scenario=app_scenario, temperature=0.2, return_usage=True)
+    record_usage_event(request, 'talkdoc', _usage['model'], _usage['prompt_tokens'], _usage['completion_tokens'])
 
     citations = []
     if cli_hits:

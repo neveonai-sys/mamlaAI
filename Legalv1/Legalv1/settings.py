@@ -110,6 +110,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'cases',
     'agents',
+    'analytics',
 ]
 
 MIDDLEWARE = [
@@ -120,6 +121,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'core.middleware.DevAuthBypassMiddleware',
+    'core.telemetry_middleware.TelemetryMiddleware',
     'ai_draft.middleware.BypassAuthForTestEndpoints',  
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',

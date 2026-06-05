@@ -3,6 +3,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import apiClient from '../../services/api';
+import { usePostHog } from '@posthog/react';
 import { getCase } from '../../services/casesApi';
 import DOMPurify from 'dompurify';
 import { refreshEntitlements } from '../../features/entitlementsActions';
@@ -402,6 +403,7 @@ export default function DraftingWorkspace() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
+  const posthog = usePostHog();
   const { user_type } = useSelector((s) => s.user);
   const { trial, wallet, features } = useSelector((s) => s.entitlements);
 
@@ -906,6 +908,7 @@ export default function DraftingWorkspace() {
       setDraftForData(payload.draft_for || []);
       syncCurrentSavedDraftMeta(res.data?.draft_id, res.data?.last_updated_on || res.data?.draft_saved_at);
       setHasUnsavedChanges(false);
+      posthog?.capture('draft_created', { input_method: inputMethod, document_type: payload.document_type });
       setPhase('editing');
       navigate(`/drafting/${newSessionId}`, { replace: true });
       setQuery('');
@@ -1064,6 +1067,7 @@ export default function DraftingWorkspace() {
   // ── AI prompt ──
   async function handleAIPrompt(prompt) {
     if (!sessionId || suggestionPromptDisabled) return;
+    posthog?.capture('ai_suggestion_requested', { session_id: sessionId });
     setAiMessages((m) => [...m, { role: 'user', content: prompt }]);
     setAiLoading(true);
     setError('');
@@ -1140,6 +1144,7 @@ export default function DraftingWorkspace() {
         draft_sections: sections,
         draft_for: draftForData,
       });
+      posthog?.capture('draft_saved', { session_id: sessionId });
       setSaveStatus('saved');
       setHasUnsavedChanges(false);
       syncCurrentSavedDraftMeta(response.data?.draft_id, response.data?.last_updated_on || response.data?.saved_at);

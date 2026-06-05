@@ -33,18 +33,27 @@ const CLIENT_NAV = [
   { label: 'Feedback',           path: '/feedback',       icon: 'rate_review' },
 ];
 
-function navItems(userType) {
+const OWNER_EXTRA = [
+  { label: 'Analytics',          path: '/owner-dashboard', icon: 'monitoring' },
+];
+
+const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || '')
+  .split(',').map((e) => e.trim()).filter(Boolean);
+
+function navItems(userType, email) {
   if (userType === 'Client') return CLIENT_NAV;
-  return LAWYER_NAV;
+  const isOwner = userType === 'owner' || userType === 'admin' || userType === 'Owner' || userType === 'Admin'
+    || ADMIN_EMAILS.includes(email);
+  return isOwner ? [...LAWYER_NAV, ...OWNER_EXTRA] : LAWYER_NAV;
 }
 
 export default function Sidebar({ collapsed, onToggleCollapse }) {
-  const { firstname, lastname, user_type } = useSelector((s) => s.user);
+  const { firstname, lastname, user_type, email } = useSelector((s) => s.user);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const links = navItems(user_type);
+  const links = navItems(user_type, email);
 
   async function handleSignOut() {
     try {

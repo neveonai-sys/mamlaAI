@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/dashboard/home/', dashboard_home),
     path('api/schema/', schema_view, name='schema'),
     path('api/schema/swagger-ui/', swagger_ui_view, name='swagger-ui'),
+    path('api/analytics/', include('analytics.urls')),
     path('api/users/', include('users.urls')),
     path('', include('calendersetup.urls')),
     path('api/drafts/', include('create_drafts.urls')),

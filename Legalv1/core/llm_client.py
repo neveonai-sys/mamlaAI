@@ -152,8 +152,9 @@ def chat_complete(
     model: Optional[str] = None,
     temperature: float = 0.3,
     max_tokens: int = 2048,
+    return_usage: bool = False,
     **kwargs,
-) -> str:
+):
     """Call the LLM and return the assistant's text content.
 
     Args:
@@ -199,7 +200,15 @@ def chat_complete(
         max_tokens=max_tokens,
         **kwargs,
     )
-    return response.choices[0].message.content
+    text = response.choices[0].message.content
+    if return_usage:
+        usage = getattr(response, 'usage', None)
+        return text, {
+            'prompt_tokens':     getattr(usage, 'prompt_tokens',     0) if usage else 0,
+            'completion_tokens': getattr(usage, 'completion_tokens', 0) if usage else 0,
+            'model':             getattr(response, 'model', resolved_model),
+        }
+    return text
 
 
 def vision_complete(

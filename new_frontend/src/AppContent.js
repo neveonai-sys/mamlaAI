@@ -10,6 +10,8 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import CookieConsentBanner from './components/common/CookieConsentBanner';
+import { initializeAnalytics, trackPageView, setAnalyticsUser, clearAnalyticsUser } from './services/analytics';
 
 // ─── Lazy-loaded screens ─────────────────────────────────────────────────────
 const MinimalLanding     = lazy(() => import('./components/landing/MinimalLanding'));
@@ -47,6 +49,9 @@ const HCCourtOrdersTerminal = lazy(() => import('./components/ecourt_scrapper/HC
 const HCCauseListTerminal   = lazy(() => import('./components/ecourt_scrapper/HCCauseListTerminal'));
 const HCCaseDetailPage      = lazy(() => import('./components/ecourt_scrapper/HCCaseDetailPage'));
 
+// Owner analytics (owner/admin only)
+const OwnerDashboard     = lazy(() => import('./components/dashboard/OwnerDashboard'));
+
 // Case Registry (Phase 1)
 const CaseRegistry       = lazy(() => import('./components/cases/CaseRegistry'));
 const CaseHub            = lazy(() => import('./components/cases/CaseHub'));
@@ -83,6 +88,9 @@ export default function AppContent() {
 
   // ─── Auth probe on mount ──────────────────────────────────────────────────
   useEffect(() => {
+    // Initialize analytics once on app load
+    initializeAnalytics();
+
     const isPublic = PUBLIC_ROUTES.some(
       (r) => location.pathname === r || location.pathname.startsWith(r + '#'),
     );
@@ -90,6 +98,7 @@ export default function AppContent() {
       if (isAuthenticated === null) {
         dispatch(clearUser());
         dispatch(clearEntitlements());
+        clearAnalyticsUser();
       }
       return;
     }
@@ -106,6 +115,7 @@ export default function AppContent() {
         if (!value) {
           dispatch(clearUser());
           dispatch(clearEntitlements());
+          clearAnalyticsUser();
           return;
         }
       }
@@ -121,6 +131,8 @@ export default function AppContent() {
               user_type: res.data.user_type,
               sessions: res.data.sessions,
             }));
+            // Set user in analytics
+            setAnalyticsUser(res.data.user_id || res.data.email_id, res.data.email_id, res.data.user_type);
             if (res.data.entitlements) {
               dispatch(setEntitlements(res.data.entitlements));
             } else {
@@ -129,19 +141,27 @@ export default function AppContent() {
           } else {
             dispatch(clearUser());
             dispatch(clearEntitlements());
+            clearAnalyticsUser();
           }
         })
         .catch(() => {
           dispatch(clearUser());
           dispatch(clearEntitlements());
+          clearAnalyticsUser();
         });
     };
     probe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
+  // ─── Track page views ─────────────────────────────────────────────────────
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+
   return (
     <Suspense fallback={<GlobalSpinner />}>
+      <CookieConsentBanner />
       <Routes>
         {/* ── Public ──────────────────────────────────────────────────── */}
         <Route path="/"               element={<MinimalLanding />} />
@@ -193,6 +213,9 @@ export default function AppContent() {
 
             {/* Client portal */}
             <Route path="/my-case"                                      element={<ClientCasePage />} />
+
+            {/* Owner-only analytics */}
+            <Route path="/owner-dashboard"                              element={<OwnerDashboard />} />
           </Route>
         </Route>
 

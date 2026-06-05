@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../../services/api';
+import { usePostHog } from '@posthog/react';
 
 const TALKDOC_ACCEPT = '.pdf,.doc,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp';
 
@@ -360,6 +361,7 @@ function StartScreen({ onStart, loading }) {
 export default function GuidedDraftingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const posthog = usePostHog();
 
   const [phase, setPhase] = useState('start'); // 'start' | 'chat' | 'generating'
   const [convId, setConvId] = useState(null);
@@ -405,6 +407,7 @@ export default function GuidedDraftingPage() {
 
       setConvId(conv_id);
       setMessages([{ role: 'assistant', content: message, ts: new Date().toISOString() }]);
+      posthog?.capture('guided_draft_started', { has_case: !!opts.case_id });
       setPhase('chat');
       setTurnCount(1);
       setTimeout(() => inputRef.current?.focus(), 100);

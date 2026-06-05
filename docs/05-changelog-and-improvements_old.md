@@ -26,6 +26,25 @@ This document summarizes the **code review outcomes**, **changes already made**,
 
 ## 2. What Was Done (Completed Changes)
 
+### Analytics & compliance progress (2026-06-03)
+
+- Added backend telemetry middleware to generate `request_id` and capture `user_id`, `session_id`, `ip_address`, and user agent for every request.
+- Added analytics persistence service (`core/analytics.py`) to record AI usage events with prompt/completion tokens, model name, feature, and estimated cost.
+- Added `/api/analytics/usage/summary`, `/api/analytics/usage/by-user`, and `/api/analytics/usage/by-feature` endpoints.
+- Added analytics URL routing in `Legalv1/Legalv1/urls.py` and created `analytics/urls.py`.
+- Added frontend Mixpanel analytics wrappers in `new_frontend/src/services/analytics.js` and `mamlaAI_ground_zero/frontend/src/services/analytics.js`.
+- Integrated analytics initialization and page view tracking in `new_frontend/src/AppContent.js` and `mamlaAI_ground_zero/frontend/src/AppContent.js`.
+- Extended `new_frontend/src/components/common/CookieConsentBanner.jsx` to track consent changes and persist preferences.
+- Prepared MongoDB index initialization command in `Legalv1/core/management/commands/initialize_analytics_indexes.py`.
+
+### Remaining sprint work
+
+- Initialize MongoDB indexes for analytics and consent collections.
+- Wire usage event recording into AI feature endpoints so token usage is stored for actual provider calls.
+- Install and configure Mixpanel (or equivalent) in frontend env.
+- Add cost accounting and quota wiring in backend and frontend.
+- Build billing and subscription flows in subsequent sprints.
+
 ### Doc-10 Unified CaseHub + Unique Case ID (2026-04-04)
 
 All 18 items implemented and verified (0 editor errors).

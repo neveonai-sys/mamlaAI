@@ -6,6 +6,7 @@ import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import AuthShowcase from './AuthShowcase';
 import MamlaLogo from '../common/MamlaLogo';
 import { useIconFont } from '../../hooks/useIconFont';
+import { usePostHog } from '@posthog/react';
 
 const USER_TYPE_OPTIONS = [
   { value: 'Lawyer',    label: 'Lawyer',           desc: 'I practice law' },
@@ -23,6 +24,7 @@ export default function Signup() {
   useIconFont();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const posthog = usePostHog();
 
   const [form, setForm] = useState({
     firstName: '',
@@ -164,7 +166,7 @@ export default function Signup() {
         email: form.email,
         password: form.password,
         user_type: form.user_type,
-        agreedTnC: true,
+        agreedTnC: agreed,
         phonenumber: form.phone ? `+91${form.phone}` : '',
         whatsappOptIn: form.whatsappOptIn,
         barcode_id: form.user_type === 'Lawyer' ? form.barcode_id.trim() : '',
@@ -172,6 +174,32 @@ export default function Signup() {
         state: form.state_name,
         district: form.dist_name,
         courts: [],
+      });
+      // Record T&C + Privacy Policy consent at signup time
+      try {
+        await apiClient.post('users/consent-events/', {
+          consent_type: 'terms_of_service',
+          preferences: { agreed: true },
+          source: 'signup',
+        });
+        await apiClient.post('users/consent-events/', {
+          consent_type: 'privacy_policy',
+          preferences: { agreed: true },
+          source: 'signup',
+        });
+      } catch (_) { /* consent recording is non-blocking */ }
+
+      posthog?.identify(form.email, {
+        email: form.email,
+        name: `${form.firstName} ${form.lastName}`.trim(),
+        user_type: form.user_type,
+      });
+      posthog?.capture('user_signed_up', {
+        user_type: form.user_type,
+        has_bar_id: !!form.barcode_id,
+        has_phone: !!form.phone,
+        whatsapp_opt_in: form.whatsappOptIn,
+        state: form.state_name || null,
       });
       setSuccess('Account created! Please check your email to confirm, then sign in.');
     } catch (err) {
@@ -503,9 +531,9 @@ export default function Signup() {
                   />
                   <label htmlFor="terms" className="text-sm text-slate-600">
                     I agree to the{' '}
-                    <a href="#" className="font-semibold text-primary hover:text-primary/80">Terms of Service</a>{' '}
+                    <a href="/website" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:text-primary/80">Terms of Service</a>{' '}
                     and{' '}
-                    <a href="#" className="font-semibold text-primary hover:text-primary/80">Privacy Policy</a>
+                    <a href="/website" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:text-primary/80">Privacy Policy</a>
                   </label>
                 </div>
 

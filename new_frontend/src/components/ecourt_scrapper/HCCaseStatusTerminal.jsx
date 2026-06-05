@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+import { usePostHog } from '@posthog/react';
 import HCCourtSelector from './HCCourtSelector';
 import {
   searchHCCnr,
@@ -72,6 +73,7 @@ function CaseCard({ item, onOpen }) {
 
 export default function HCCaseStatusTerminal() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const dispatch = useDispatch();
 
   const saved = loadSession();
@@ -143,6 +145,7 @@ export default function HCCaseStatusTerminal() {
   async function handleSubmit(e) {
     e.preventDefault();
     clearResults();
+    posthog?.capture('hc_case_searched', { search_mode: tab });
     setLoading(true);
     dispatch(beginBlocking({ message: 'Searching High Court cases...' }));
 

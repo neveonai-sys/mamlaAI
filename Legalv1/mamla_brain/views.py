@@ -9,6 +9,7 @@ from django.http import JsonResponse
 from django_ratelimit.decorators import ratelimit
 from rest_framework.decorators import api_view
 
+from core.analytics import record_usage_event
 from core.entitlements import authorize_feature_use, consume_feature_use
 from core.init_clients import get_mongo_client, get_mongo_db
 from core.chitchat_guard import CHITCHAT_LLM_STUB, _REPLY_ACK, check_chitchat, has_legal_signal
@@ -535,6 +536,11 @@ def send_message(request, session_id):
 
     llm_response = call_llm(messages, tier='t2')
     llm_response['usage']['total_tokens'] += rewrite_response.get('usage', {}).get('total_tokens', 0)
+    record_usage_event(
+        request, 'mamla_brain', llm_response.get('model', ''),
+        llm_response['usage']['prompt_tokens'],
+        llm_response['usage']['completion_tokens'],
+    )
     citations = _citations_from_context(merged_context)
     _store_assistant_message(session, llm_response['text'], citations, llm_response)
     quota = _finalize_quota(request, 'brain_doc_analysis', decision)
@@ -670,6 +676,11 @@ def case_companion_advise(request, session_id):
 
     total_tokens = t1_response.get('usage', {}).get('total_tokens', 0) + t3_response.get('usage', {}).get('total_tokens', 0)
     t3_response['usage']['total_tokens'] = total_tokens
+    record_usage_event(
+        request, 'mamla_brain_case_companion', t3_response.get('model', ''),
+        t1_response['usage']['prompt_tokens'] + t3_response['usage']['prompt_tokens'],
+        t1_response['usage']['completion_tokens'] + t3_response['usage']['completion_tokens'],
+    )
     _store_assistant_message(
         session,
         json.dumps(structured),

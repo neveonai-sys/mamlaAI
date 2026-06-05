@@ -905,3 +905,202 @@ def resend_client_invite(request, client_id):
     except Exception as e:
         logger.error(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+def save_consent_event(request):
+    """
+    POST /api/users/consent-events/
+    Body: {
+      "consent_type": "cookie_preferences" | "terms_of_service" | etc,
+      "version": "1.0",
+      "preferences": {...},
+      "source": "web" | "mobile" | "admin"
+    }
+    
+    Saves consent events to MongoDB for audit purposes.
+    Works with or without authentication (for anonymous users).
+    If authenticated, links to user_id.
+    """
+    try:
+        data = json.loads(request.body or b'{}')
+        consent_type = data.get('consent_type', '').strip()
+        preferences = data.get('preferences', {})
+        source = data.get('source', 'web').strip()
+
+        if not consent_type:
+            return JsonResponse({'error': 'consent_type is required'}, status=400)
+
+        # Use server-authoritative version for legal docs; fall back to client-supplied.
+        from core.legal_versions import LEGAL_DOC_VERSIONS, SERVER_AUTHORITATIVE_TYPES
+        if consent_type in SERVER_AUTHORITATIVE_TYPES:
+            version = LEGAL_DOC_VERSIONS.get(consent_type, '1.0')
+        else:
+            version = data.get('version', LEGAL_DOC_VERSIONS.get(consent_type, '1.0')).strip()
+
+        # Try to extract user_id from authenticated request
+        user_id = None
+        if hasattr(request, 'supabase_user'):
+            user_id = request.supabase_user.get('user_id')
+
+        # Capture IP and User-Agent
+        ip_address = request.META.get('REMOTE_ADDR', 'unknown')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+        # Get MongoDB client
+        from core.init_clients import get_mongo_client, get_mongo_db
+        db = get_mongo_db()
+
+        # Build consent document
+        consent_doc = {
+            'consent_type': consent_type,
+            'version': version,
+            'preferences': preferences,
+            'source': source,
+            'ip_address': ip_address,
+            'user_agent': user_agent,
+            'created_at': datetime.datetime.utcnow(),
+        }
+
+        if user_id:
+            consent_doc['user_id'] = user_id
+
+        # Insert into consent_events collection
+        result = db['consent_events'].insert_one(consent_doc)
+
+        # If authenticated, optionally update user_details with latest consent summary
+        if user_id:
+            db['user_details'].update_one(
+                {'user_id': user_id},
+                {
+                    '$set': {
+                        f'consent_{consent_type}_version': version,
+                        f'consent_{consent_type}_updated_at': datetime.datetime.utcnow(),
+                    }
+                }
+            )
+
+        logger.info(f"Consent event saved: {consent_type} for user_id={user_id}")
+        return JsonResponse({'message': 'Consent recorded', 'event_id': str(result.inserted_id)})
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@supabase_required
+def export_user_data(request):
+    """
+    GDPR/DPDP data export — returns all stored data for the authenticated user.
+    GET /api/users/privacy/export-data/
+    """
+    try:
+        from core.init_clients import get_mongo_db
+        db = get_mongo_db()
+        user_id = request.supabase_user.get('user_id')
+
+        profile = db['user_details'].find_one({'user_id': user_id}, {'_id': 0})
+
+        usage_events = list(db['usage_events'].find(
+            {'user_id': user_id},
+            {'_id': 0, 'ip_address': 0, 'user_agent': 0},
+        ).sort('timestamp', -1).limit(500))
+        for e in usage_events:
+            if 'timestamp' in e:
+                e['timestamp'] = e['timestamp'].isoformat()
+
+        consent_events = list(db['consent_events'].find(
+            {'user_id': user_id},
+            {'_id': 0, 'ip_address': 0, 'user_agent': 0},
+        ).sort('created_at', -1))
+        for c in consent_events:
+            if 'created_at' in c:
+                c['created_at'] = c['created_at'].isoformat()
+
+        subscription = db['subscriptions'].find_one({'user_id': user_id}, {'_id': 0})
+        if subscription:
+            for k in ('created_at', 'updated_at', 'cancelled_at', 'current_period_start', 'current_period_end'):
+                if subscription.get(k):
+                    subscription[k] = subscription[k].isoformat()
+
+        return JsonResponse({
+            'user_id': user_id,
+            'profile': profile or {},
+            'usage_events': usage_events,
+            'consent_events': consent_events,
+            'subscription': subscription or {},
+            'exported_at': datetime.datetime.utcnow().isoformat(),
+        })
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@supabase_required
+def delete_user_data(request):
+    """
+    GDPR/DPDP right to erasure — anonymises stored data for the authenticated user.
+    Preserves billing records (legal/financial hold) but removes PII.
+    POST /api/users/privacy/delete-data/
+    Body: {"confirm": true}
+    """
+    try:
+        import json as _json
+        body = _json.loads(request.body or '{}')
+        if not body.get('confirm'):
+            return JsonResponse({'error': 'Send {"confirm": true} to confirm deletion'}, status=400)
+
+        from core.init_clients import get_mongo_db
+        db = get_mongo_db()
+        user_id = request.supabase_user.get('user_id')
+        now = datetime.datetime.utcnow()
+
+        db['user_details'].update_one(
+            {'user_id': user_id},
+            {'$set': {
+                'email': f'deleted_{user_id}@deleted.invalid',
+                'phone': '',
+                'full_name': 'Deleted User',
+                'bar_registration': '',
+                'deleted_at': now,
+                'deletion_requested_at': now,
+            }},
+        )
+
+        db['usage_events'].update_many(
+            {'user_id': user_id},
+            {'$set': {'ip_address': '', 'user_agent': ''}},
+        )
+
+        db['consent_events'].update_many(
+            {'user_id': user_id},
+            {'$set': {'ip_address': '', 'user_agent': ''}},
+        )
+
+        from core.audit_log import audit_from_request
+        audit_from_request(request, 'delete_user_data', metadata={'initiated_by': 'self'})
+
+        logger.info('[Privacy] Data deletion completed for user_id=%s', user_id)
+        return JsonResponse({
+            'status': 'deleted',
+            'user_id': user_id,
+            'deleted_at': now.isoformat(),
+            'note': 'Billing/invoice records are retained as required by financial regulations.',
+        })
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+def legal_doc_versions(request):
+    """
+    GET /api/users/legal-doc-versions/
+
+    Returns the current canonical version of every legal document.
+    Frontend uses this before showing T&C / Privacy dialogs so it can
+    detect whether the user has accepted the latest version.
+    """
+    from core.legal_versions import LEGAL_DOC_VERSIONS
+    return JsonResponse({'versions': LEGAL_DOC_VERSIONS})

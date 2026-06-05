@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+import { usePostHog } from '@posthog/react';
 
 import LocationCascade from './LocationCascade';
 import { getCourts, causelistFetch } from './apiV2';
@@ -9,6 +10,7 @@ import { getCourts, causelistFetch } from './apiV2';
 export default function CauseListTerminal() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const posthog = usePostHog();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const SESSION_KEY = 'causeListSearchState';
@@ -105,6 +107,7 @@ export default function CauseListTerminal() {
     setTotalCases(0);
     setHeading('');
     sessionStorage.removeItem(SESSION_KEY); // clear stale state before new search
+    posthog?.capture('cause_list_searched');
 
     if (!location.isComplete) {
       setError('Select state, district, complex, and establishment first.');

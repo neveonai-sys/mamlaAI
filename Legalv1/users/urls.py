@@ -25,6 +25,7 @@ urlpatterns = [
     path('verify-barcode/', views.verify_barcode),
     path('verify-email/', views.verify_email),
     path('submit-feedback/', supabase_views.submit_feedback),
+    path('consent-events/', supabase_views.save_consent_event),
     path("auth/check-username", supabase_views.check_username),
     path("onboard/", supabase_views.onboarding_new_user),
     path("get-profile", supabase_views.get_profile),
@@ -34,4 +35,8 @@ urlpatterns = [
     path("sign-out-user/", supabase_views.sign_out_supabase),
     path("signup-onboarded-client/", supabase_views.profile_update_of_client_onboarded_by_lawyer),
     path('add_case_client', supabase_views.add_case_client),
+
+    path('privacy/export-data/', supabase_views.export_user_data),
+    path('privacy/delete-data/', supabase_views.delete_user_data),
+    path('legal-doc-versions/', supabase_views.legal_doc_versions),
 ]

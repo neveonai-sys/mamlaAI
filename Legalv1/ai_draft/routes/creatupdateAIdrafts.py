@@ -364,13 +364,14 @@ Update ONLY this section, incorporating the user's instruction. Ensure the conte
 
 Return ONLY the updated section content. Do not include any headings, labels, preamble, or extra commentary."""
 
-            updated_content = chat_complete(
+            updated_content, _usage = chat_complete(
                 messages=[{'role': 'user', 'content': prompt}],
                 app_scenario='ai_draft:update_section',
                 temperature=0.4,
                 max_tokens=2000,
+                return_usage=True,
             )
-            return {'mssg': updated_content}
+            return {'mssg': updated_content, 'usage': _usage}
         except Exception as e:
             logger.error(f"[update_content_using_AI_with_user_input]  ============>>>>>>: {traceback.format_exc()}")
             return {'mssg': False}

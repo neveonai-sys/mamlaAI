@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import { listCases, createCase, updateCase } from '../../services/casesApi';
+import { usePostHog } from '@posthog/react';
 import apiClient from '../../services/api';
 
 const STATUS_OPTIONS = ['Active', 'Settled', 'Disposed', 'Appeal', 'Archived'];
@@ -95,6 +96,7 @@ function CasesTable({ cases, onEdit, onFullDetails }) {
 
 // ── EditCaseModal ─────────────────────────────────────────────────────────────
 function EditCaseModal({ c, onClose, onSaved }) {
+  const posthog = usePostHog();
   const [title, setTitle] = useState(c.title || '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -173,6 +175,7 @@ function EditCaseModal({ c, onClose, onSaved }) {
         payload.client_ids = [newClientId];
       }
       const res = await updateCase(c._id, payload);
+      posthog?.capture('case_updated', { case_id: c._id });
       onSaved(res.data.case);
     } catch (e) {
       setErr(e?.response?.data?.error || 'Failed to save.');
@@ -370,6 +373,7 @@ function EditCaseModal({ c, onClose, onSaved }) {
 
 // ── CreateCaseModal ───────────────────────────────────────────────────────────
 function CreateCaseModal({ onClose, onCreate, prefillClientId, prefillClientName }) {
+  const posthog = usePostHog();
   const [form, setForm] = useState({
     title: '', case_type: 'Civil',
     cnr: '', status: 'Active', stage: 'Filing',
@@ -494,6 +498,7 @@ function CreateCaseModal({ onClose, onCreate, prefillClientId, prefillClientName
         client_name_display: linkedClientName.trim() || undefined,
       };
       const res = await createCase(payload);
+      posthog?.capture('case_created', { case_type: payload.case_type, status: payload.status, has_client: !!(payload.client_ids?.length) });
       onCreate(res.data.case);
     } catch (e) {
       setErr(e?.response?.data?.error || 'Failed to create case.');

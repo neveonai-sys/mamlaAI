@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../../services/api';
 import { updateFeatureQuota } from '../../features/entitlementsSlice';
+import { usePostHog } from '@posthog/react';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 
 const TALKDOC_ACCEPT = '.pdf,.doc,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff';
@@ -799,6 +800,7 @@ export default function DocumentWorkspace() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const posthog = usePostHog();
   const { trial, wallet, features } = useSelector((s) => s.entitlements);
   const [docs, setDocs] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -1348,6 +1350,9 @@ export default function DocumentWorkspace() {
           setPreviewDocId(uploadedDoc.doc_id);
         }
 
+        if (uploadedIds.length > 0) {
+          posthog?.capture('document_uploaded', { count: uploadedIds.length });
+        }
         if (attachToActiveSession && activeSession && uploadedIds.length > 0) {
           await attachDocIdsToSession(activeSession.id, uploadedIds);
           await fetchSessions(activeSession.id);
