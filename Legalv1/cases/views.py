@@ -13,8 +13,9 @@ from core.init_clients import get_mongo_client, get_mongo_db
 from core.response_utils import error_response
 
 from .routes import case_crud, hearing_notes, case_notes, case_tasks
+from core.audit_log import audit_from_request, ACTION_CASE_CREATED, ACTION_CASE_DELETED
 
-logger = logging.getLogger('django')
+logger = logging.getLogger(__name__)
 
 
 def _db():
@@ -37,6 +38,7 @@ def _body(request) -> dict:
 def create_case(request):
     try:
         data = case_crud.create_case(_db(), request.supabase_user, _body(request))
+        audit_from_request(request, ACTION_CASE_CREATED, target_id=data.get('id', ''), metadata={'case_ref': data.get('case_ref', '')})
         return JsonResponse({'case': data}, status=201)
     except ValueError as e:
         return error_response(str(e), 400)
@@ -99,6 +101,7 @@ def close_case(request, case_id):
             body.get('resolution_type', ''),
             body.get('summary', ''),
         )
+        audit_from_request(request, ACTION_CASE_DELETED, target_id=case_id, metadata={'resolution_type': body.get('resolution_type', '')})
         return JsonResponse({'case': data})
     except (ValueError, LookupError) as e:
         return error_response(str(e), 400)

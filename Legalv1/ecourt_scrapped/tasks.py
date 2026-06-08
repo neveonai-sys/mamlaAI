@@ -21,7 +21,7 @@ from ecourt_scrapped.services.ecourts_crawler import (
     read_stats,
 )
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 
 @shared_task(name="ecourt_scrapped.seed_ecourts_states", bind=True)

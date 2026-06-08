@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from core.init_clients import get_mongo_client, get_mongo_db
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 TTL_MONTHLY = timedelta(days=30)
 TTL_WEEKLY = timedelta(days=7)

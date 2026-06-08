@@ -41,7 +41,7 @@ import os
 import logging
 from typing import Optional
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Provider constants

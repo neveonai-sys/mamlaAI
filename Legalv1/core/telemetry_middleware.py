@@ -9,7 +9,9 @@ import logging
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
 
-logger = logging.getLogger("django")
+from core.log_filters import set_log_context, clear_log_context
+
+logger = logging.getLogger(__name__)
 
 
 class TelemetryMiddleware(MiddlewareMixin):
@@ -45,7 +47,9 @@ class TelemetryMiddleware(MiddlewareMixin):
         # Extract user agent
         request.telemetry_user_agent = request.META.get("HTTP_USER_AGENT", "")
 
-        # Log request with telemetry data for debugging
+        # Populate thread-local so RequestContextFilter injects these into all log lines
+        set_log_context(request_id, request.telemetry_user_id or "anonymous")
+
         logger.debug(
             "[TelemetryMiddleware] request_id=%s user_id=%s path=%s method=%s",
             request_id,
@@ -55,6 +59,10 @@ class TelemetryMiddleware(MiddlewareMixin):
         )
 
         return None
+
+    def process_response(self, request, response):
+        clear_log_context()
+        return response
 
     def _get_client_ip(self, request):
         """

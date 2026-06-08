@@ -33,7 +33,7 @@ from rest_framework.decorators import api_view
 from supabase_required import supabase_required
 from ecourt_scrapped.services import hc_scraper_client as hc
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 
 def _parse_body(request):

@@ -51,6 +51,8 @@ module.exports = {
         { from: 'public/robots.txt', to: 'robots.txt' },
         { from: 'public/favicon.svg', to: 'favicon.svg' },
         { from: 'public/sitemap.xml', to: 'sitemap.xml' },
+        { from: 'public/legal', to: 'legal' },
+        { from: 'public/support', to: 'support' },
       ],
     }),
   ],

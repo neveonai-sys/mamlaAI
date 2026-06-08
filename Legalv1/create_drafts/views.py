@@ -1,12 +1,12 @@
 from django.http import JsonResponse, HttpResponse
 from rest_framework.decorators import api_view
-import os, json
+import os, json, traceback, logging
 from create_drafts.routes.creatupdatedrafts import Createupdatefetchdrafts
 from supabase_required import supabase_required
 from django_ratelimit.decorators import ratelimit
-import traceback
-import logging
-logger = logging.getLogger('django')
+from core.audit_log import audit_from_request, ACTION_AI_DRAFT_EXPORTED
+
+logger = logging.getLogger(__name__)
 # Create your views here.
 
 base_path = '../draftdocs/'
@@ -169,7 +169,7 @@ def create_final_draft_and_send_pdf(request):
     """
     try:
         req_body = request.data
-        print(f"create_final_draft_and_send_pdf -----  req_body >> {req_body}",flush=True)
+        logger.info("create_final_draft_and_send_pdf req_body=%s", req_body)
         draft_type = req_body.get('type')
         file_name = req_body.get('item')
         to_email_id = req_body.get('email_id')
@@ -189,7 +189,8 @@ def create_final_draft_and_send_pdf(request):
         logger.info(f"tarnsform_openai_text_to_pdf ----- ||||||||||| buffer >> {buffer}")
         response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="document.pdf"'
-        logger.info(f"tarnsform_openai_text_to_pdf ----- ||||||||||| response >> {response}")
+        logger.info("create_final_draft_and_send_pdf PDF response ready for user=%s file=%s", user_id, file_name)
+        audit_from_request(request, ACTION_AI_DRAFT_EXPORTED, metadata={'draft_type': draft_type, 'file_name': file_name})
         buffer.close()
         return response
 

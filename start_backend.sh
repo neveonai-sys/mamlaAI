@@ -150,6 +150,9 @@ sleep 5
 # ── Start Celery workers ───────────────────────────────────────────────────
 echo "Starting $MODE Celery workers..."
 
+# All Celery workers write to a single celery.log (>> append so they don't clobber each other).
+# Task-level logger.info/error calls from task code go to django.log via Django's LOGGING config.
+# celery.log captures Celery framework messages (banner, worker lifecycle, heartbeat).
 rotate_log celery
 nohup "$PYTHON_BIN" -m celery -A Legalv1 worker \
     -P gevent \
@@ -157,23 +160,21 @@ nohup "$PYTHON_BIN" -m celery -A Legalv1 worker \
     --loglevel="$CELERY_LOGLEVEL" \
     -Q celery,audio_processing \
     -n "${CELERY_WORKER_NAME}@%h" \
-    > "$LOG_DIR/celery.log" 2>&1 &
+    >> "$LOG_DIR/celery.log" 2>&1 &
 
-rotate_log celery_ecourts
 nohup "$PYTHON_BIN" -m celery -A Legalv1 worker \
     -P prefork \
     --concurrency="$CELERY_PREFORK_CONCURRENCY" \
     --loglevel="$CELERY_LOGLEVEL" \
     -Q ecourts_realtime,ecourts_background \
     -n "${CELERY_ECOURTS_NAME}@%h" \
-    > "$LOG_DIR/celery_ecourts.log" 2>&1 &
+    >> "$LOG_DIR/celery.log" 2>&1 &
 
 if [ "$RUN_BEAT" = "true" ]; then
     echo "Starting Celery Beat (prod only)..."
-    rotate_log celery_beat
     nohup "$PYTHON_BIN" -m celery -A Legalv1 beat \
         --loglevel="$CELERY_LOGLEVEL" \
-        > "$LOG_DIR/celery_beat.log" 2>&1 &
+        >> "$LOG_DIR/celery.log" 2>&1 &
 else
     echo "ℹ️  Celery Beat skipped in dev mode (prevents double email/scheduled triggers)"
 fi
@@ -201,15 +202,13 @@ else
 fi
 echo "================================================"
 echo "📋 Logs: $LOG_DIR/"
-echo "  - Django/Gunicorn:  $LOG_DIR/backend.log"
-echo "  - Celery Worker:    $LOG_DIR/celery.log"
-echo "  - Celery eCourts:   $LOG_DIR/celery_ecourts.log"
-if [ "$RUN_BEAT" = "true" ]; then
-    echo "  - Celery Beat:      $LOG_DIR/celery_beat.log"
-    echo "  - Gunicorn Access:  $LOG_DIR/gunicorn-access.log"
+echo "  - App logs (Django + task code): $LOG_DIR/django.log  (90-day rotation)"
+echo "  - Celery framework (startup/lifecycle): $LOG_DIR/celery.log  (all workers merged)"
+echo "  - Gunicorn HTTP access: $LOG_DIR/gunicorn-access.log"
+echo "  - Gunicorn/Django stderr: $LOG_DIR/backend.log"
+if [ "$MODE" = "prod" ]; then
     echo "  - Redis Monitor:    $PROJECT_ROOT/logs/redis_monitor.log"
 fi
-echo "  (Archives: name.YYYY-MM-DD_HHMM.log — removed after 3 days by cleanup_logs.sh)"
 echo "================================================"
 
 exit 0

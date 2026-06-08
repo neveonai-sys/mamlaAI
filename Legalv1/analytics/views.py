@@ -17,7 +17,7 @@ from supabase_required import supabase_required
 from django.conf import settings
 import logging
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 
 def get_analytics_db():

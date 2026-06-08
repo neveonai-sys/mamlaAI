@@ -18,7 +18,7 @@ from pymongo.errors import OperationFailure
 
 from core.init_clients import get_mongo_client, get_mongo_db, ensure_indexes
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -53,6 +53,9 @@ class Command(BaseCommand):
 
         # ── 7. ecourts_scraper agent registries ─────────────────────────────
         results.append(self._run("ecourts_scraper agent registry indexes", self._agent_registry_indexes))
+
+        # ── 8. Compliance / audit TTL indexes ────────────────────────────────
+        results.append(self._run("compliance TTL indexes", self._compliance_ttl_indexes))
 
         # ── Summary ─────────────────────────────────────────────────────────
         ok = sum(1 for r in results if r)
@@ -188,3 +191,34 @@ class Command(BaseCommand):
             co_ensure()
         except ImportError:
             self.stdout.write("  (ecourts_scraper agent registries not installed — skipped)")
+
+    def _compliance_ttl_indexes(self):
+        """
+        TTL indexes to enforce the retention policy stated in the Privacy Policy:
+          - audit_logs: 7 years (2555 days) — legal compliance under DPDP Act / IT Act
+          - usage_events: 730 days (2 years) — analytics retention as stated in Privacy Policy
+          - consent_events: no TTL — permanent record of consent version accepted
+        """
+        db = get_mongo_db()
+        _SEVEN_YEARS_SECONDS = 2555 * 24 * 3600  # 7 years
+        _TWO_YEARS_SECONDS = 730 * 24 * 3600     # 2 years
+
+        for collection_name, field, expiry_seconds, label in [
+            ("audit_logs", "timestamp", _SEVEN_YEARS_SECONDS, "audit_logs 7yr TTL"),
+            ("usage_events", "timestamp", _TWO_YEARS_SECONDS, "usage_events 2yr TTL"),
+        ]:
+            try:
+                col = db[collection_name]
+                existing = {idx.get("name") for idx in col.list_indexes()}
+                idx_name = f"{field}_ttl_idx"
+                if idx_name not in existing:
+                    col.create_index(
+                        [(field, ASCENDING)],
+                        expireAfterSeconds=expiry_seconds,
+                        name=idx_name,
+                    )
+                    self.stdout.write(f"    created {label}")
+                else:
+                    self.stdout.write(f"    {label} already exists — skipped")
+            except OperationFailure as exc:
+                logger.warning("compliance TTL index %s: %s", label, exc)

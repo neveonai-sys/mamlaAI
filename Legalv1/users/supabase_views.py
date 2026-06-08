@@ -15,7 +15,9 @@ from users.routes.usermetadata import Handleusermetadata
 from core.email_templates import EmailTemplates
 from core.entitlements import get_entitlement_summary
 
-logger = logging.getLogger('django')
+from core.audit_log import audit_from_request, write_audit_log, ACTION_USER_LOGIN, ACTION_USER_LOGOUT, ACTION_LOGIN_FAILED
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['GET'])
@@ -146,6 +148,13 @@ def supabase_login(request):
         result = obj.sign_in_supabase(email, password)
         # logger.info(f"supabase_login ------>>>> {result}")
         if not result:
+            write_audit_log(
+                ACTION_LOGIN_FAILED,
+                actor_id="",
+                ip_address=request.META.get("REMOTE_ADDR", ""),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                metadata={"reason": "invalid_credentials"},
+            )
             return JsonResponse({"error": "Invalid credentials/User Not Found"}, status=401)
 
         access_token = result.get("access_token")
@@ -175,7 +184,15 @@ def supabase_login(request):
         #user_id, access_token, refresh_token, ip_address, location, device_type
         session_manager.create_session(user_id, access_token, refresh_token, ip_address, location, device_type)
 
-        logger.info(f"User logged in: {fname}, Device: {device_type}, IP: {ip_address}, Location: {location}")
+        logger.info("User logged in: %s Device: %s IP: %s Location: %s", fname, device_type, ip_address, location)
+        write_audit_log(
+            ACTION_USER_LOGIN,
+            actor_id=user_id,
+            actor_type=user_type or "",
+            ip_address=ip_address,
+            user_agent=user_agent_string,
+            metadata={"device_type": device_type, "location": location},
+        )
 
         response = JsonResponse({
             'redirect': 'home',
@@ -278,7 +295,8 @@ def sign_out_supabase(request):
         
         session_manager = SessionManager()
         session_manager.invalidate_session(access_token)
-        
+        audit_from_request(request, ACTION_USER_LOGOUT)
+
         response = JsonResponse({"message": "Successfully logged out."})
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
@@ -1023,6 +1041,8 @@ def export_user_data(request):
                 if subscription.get(k):
                     subscription[k] = subscription[k].isoformat()
 
+        from core.audit_log import ACTION_EXPORT_USER_DATA
+        audit_from_request(request, ACTION_EXPORT_USER_DATA)
         return JsonResponse({
             'user_id': user_id,
             'profile': profile or {},
@@ -1078,8 +1098,8 @@ def delete_user_data(request):
             {'$set': {'ip_address': '', 'user_agent': ''}},
         )
 
-        from core.audit_log import audit_from_request
-        audit_from_request(request, 'delete_user_data', metadata={'initiated_by': 'self'})
+        from core.audit_log import ACTION_DELETE_USER_DATA
+        audit_from_request(request, ACTION_DELETE_USER_DATA, metadata={'initiated_by': 'self'})
 
         logger.info('[Privacy] Data deletion completed for user_id=%s', user_id)
         return JsonResponse({

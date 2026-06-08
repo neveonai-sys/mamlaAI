@@ -10,7 +10,7 @@ import os
 
 import requests
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 HC_SCRAPER_BASE = os.environ.get("HC_SCRAPER_BASE_URL", "http://localhost:8001/hc")
 HC_SCRAPER_TIMEOUT = int(os.environ.get("HC_SCRAPER_TIMEOUT", "120"))

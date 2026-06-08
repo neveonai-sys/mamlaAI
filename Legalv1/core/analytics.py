@@ -8,7 +8,7 @@ from datetime import datetime
 from core.init_clients import get_mongo_db
 import logging
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 
 def get_analytics_db():
@@ -73,7 +73,7 @@ def record_usage_event(request, feature: str, model: str, prompt_tokens: int, co
 
         return result.inserted_id
     except Exception as e:
-        logger.error(f"[UsageEvent] Failed to record usage event: {e}")
+        logger.error("[UsageEvent] Failed to record usage event: %s", e)
         return None
 
 

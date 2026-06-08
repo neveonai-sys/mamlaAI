@@ -218,9 +218,14 @@ DJANGO_LOG_LEVEL = os.getenv('DJANGO_LOG_LEVEL', 'INFO' if DEBUG else 'WARNING')
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'request_context': {
+            '()': 'core.log_filters.RequestContextFilter',
+        },
+    },
     'formatters': {
         'verbose': {
-            'format': '[{levelname} -- {asctime} -- {process} -- {funcName} -- {module} -- {lineno} -- {name}] || {message}',
+            'format': '[{levelname} -- {asctime} -- rid={request_id} -- uid={user_id} -- {process} -- {funcName} -- {module} -- {lineno} -- {name}] || {message}',
             'style': '{',
         },
     },
@@ -230,12 +235,14 @@ LOGGING = {
             'filename': str(_log_dir / 'django.log'),
             'when': 'midnight',
             'interval': 1,
-            'backupCount': 3,
+            'backupCount': 90,
             'formatter': 'verbose',
+            'filters': ['request_context'],
         },
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
+            'filters': ['request_context'],
         },
     },
     'loggers': {
@@ -246,12 +253,12 @@ LOGGING = {
         },
         'django.request': {
             'handlers': ['file', 'console'] if DEBUG else ['file'],
-            'level': 'ERROR',  # Only log request errors (4xx, 5xx)
+            'level': 'ERROR',
             'propagate': False,
         },
         'django.server': {
             'handlers': ['file', 'console'] if DEBUG else ['file'],
-            'level': 'ERROR',  # Only log server errors
+            'level': 'ERROR',
             'propagate': False,
         },
         'celery': {
@@ -259,8 +266,29 @@ LOGGING = {
             'level': DJANGO_LOG_LEVEL,
             'propagate': False,
         },
+        # All scoped module loggers (getLogger(__name__)) in Legalv1/* route here
+        'Legalv1': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
+        # Scraper loggers (FastAPI services)
+        'scraper': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
+        'hc_court': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
+        'dc_court': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
     },
-    
 }
 
 #frontend url

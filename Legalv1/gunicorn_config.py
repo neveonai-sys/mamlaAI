@@ -71,7 +71,7 @@ logconfig_dict = {
             'filename': os.path.join(LOG_DIR, 'gunicorn-access.log'),
             'when': 'midnight',
             'interval': 1,
-            'backupCount': 3,
+            'backupCount': 90,
         },
     },
     # Override CONFIG_DEFAULTS root so it doesn't reference the removed 'console' handler.

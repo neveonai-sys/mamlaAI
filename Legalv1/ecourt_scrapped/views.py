@@ -21,7 +21,7 @@ from rest_framework.decorators import api_view
 from supabase_required import supabase_required
 from ecourt_scrapped.services import master_data, scraper_client
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 
 def _parse_body(request):

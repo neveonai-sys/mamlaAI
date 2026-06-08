@@ -83,7 +83,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
-    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    format="[%(levelname)s -- %(asctime)s -- %(process)d -- %(funcName)s -- %(module)s -- %(lineno)d -- %(name)s] || %(message)s",
 )
 log = logging.getLogger("hc_court")
 

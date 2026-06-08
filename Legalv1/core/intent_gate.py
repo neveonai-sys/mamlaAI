@@ -19,7 +19,7 @@ import logging
 import os
 import time
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 # Inputs >= this length are almost certainly substantive; skip the gate
 T0_MAX_LEN = 120

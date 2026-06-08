@@ -25,7 +25,7 @@ from typing import Optional
 from bs4 import BeautifulSoup
 from curl_cffi import requests as cffi_requests
 
-log = logging.getLogger("django")
+log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONFIG

@@ -10,7 +10,7 @@ import os
 
 import requests
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 SCRAPER_BASE = os.environ.get("ECOURTS_SCRAPER_BASE_URL")
 SCRAPER_TIMEOUT = int(os.environ.get("ECOURTS_SCRAPER_TIMEOUT", "120"))
