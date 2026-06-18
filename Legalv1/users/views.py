@@ -40,6 +40,7 @@ def signup_user(request):
         if isinstance(courts, str):
             courts = [courts]
 
+        college_name = req_body.get('college_name', '')
         whatsapp_opt_in = req_body.get('whatsappOptIn', False)
         agreed_tnc = req_body.get('agreedTnC', False)
 
@@ -129,12 +130,14 @@ def signup_user(request):
             if user_type == 'Paralegal':
                 if not state or not district or not courts:
                     return JsonResponse({'status': 'fail', 'message': 'State, District, Courts required for Paralegal'}, status=400)
+            if user_type == 'Law Student' and not college_name:
+                return JsonResponse({'status': 'fail', 'message': 'College name is required for Law Student'}, status=400)
 
             # Create the user in DB
             user_status = 'P'  # 'P' for "Pending final verification"
             user_id, email_verify_token = obj.create_new_user(
                 phone_number, fname, lname, email, user_type, password,
-                user_status, barcode_id, case_ids, state, district, courts,
+                user_status, barcode_id, case_ids, state, district, courts, college_name,
                 bool(whatsapp_opt_in), bool(agreed_tnc)
             )
             if not user_id:

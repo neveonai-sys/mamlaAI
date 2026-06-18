@@ -52,6 +52,9 @@ const HCCaseDetailPage      = lazy(() => import('./components/ecourt_scrapper/HC
 // Owner analytics (owner/admin only)
 const OwnerDashboard     = lazy(() => import('./components/dashboard/OwnerDashboard'));
 
+// Wallet & billing
+const WalletPage         = lazy(() => import('./components/billing/WalletPage'));
+
 // Case Registry (Phase 1)
 const CaseRegistry       = lazy(() => import('./components/cases/CaseRegistry'));
 const CaseHub            = lazy(() => import('./components/cases/CaseHub'));
@@ -187,6 +190,7 @@ export default function AppContent() {
             {/* <Route path="/clients/:clientId" element={<ClientProfile />} /> */}
             <Route path="/sessions"        element={<Sessions />} />
             <Route path="/feedback"        element={<Feedback />} />
+            <Route path="/wallet"          element={<WalletPage />} />
 
             {/* eCourts nested */}
             <Route path="/ecourts"              element={<EcourtsTerminal />} />

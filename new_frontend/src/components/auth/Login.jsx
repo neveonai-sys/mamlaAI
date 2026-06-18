@@ -22,10 +22,14 @@ export default function Login() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailUnconfirmed, setEmailUnconfirmed] = useState(false);
+  const [resendStatus, setResendStatus] = useState(''); // '' | 'sending' | 'sent' | 'error'
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setEmailUnconfirmed(false);
+    setResendStatus('');
     setLoading(true);
     dispatch(beginBlocking({ message: 'Signing you in...' }));
 
@@ -76,12 +80,26 @@ export default function Login() {
       if (Capacitor.isNativePlatform()) {
         console.error('[native-debug] login error:', err?.response?.status, err?.response?.data, err?.message);
       }
-      const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Login failed.';
-      setError(msg);
+      if (err.response?.status === 403 && err.response?.data?.error === 'email_not_confirmed') {
+        setEmailUnconfirmed(true);
+      } else {
+        const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Login failed.';
+        setError(msg);
+      }
       dispatch(clearUser());
     } finally {
       dispatch(stopBlocking());
       setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendStatus('sending');
+    try {
+      await apiClient.post('users/resend-confirmation/', { email });
+      setResendStatus('sent');
+    } catch {
+      setResendStatus('error');
     }
   }
 
@@ -178,7 +196,35 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Error message */}
+            {/* Email not confirmed — amber callout with resend action */}
+            {emailUnconfirmed && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="flex items-start gap-2 mb-2">
+                  <span className="material-symbols-outlined text-base flex-shrink-0 mt-0.5">mark_email_unread</span>
+                  <div>
+                    <p className="font-semibold">Please verify your email before signing in.</p>
+                    <p className="mt-0.5 text-amber-700">Check your inbox and spam folder for a confirmation link from Mamla.AI.</p>
+                  </div>
+                </div>
+                {resendStatus === 'sent' ? (
+                  <p className="mt-2 font-medium text-emerald-700 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">check_circle</span>
+                    Confirmation email resent — check your inbox.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendStatus === 'sending'}
+                    className="mt-2 text-xs font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700 disabled:opacity-50"
+                  >
+                    {resendStatus === 'sending' ? 'Sending…' : resendStatus === 'error' ? 'Failed — try again' : 'Resend confirmation email'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Generic error message */}
             {error && (
               <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 <span className="material-symbols-outlined text-base flex-shrink-0">error</span>

@@ -22,7 +22,7 @@ def get_available_drafts_list(request):
     obj = Createupdatefetchdrafts(base_path=base_path,user_id=user_id)
     dir_list = sorted(obj.fetch_distinct_draft_types())
     if not len(dir_list):
-        logger.warning("DRAFTT TYPEEE not found in DB")
+        logger.debug("No draft types in DB for user %s — falling back to filesystem", user_id)
         drafts_dir = base_path
         dir_list = os.listdir(drafts_dir)
         dir_list = sorted(dir_list)
@@ -45,7 +45,7 @@ def get_all_drafts_from_drafttype_folder(request):
     all_files = obj.fetch_all_docs_by_draft_type(draft_type)
     
     if not len(all_files):
-        logger.warning("DRAFTTT FILESSS not found in DB")
+        logger.debug("No draft files in DB for type %s — falling back to filesystem", draft_type)
         all_drafts_path = os.path.join(base_path,draft_type)
         # all_drafts_list = sorted([f for f in os.listdir(all_drafts_path) if not f.endswith('.Identifier')])
         # print(f"all_drafts_list --> {all_drafts_list}",flush=True)

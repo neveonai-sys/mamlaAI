@@ -165,7 +165,7 @@ export default function TopBar({ onToggleSidebar, title }) {
   const legalChatRemaining = features?.general_legal_chat?.remaining_included;
   const planLabel = trial?.active
     ? `Trial (${trial.daysRemaining != null ? trial.daysRemaining : ''}d)`
-    : (planCode || 'Plan').replace(/_/g, ' ');
+    : (planCode || 'Plan').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -523,30 +523,35 @@ export default function TopBar({ onToggleSidebar, title }) {
 
       {/* Right actions */}
       <div className="flex items-center gap-2 ml-auto">
-        {planCode && (
-          <div className="hidden xl:flex items-center gap-2 mr-2">
-            <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white ${
-              trial?.active && (trial?.daysRemaining ?? 99) <= 3
-                ? 'border-amber-500 bg-amber-500'
-                : 'border-primary/15 bg-primary-dark'
-            }`}>
-              {planLabel}
-            </span>
-            {typeof brainRemaining === 'number' && (
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
-                {brainRemaining} doc analyses left
+        <div className="hidden xl:flex items-center gap-2 mr-2">
+          {planCode ? (
+            <>
+              <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white ${
+                trial?.active && (trial?.daysRemaining ?? 99) <= 3
+                  ? 'border-amber-500 bg-amber-500'
+                  : 'border-primary/15 bg-primary-dark'
+              }`}>
+                {planLabel}
               </span>
-            )}
-            {typeof legalChatRemaining === 'number' && (
-              <span className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">
-                {legalChatRemaining} legal chats left
+              {typeof brainRemaining === 'number' && (
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+                  {brainRemaining} doc analyses left
+                </span>
+              )}
+              {typeof legalChatRemaining === 'number' && (
+                <span className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">
+                  {legalChatRemaining} legal chats left
+                </span>
+              )}
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                {wallet?.balance ?? 0} credits
               </span>
-            )}
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
-              {wallet?.balance ?? 0} credits
-            </span>
-          </div>
-        )}
+            </>
+          ) : (
+            /* Skeleton — reserves space while entitlements load, prevents header CLS */
+            <span className="inline-block h-6 w-28 rounded-full bg-primary-dark/30 animate-pulse" />
+          )}
+        </div>
         {/* Quick draft */}
         <button
           className="hidden md:flex items-center gap-1.5 btn-primary text-xs px-3 py-2"

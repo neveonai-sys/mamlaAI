@@ -1,10 +1,17 @@
 import posthog from 'posthog-js';
 
+function safeSessionGet(key) {
+  try { return sessionStorage.getItem(key); } catch { return null; }
+}
+function safeSessionSet(key, value) {
+  try { sessionStorage.setItem(key, value); } catch { /* storage blocked */ }
+}
+
 export function initializeAnalytics() {
   // index.js owns posthog.init via PostHogProvider — skip if already loaded
   if (posthog.__loaded) {
-    const sessionId = sessionStorage.getItem('session_id') || generateSessionId();
-    sessionStorage.setItem('session_id', sessionId);
+    const sessionId = safeSessionGet('session_id') || generateSessionId();
+    safeSessionSet('session_id', sessionId);
     posthog.register({ session_id: sessionId });
     return true;
   }
@@ -27,8 +34,8 @@ export function initializeAnalytics() {
       persistence: 'localStorage',
     });
 
-    const sessionId = sessionStorage.getItem('session_id') || generateSessionId();
-    sessionStorage.setItem('session_id', sessionId);
+    const sessionId = safeSessionGet('session_id') || generateSessionId();
+    safeSessionSet('session_id', sessionId);
     posthog.register({ session_id: sessionId });
 
     return true;
@@ -95,7 +102,7 @@ export function trackError(errorType, message, context = {}) {
 }
 
 export function getSessionId() {
-  return sessionStorage.getItem('session_id') || null;
+  return safeSessionGet('session_id');
 }
 
 export function isAnalyticsReady() {

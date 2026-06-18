@@ -85,7 +85,7 @@ class Handleuserdata:
         return bcrypt.checkpw(plain_password.encode('utf-8'), stored_hashed_password)
 
         
-    def create_new_user(self, phone_number, fname, lname, email, user_type, password, user_status, barcode_id=None, case_ids=[], state='', district='', courts='', whatsappOptIn=False, agreedTnC=False, onboarding_by_flag = False):
+    def create_new_user(self, phone_number, fname, lname, email, user_type, password, user_status, barcode_id=None, case_ids=[], state='', district='', courts='', college_name='', whatsappOptIn=False, agreedTnC=False, onboarding_by_flag = False):
         try:
             dtmstr = datetime.datetime.now(datetime.timezone.utc)
             user_id = self.generate_username(fname.lower(),lname.lower())+'_'+dtmstr.strftime("%Y%m%d%H%M%S")
@@ -122,9 +122,13 @@ class Handleuserdata:
             elif user_type=='Client':
                 data["case_ids"] = case_ids
             elif user_type=='Paralegal':
-                data["state"] = state 
+                data["state"] = state
                 data["district"] = district
                 data["courts"] = courts
+                data["template_draft_count"] = 0
+            elif user_type=='Law Student':
+                data["college_name"] = college_name
+                data["ai_draft_count"] = 0
                 data["template_draft_count"] = 0
             # logger.info(f"creating user data -----> {data} || {user_id}")
             self.get_mongo_client_db()['user_details'].insert_one(data)

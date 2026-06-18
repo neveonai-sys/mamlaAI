@@ -4,13 +4,16 @@ import { useSelector } from 'react-redux';
 import apiClient from '../../services/api';
 import WelcomeModal from '../common/WelcomeModal';
 
-function MetricCard({ label, value, sub, subColor }) {
+function MetricCard({ label, value, sub, subColor, loading }) {
   return (
     <div className="metric-card">
       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
       <div className="flex items-end gap-2">
-        <span className="text-3xl font-bold text-ink leading-none">{value}</span>
-        {sub && (
+        {loading
+          ? <span className="inline-block h-8 w-14 rounded-md bg-slate-200 animate-pulse" />
+          : <span className="text-3xl font-bold text-ink leading-none">{value}</span>
+        }
+        {sub && !loading && (
           <span className={`text-xs font-bold mb-1 ${subColor || 'text-slate-400'}`}>{sub}</span>
         )}
       </div>
@@ -70,7 +73,7 @@ const QUOTA_FEATURE_META = [
 
 export default function Dashboard() {
   const { firstname, email, user_type } = useSelector((s) => s.user);
-  const { planCode, trial, wallet, quotaResetAt, features } = useSelector((s) => s.entitlements);
+  const { planCode, trial, wallet, usageSummary, quotaResetAt, features } = useSelector((s) => s.entitlements);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -151,27 +154,44 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Pending Drafts"
-            value={loading ? '…' : draftCount}
+            value={draftCount}
             sub="High Priority"
             subColor="text-primary"
+            loading={loading}
           />
           <MetricCard
             label="Court Dates (30d)"
-            value={loading ? '…' : (agendaCount || '—')}
+            value={agendaCount || '—'}
             sub="This Week"
+            loading={loading}
           />
           <MetricCard
             label="New Updates"
-            value={loading ? '…' : (updateItems.length || 0)}
+            value={updateItems.length || 0}
             sub="Today"
             subColor="text-emerald-600"
+            loading={loading}
           />
-          <MetricCard
-            label="Wallet Credits"
-            value={loading ? '…' : (wallet?.balance ?? '—')}
-            sub="Available"
-            subColor="text-emerald-600"
-          />
+          <button
+            onClick={() => navigate('/wallet')}
+            className="metric-card text-left w-full hover:ring-2 hover:ring-emerald-200 transition-all"
+          >
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Wallet Credits</p>
+            <div className="flex items-end gap-2">
+              {loading
+                ? <span className="inline-block h-8 w-14 rounded-md bg-slate-200 animate-pulse" />
+                : <span className="text-3xl font-bold text-ink leading-none">{wallet?.balance ?? '—'}</span>
+              }
+              <span className="text-xs font-bold mb-1 text-emerald-600">Available</span>
+            </div>
+            {!loading && wallet?.inrEquivalent > 0 && (
+              <p className="mt-0.5 text-[11px] text-slate-400">≈ ₹{wallet.inrEquivalent}</p>
+            )}
+            {!loading && trial?.active && (usageSummary?.trialValueInr ?? 0) > 0 && (
+              <p className="mt-0.5 text-[11px] text-indigo-500">Trial used: ≈ ₹{usageSummary.trialValueInr}</p>
+            )}
+            <p className="mt-1 text-[10px] text-slate-400 underline">View details →</p>
+          </button>
         </div>
 
         {planCode && (
@@ -226,15 +246,17 @@ export default function Dashboard() {
                 <span className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
                   {wallet?.balance ?? 0} credits available
                 </span>
-                <button className={`rounded-xl border px-4 py-2 text-xs font-semibold transition-colors ${
-                  trialExpired || (allFeaturesExhausted && planCode === 'locked')
-                    ? 'border-primary bg-primary text-white hover:bg-primary-dark hover:border-primary-dark'
-                    : 'border-primary/15 text-slate-700 hover:bg-primary/5'
-                }`}>
+                <button
+                  onClick={() => navigate('/wallet')}
+                  className={`rounded-xl border px-4 py-2 text-xs font-semibold transition-colors ${
+                    trialExpired || (allFeaturesExhausted && planCode === 'locked')
+                      ? 'border-primary bg-primary text-white hover:bg-primary-dark hover:border-primary-dark'
+                      : 'border-primary/15 text-slate-700 hover:bg-primary/5'
+                  }`}>
                   {trialExpired || (allFeaturesExhausted && planCode === 'locked')
                     ? 'Upgrade Now'
                     : allFeaturesExhausted
-                    ? 'Top Up Credits'
+                    ? 'Add Credits'
                     : trial?.active
                     ? 'Review Trial Limits'
                     : 'Review Plan Limits'}

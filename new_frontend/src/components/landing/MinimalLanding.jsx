@@ -29,9 +29,9 @@ function IconCalendar() {
 }
 
 const VALUE_PROPS = [
-  { Icon: IconDraft,    title: 'AI Drafting',     desc: 'Court-ready petitions in seconds — trained on Indian legal formats.' },
-  { Icon: IconCourt,    title: 'Live eCourt Data', desc: 'Real-time case status from all 25 High Courts and District Courts.' },
-  { Icon: IconCalendar, title: 'Hearing Calendar', desc: 'Smart deadline tracking and automated hearing reminders.' },
+  { Icon: IconDraft,    title: 'AI Legal Drafting',          desc: 'Generate petitions, affidavits, contracts and legal notices — court-ready AI drafting software for Indian lawyers.' },
+  { Icon: IconCourt,    title: 'eCourts Case Tracking',      desc: 'Real-time case status, hearing dates and cause lists from all 25 High Courts and District Courts.' },
+  { Icon: IconCalendar, title: 'Legal Calendar Management',  desc: 'Legal calendar software with hearing reminders, filing deadlines and court schedule tracking.' },
 ];
 
 const TRUST_BADGES = ['District Courts', 'High Courts', 'Supreme Court'];
@@ -82,13 +82,12 @@ export default function MinimalLanding() {
           </span>
 
           <h1 className="text-[2.1rem] sm:text-[2.6rem] lg:text-[3.2rem] font-bold leading-[1.15] mb-3 tracking-tight">
-            India&rsquo;s AI platform for{' '}
-            <span className="text-primary-soft">legal work</span>
+            AI Legal Software for{' '}
+            <span className="text-primary-soft">Lawyers, Law Firms &amp; Litigants</span>
           </h1>
 
           <p className="text-sm sm:text-base lg:text-lg text-white/55 mb-3 sm:mb-4 leading-relaxed max-w-sm sm:max-w-none">
-            AI drafting, live eCourt case tracking, and smart calendar
-            management &mdash; built for Indian advocates and law firms.
+            Draft legal documents, manage cases, track court hearings, conduct legal research, automate client management and monitor eCourts &mdash; all from one AI-powered legal platform.
           </p>
 
           {/* Trust badges */}

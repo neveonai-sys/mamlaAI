@@ -10,7 +10,7 @@ import logging
 from core.init_clients import get_mongo_client, get_mongo_db
 # from users.routes.usermetadata import Handleusermetadata
 
-logger = logging.getLogger('django')
+logger = logging.getLogger(__name__)
 
 class SessionManager:
     def __init__(self):
@@ -228,7 +228,8 @@ class SessionManager:
         threshold_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=inactivity_threshold)
         try:
             result = self.get_mongo_client_db()['sessions'].delete_many({'last_activity': {'$lt': threshold_time}})
-            logger.info(f"Removed {result.deleted_count} inactive sessions.")
+            if result.deleted_count > 0:
+                logger.info(f"Removed {result.deleted_count} inactive sessions.")
         except Exception as e:
             logger.error(f"Failed to remove inactive sessions: {traceback.format_exc()}")
 

@@ -20,14 +20,14 @@ const NEWS_ITEMS = [
 ];
 
 const FEATURES = [
-  { icon: 'edit_note',       title: 'AI Drafting',                   tag: 'Core', desc: 'Generate petitions, affidavits, contracts and legal notices — court-formatted and ready to file, powered by AI trained on Indian legal formats.' },
-  { icon: 'search',          title: 'eCourt Integration',            tag: 'Live', desc: 'Pull live case status, orders, and cause lists from District Courts and High Courts. Supreme Court & Tribunal support coming soon.' },
-  { icon: 'calendar_month',  title: 'Calendar Management',          tag: 'Core', desc: 'Smart hearing date tracking, automated reminders, and cross-court calendar sync. Never miss a filing deadline or hearing date again.' },
-  { icon: 'layers',          title: 'Agentic Document Analysis',     tag: 'Core', desc: 'Upload any legal document and let AI agents extract key clauses, identify risks, summarize holdings, and cross-reference precedents.' },
-  { icon: 'track_changes',   title: 'Case Strategiser',              tag: 'Core', desc: 'AI-driven case strategy builder — analyzes facts, identifies applicable laws, suggests arguments, and maps potential outcomes.' },
-  { icon: 'format_quote',    title: 'Citation Search',               tag: 'Core', desc: 'Find relevant case citations across Indian courts. Search by section, act, keyword, or case name to build stronger arguments.' },
-  { icon: 'people',          title: 'Client Lifecycle Management',   tag: 'Core', desc: 'Track every client from intake to resolution — communications, documents, billing milestones, and case progress in one place.' },
-  { icon: 'shield',          title: 'Secure & Private',              tag: null,   desc: 'End-to-end encryption for all client data. Your case files stay yours — built to meet legal-grade privacy and security standards.' },
+  { icon: 'edit_note',       title: 'AI Legal Drafting',              tag: 'Core', desc: 'Generate petitions, affidavits, contracts, legal notices and court documents using AI trained on Indian legal workflows — court-formatted and ready to file.' },
+  { icon: 'search',          title: 'eCourt Integration',             tag: 'Live', desc: 'Track case status, hearing dates, orders and cause lists directly from Indian courts. eCourts case tracking for all 25 High Courts and District Courts.' },
+  { icon: 'calendar_month',  title: 'Legal Calendar Software',        tag: 'Core', desc: 'Legal calendar software with hearing reminders, filing deadlines and court schedule tracking. Never miss a hearing date or filing deadline again.' },
+  { icon: 'layers',          title: 'AI Document Analysis',           tag: 'Core', desc: 'AI document review software for contracts, pleadings, judgments and legal notices — extract key clauses, identify risks, summarize holdings.' },
+  { icon: 'track_changes',   title: 'Case Strategiser',               tag: 'Core', desc: 'AI-powered legal research and case strategy assistant for Indian lawyers — analyse facts, identify applicable laws, suggest arguments and map outcomes.' },
+  { icon: 'format_quote',    title: 'Citation Search',                tag: 'Core', desc: 'Search judgments, precedents, sections and case citations across Indian courts. Legal research software to build stronger arguments faster.' },
+  { icon: 'people',          title: 'Legal CRM Software',             tag: 'Core', desc: 'Legal CRM software for lawyers and law firms — track every client from intake to resolution, communications, documents, billing milestones and case progress.' },
+  { icon: 'shield',          title: 'Secure & Private',               tag: null,   desc: 'Enterprise-grade security for legal case files and client information. AES-256 encryption, DPDP Act 2023 compliant, India-hosted servers.' },
 ];
 
 const PERSONAS = [
@@ -35,30 +35,40 @@ const PERSONAS = [
     icon: 'balance',
     title: 'For Lawyers',
     points: [
-      'AI-powered drafting & legal research',
-      'Case calendar with hearing alerts',
-      'eCourt sync for live case status',
-      'Citation search & case strategy',
+      'AI legal drafting, legal research & citation search',
+      'Case calendar with hearing alerts & filing deadlines',
+      'eCourt sync for live case status & cause lists',
+      'Software for lawyers in India — solo & chamber',
     ],
   },
   {
     icon: 'person',
     title: 'For Litigants',
     points: [
-      'Track your case status easily',
-      'Understand documents in plain language',
-      'AI guidance on your legal rights',
-      'Connect with and follow your matter',
+      'Track court cases and case status online',
+      'Understand legal documents in plain language',
+      'AI guidance on legal rights and next steps',
+      'Connect with lawyers and follow your matter',
+    ],
+  },
+  {
+    icon: 'school',
+    title: 'For Law Students',
+    points: [
+      'Practice legal drafting with AI assistance',
+      'Conduct legal research using Indian case law',
+      'eCourts live case research — no bar enrolment needed',
+      'Learn Indian law with AI-powered study tools',
     ],
   },
   {
     icon: 'corporate_fare',
     title: 'For Law Firms',
     points: [
-      'Multi-lawyer case management',
-      'Client lifecycle dashboard',
-      'Firm-wide calendar coordination',
-      'Document analysis at scale',
+      'Law firm management software with multi-lawyer support',
+      'Client lifecycle dashboard — full matter tracking',
+      'Firm-wide calendar coordination & deadline management',
+      'Document analysis and legal workflow automation at scale',
     ],
   },
 ];
@@ -74,30 +84,43 @@ const LAWYER_PLANS = [
     items: ['24 Legal Chat queries', '8 Doc Analysis sessions', '20 AI Drafts', '12 Drafting actions', '5 AI Suggestions', '2 Case Companion sessions', 'eCourts CNR Lookup (50/month)', 'Order PDF Downloads (5/month)'],
   },
   {
+    name: 'Law Student',
+    subtitle: 'For students & interns',
+    price: '₹220',
+    period: '/month',
+    cta: 'Join as Student',
+    recommended: false,
+    offer: '₹50 off first renewal',
+    items: ['40 Legal Chat queries', '12 Doc Analysis sessions', '25 AI Drafts', '15 Drafting actions', '8 AI Suggestions', '1 Case Companion session', 'eCourts CNR Lookup (50/month)', 'Order Downloads (8/month)', 'College name verification'],
+  },
+  {
     name: 'Vakil Starter',
     subtitle: 'For solo practitioners',
-    price: '₹299',
+    price: '₹349',
     period: '/month',
     cta: 'Join Beta',
     recommended: false,
+    offer: '₹50 off first renewal',
     items: ['50 Legal Chat queries', '15 Doc Analysis sessions', '30 AI Drafts', '20 Drafting actions', '10 AI Suggestions', '3 Case Companion sessions', 'CNR Lookup (60/month)', 'Order Downloads (15/month)'],
   },
   {
     name: 'Vakil Pro',
     subtitle: 'For serious practitioners',
-    price: '₹699',
+    price: '₹749',
     period: '/month',
     cta: 'Join Beta — Lock Price',
     recommended: true,
+    offer: '₹50 off first renewal',
     items: ['150 Legal Chat queries', '40 Doc Analysis sessions', '70 AI Drafts', '60 Drafting actions', '25 AI Suggestions', '10 Case Companion sessions', 'Unlimited eCourts CNR Lookup', 'Order Downloads (50/month)'],
   },
   {
     name: 'Vakil Power',
     subtitle: 'Maximum capacity',
-    price: '₹1,299',
+    price: '₹1,349',
     period: '/month',
     cta: 'Join Beta — Lock Price',
     recommended: false,
+    offer: '₹50 off first renewal',
     items: ['400 Legal Chat queries', '100 Doc Analysis sessions', '150 AI Drafts', '150 Drafting actions', '75 AI Suggestions', '30 Case Companion sessions', 'Unlimited eCourts CNR Lookup', 'Order Downloads (150/month)', 'Priority support'],
   },
 ];
@@ -116,10 +139,11 @@ const NAGRIK_PLANS = [
   {
     name: 'Nagrik Basic',
     subtitle: 'For active litigants',
-    price: '₹79',
+    price: '₹129',
     period: '/month',
     cta: 'Join Beta',
     recommended: true,
+    offer: '₹50 off first renewal',
     items: ['30 Legal Chat queries', '8 Doc Analysis sessions', '5 AI Drafts', 'eCourts CNR Lookup (30/month)', 'Order PDF Downloads (3/month)', 'Document upload & analysis'],
     blocked: ['Drafting Actions — Lawyer only', 'AI Suggestions — Lawyer only', 'Case Companion — Lawyer only'],
   },
@@ -128,12 +152,16 @@ const NAGRIK_PLANS = [
 const PRICING_PLANS = LAWYER_PLANS;
 
 const FAQS = [
-  { q: 'Is Mamla.AI drafting output admissible in court?', a: "AI-generated drafts are working tools, not final submissions. Every document must be reviewed, edited, and approved by the responsible advocate before filing. Mamla.AI helps you get to a strong first draft faster — the professional judgement remains yours." },
-  { q: 'Does Mamla.AI comply with the DPDP Act, 2023?', a: "Yes. We store all data on India-located servers, apply AES-256 encryption, and follow data minimisation principles aligned with the Digital Personal Data Protection Act, 2023. Your clients' matter data is never used to train AI models without explicit written consent." },
+  { q: 'What is AI legal software?', a: "AI legal software uses artificial intelligence to automate and assist with legal tasks such as drafting documents, conducting legal research, tracking court cases, managing clients, and analysing legal documents. Mamla AI is an AI-powered legal practice management software built specifically for Indian lawyers, law firms, litigants and law students." },
+  { q: 'What is the best legal practice management software in India?', a: "Mamla AI is a comprehensive AI legal practice management platform purpose-built for the Indian legal system. It combines AI legal drafting, eCourts case tracking, legal research, client lifecycle management, citation search and document analysis — all in one platform designed for advocates, chambers and law firms in India." },
+  { q: 'How can lawyers automate legal drafting?', a: "Mamla AI's AI drafting tool allows lawyers to generate court-ready petitions, affidavits, contracts, legal notices and other documents in seconds. The AI is trained on Indian legal formats and court workflows, giving advocates a strong first draft that they can review and customise before filing." },
+  { q: 'How does eCourts case tracking work?', a: "Mamla AI integrates directly with the eCourts ecosystem to pull live case status, hearing dates, orders and cause lists from all 25 High Courts and District Courts across India. Lawyers can track any CNR number, receive automated hearing reminders, and monitor their entire case portfolio from one dashboard." },
+  { q: 'Can AI help with legal research?', a: "Yes. Mamla AI's Case Strategiser and Citation Search tools help Indian lawyers conduct faster legal research. You can search judgments, trace legal precedents, find relevant sections and build case arguments using AI — without manually sifting through law databases." },
+  { q: 'How can law firms manage cases efficiently?', a: "Mamla AI provides law firm management software with multi-lawyer case management, client lifecycle tracking, firm-wide calendar coordination, document analysis at scale, and matter-level role-based access control — giving law firms a single platform to manage their entire practice." },
+  { q: 'Is legal practice management software secure?', a: "Yes. Mamla AI uses AES-256 encryption for all data at rest and in transit. All data is stored on India-located servers in compliance with the Digital Personal Data Protection Act, 2023. Client matter data is never used to train AI models without explicit written consent." },
+  { q: 'Can litigants track court cases online?', a: "Yes. Litigants on Mamla AI can track their case status, hearing dates and court orders directly through the platform's eCourts integration — without navigating government portals. Plain-language summaries help litigants understand what is happening in their matter." },
+  { q: 'Is Mamla.AI drafting output admissible in court?', a: "AI-generated drafts are working tools, not final submissions. Every document must be reviewed, edited, and approved by the responsible advocate before filing. Mamla AI helps you get to a strong first draft faster — the professional judgement remains yours." },
   { q: 'Which courts and jurisdictions are currently supported?', a: 'eCourts case status, orders, and cause lists are available for all 25 High Courts and District Courts via live integration. Supreme Court and Tribunal feeds are being added progressively.' },
-  { q: 'How does role-based access work for a multi-lawyer chamber?', a: 'The admin can invite team members and assign roles: Senior Counsel, Junior Associate, Paralegal, or Client. Each role has granular document-level permissions. Clients get read-only access to their specific matter folders.' },
-  { q: 'Is there a Bar Council restriction on using AI drafting tools?', a: 'As of 2026, the Bar Council of India has not issued a blanket prohibition on AI-assisted drafting tools. Advocates remain responsible for all work product under BCI Rules. Treat AI output as a supervised first draft, not a final product.' },
-  { q: 'What happens to my data if I cancel?', a: 'You retain full access until the end of your billing period. After cancellation, you have 30 days to export all your data. After 30 days, data is permanently deleted from our servers per our retention policy.' },
 ];
 
 const LEGAL_DOCS = {
@@ -284,7 +312,7 @@ function FeaturesSection() {
         <div className="mb-14 text-center">
           <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">Product</p>
           <h2 className="font-display text-4xl font-bold text-ink md:text-5xl">
-            Everything a Legal Professional Needs
+            AI Legal Practice Management Software Features
           </h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -327,7 +355,7 @@ function SolutionsSection() {
         <div className="mb-14 text-center">
           <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">Solutions</p>
           <h2 className="font-display text-4xl font-bold text-ink md:text-5xl">
-            Built for Every Legal Mind
+            Legal Software Solutions for Lawyers, Law Firms, Litigants &amp; Law Students
           </h2>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
@@ -387,6 +415,11 @@ function PlanCard({ plan, dark }) {
         <p className={`mt-1 text-xs ${plan.recommended ? 'text-white/45' : 'text-graphite'}`}>
           {plan.subtitle}
         </p>
+        {plan.offer && (
+          <p className="mt-2 inline-block rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+            {plan.offer}
+          </p>
+        )}
       </div>
       <ul className="mb-4 flex flex-grow flex-col gap-2.5">
         {plan.items.map((item) => (
@@ -431,10 +464,10 @@ function PricingSection() {
         <div className="mb-4 text-center">
           <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">Pricing</p>
           <h2 className="font-display text-4xl font-bold text-ink md:text-5xl">
-            Simple, Transparent Pricing
+            Affordable AI Legal Software Pricing for Lawyers &amp; Law Firms
           </h2>
           <p className="mt-4 text-sm text-graphite">
-            Currently in private beta. Join now to lock in early-adopter pricing.
+            Choose the best legal practice management software plan for solo advocates, law firms, litigants and law students. Currently in private beta — join now to lock in early-adopter pricing.
           </p>
           {/* Tab toggle */}
           <div className="mt-8 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 gap-1">
@@ -479,7 +512,7 @@ function PricingSection() {
           <p className="text-sm text-graphite">
             Running a law firm?{' '}
             <a href="mailto:neveon.ai@gmail.com" className="font-semibold text-primary hover:underline">
-              Contact us for Firm Basic (₹1,999) and Firm Pro (₹4,499) plans →
+              Contact us for Firm Basic (₹2,049) and Firm Pro (₹4,549) plans →
             </a>
           </p>
         </div>
@@ -495,10 +528,10 @@ function LiveCourtStats() {
         <div className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">Live Court Intelligence</div>
         <div className="mb-10 flex flex-wrap items-end justify-between gap-5">
           <h2 className="font-display text-4xl font-bold leading-tight text-ink md:text-5xl">
-            India's Judicial Pulse,<br />Inside Your Dashboard.
+            Real-Time eCourts Case Tracking<br />&amp; Court Intelligence
           </h2>
           <p className="max-w-xs text-sm leading-7 text-graphite">
-            Mamla.AI surfaces live data from NJDG, eCourts, and SC daily feeds — so you never open a government portal again.
+            Monitor case status, hearing dates, Supreme Court updates, High Court orders and legal news through a single legal intelligence dashboard — powered by live NJDG and eCourts data.
           </p>
         </div>
         <div className="grid gap-7 lg:grid-cols-[1fr_320px]">
@@ -575,10 +608,10 @@ function LiveCourtStats() {
 
 function ResourcesSection() {
   const resources = [
-    { icon: 'flash_on',     title: 'Live Law',                     highlight: true,  desc: 'Real-time legal news, Supreme Court & High Court updates, breaking orders, and judicial developments — as they happen.', href: 'https://www.livelaw.in' },
-    { icon: 'search',       title: 'Case Law Insights / Citation', highlight: false, desc: 'Search citations, explore judicial precedents, and trace reasoning across Indian courts.', href: '#live-data' },
-    { icon: 'list_alt',     title: 'Cause List Search',            highlight: false, desc: "Check daily cause lists across District & High Courts. Know what's scheduled before stepping into court.", href: '#features' },
-    { icon: 'auto_awesome', title: 'AI in Law',                    highlight: false, desc: 'Thought leadership on how AI is reshaping legal practice in India — written for practitioners, not technologists.', href: '#' },
+    { icon: 'flash_on',     title: 'Live Law',                     highlight: true,  desc: 'Latest Supreme Court and High Court legal updates — real-time legal news, breaking orders and judicial developments as they happen.', href: 'https://www.livelaw.in' },
+    { icon: 'search',       title: 'Citation Search',              highlight: false, desc: 'AI-powered legal research across Indian judgments and precedents. Search citations, trace reasoning and find relevant sections across courts.', href: '#live-data' },
+    { icon: 'list_alt',     title: 'Cause List Search',            highlight: false, desc: "Search daily cause lists across Indian courts. Know what's scheduled before stepping into court — District Courts and High Courts.", href: '#features' },
+    { icon: 'auto_awesome', title: 'AI in Law',                    highlight: false, desc: 'Insights on artificial intelligence in legal practice — written for Indian lawyers, not technologists. How AI is reshaping advocacy in India.', href: '#' },
   ];
 
   return (
@@ -587,7 +620,7 @@ function ResourcesSection() {
         <div className="mb-14 text-center">
           <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">Resources</p>
           <h2 className="font-display text-4xl font-bold text-ink md:text-5xl">
-            Stay Ahead of the Law
+            Legal Research Resources &amp; AI Legal Insights
           </h2>
         </div>
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -634,10 +667,10 @@ function SecuritySection() {
           <div>
             <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">Enterprise Security</p>
             <h2 className="mb-5 font-display text-4xl font-bold text-ink">
-              Built for Sensitive Legal Workflows.
+              Secure Legal Practice Management Software
             </h2>
             <p className="mb-8 text-sm leading-8 text-graphite">
-              Your clients&apos; data is encrypted at rest and in transit. We follow enterprise-grade security practices so you can focus on winning cases, not worrying about breaches.
+              Protect legal documents, client data and case records with enterprise-grade legal technology security. Your clients&apos; data is encrypted at rest and in transit — so you can focus on winning cases, not worrying about breaches.
             </p>
             <div className="space-y-4">
               {[
@@ -682,11 +715,11 @@ function AboutSection() {
         <div className="mb-14 text-center">
           <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">About Mamla.AI</p>
           <h2 className="mb-5 font-display text-4xl font-bold text-ink md:text-5xl">
-            Making Justice Accessible{' '}
-            <span className="italic text-graphite">Through Technology</span>
+            About Mamla AI &ndash;{' '}
+            <span className="italic text-graphite">AI Legal Software Built for Indian Lawyers</span>
           </h2>
           <p className="mx-auto max-w-2xl text-sm leading-8 text-graphite">
-            Mamla.AI is building India&apos;s most intelligent legal workspace. We combine deep understanding of Indian law with cutting-edge AI to give every lawyer, litigant, and law firm the tools they deserve — from AI-powered drafting to eCourt integration, case strategy to client lifecycle management.
+            Mamla AI is an AI-powered legal software platform helping lawyers, law firms, litigants and law students streamline drafting, legal research, case management and court tracking. We combine deep understanding of Indian law with cutting-edge AI to give every advocate and law firm the tools they deserve — from AI legal drafting to eCourt integration, case strategy to client lifecycle management.
           </p>
         </div>
 
@@ -750,9 +783,9 @@ function FAQSection() {
         <div className="grid gap-12 lg:grid-cols-[1fr_2fr] lg:items-start">
           <div>
             <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary">FAQ</p>
-            <h2 className="mb-5 font-display text-4xl font-bold leading-tight text-ink">Questions from<br />the chamber.</h2>
+            <h2 className="mb-5 font-display text-4xl font-bold leading-tight text-ink">Frequently Asked Questions about AI Legal Software</h2>
             <p className="mb-7 text-sm leading-7 text-graphite">
-              Everything a practicing advocate or chamber manager needs to know before signing up.
+              Everything lawyers, law firms, litigants and law students need to know about AI legal practice management software before signing up.
             </p>
             <div className="rounded-[16px] border border-primary/12 bg-primary/5 p-5">
               <div className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-primary">Still have questions?</div>
@@ -815,10 +848,10 @@ function ContactSection() {
           <div>
             <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-primary-soft/65">Contact & Support</p>
             <h2 className="mb-5 font-display text-4xl font-bold leading-tight text-white md:text-5xl">
-              Talk to the team<br />behind Mamla.AI.
+              Contact Mamla AI &ndash; AI Legal Software for Lawyers &amp; Law Firms
             </h2>
             <p className="mb-9 text-sm leading-7 text-white/60">
-              Whether you&apos;re a solo practitioner in a district court or a senior counsel at the Supreme Court — we&apos;re interested in how Mamla.AI can fit your chamber.
+              Schedule a demo of Mamla AI and discover how AI-powered legal software can improve drafting, legal research, case management and client communication. Whether you&apos;re a solo practitioner or a senior counsel at the Supreme Court &mdash; we&apos;re here to help.
             </p>
             {[
               { icon: 'mail',        label: 'General & Support', value: 'neveon.ai@gmail.com',              href: 'mailto:neveon.ai@gmail.com' },
@@ -1088,15 +1121,15 @@ export default function LandingPage() {
             className="app-rise-in mb-6 font-display text-5xl font-bold leading-[1.06] tracking-tight md:text-7xl"
             style={{ animationDelay: '60ms' }}
           >
-            The AI-Powered{' '}
-            <span className="block text-primary-soft">Legal Workspace.</span>
+            AI Legal Software for{' '}
+            <span className="block text-primary-soft">Lawyers, Law Firms &amp; Litigants</span>
           </h1>
 
           <p
             className="app-rise-in mx-auto mb-10 max-w-xl text-lg font-medium leading-8 text-white/75"
             style={{ animationDelay: '120ms' }}
           >
-            Draft documents, strategize cases, manage clients, and track hearings across District &amp; High Courts — all from one intelligent platform.
+            Draft legal documents, manage cases, track court hearings, conduct legal research, automate client management and monitor eCourts &mdash; all from one AI-powered legal platform.
           </p>
 
           <div
@@ -1152,10 +1185,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-2xl px-6 text-center">
           <h2 className="mb-5 font-display text-4xl font-bold text-white md:text-5xl">
             Ready to Transform Your{' '}
-            <span className="italic text-primary-soft">Legal Practice?</span>
+            <span className="italic text-primary-soft">Legal Practice with AI?</span>
           </h2>
           <p className="mb-10 text-base font-medium leading-8 text-white/65">
-            Join legal professionals already using Mamla.AI to handle high-value matters with confidence and speed.
+            Join lawyers, law firms, litigants and law students already using Mamla AI — India&apos;s AI-powered legal practice management software — to work smarter, draft faster and never miss a hearing.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
@@ -1189,7 +1222,7 @@ export default function LandingPage() {
                 <span className="font-display text-lg font-semibold text-white">Mamla.AI</span>
               </div>
               <p className="mb-4 max-w-[240px] text-sm leading-7 text-slate-400">
-                AI-native litigation infrastructure for Indian legal practitioners.
+                AI legal software for lawyers, law firms, litigants and law students in India. Legal drafting, eCourts tracking, legal research and case management — all in one platform.
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {['AES-256', 'DPDP Aligned', 'India Hosted'].map((badge) => (
@@ -1217,7 +1250,7 @@ export default function LandingPage() {
             <div>
               <p className="mb-4 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Solutions</p>
               <ul className="flex flex-col gap-2.5">
-                {['For Lawyers', 'For Litigants', 'For Law Firms'].map((item) => (
+                {['For Lawyers', 'For Law Students', 'For Litigants', 'For Law Firms'].map((item) => (
                   <li key={item}>
                     <a href="#solutions" className="text-xs text-white/50 transition-colors hover:text-white">{item}</a>
                   </li>

@@ -30,6 +30,7 @@ urlpatterns = [
     path("onboard/", supabase_views.onboarding_new_user),
     path("get-profile", supabase_views.get_profile),
     path("login-user/", supabase_views.supabase_login),
+    path("resend-confirmation/", supabase_views.resend_confirmation_email),
     path("send-reset-password-link/", supabase_views.send_reset_password_link),
     path("reset-user-password/", supabase_views.reset_password),
     path("sign-out-user/", supabase_views.sign_out_supabase),
@@ -39,4 +40,5 @@ urlpatterns = [
     path('privacy/export-data/', supabase_views.export_user_data),
     path('privacy/delete-data/', supabase_views.delete_user_data),
     path('legal-doc-versions/', supabase_views.legal_doc_versions),
+    path('wallet/transactions/', supabase_views.wallet_transactions),
 ]

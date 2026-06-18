@@ -4,6 +4,8 @@ Telemetry middleware for request tracking.
 Generates a unique request_id for every request and attaches user/session context.
 This enables tracing of usage events back to the originating request.
 """
+import base64
+import json
 import uuid
 import logging
 from django.conf import settings
@@ -29,12 +31,29 @@ class TelemetryMiddleware(MiddlewareMixin):
         request.telemetry_user_id = None
         request.telemetry_session_id = None
 
-        # If authenticated via @supabase_required, supabase_user will be set
-        if hasattr(request, "supabase_user") and request.supabase_user:
+        # Decode JWT payload (no signature verification — for logging only).
+        # @supabase_required handles actual auth; we just want user_id in log lines.
+        # Checks Authorization header first, then access_token cookie (both accepted by supabase_required).
+        def _decode_jwt_user(token: str):
             try:
-                request.telemetry_user_id = request.supabase_user.get("user_id") or request.supabase_user.get("sub")
-            except (AttributeError, KeyError):
-                pass
+                payload_b64 = token.split(".")[1]
+                padding = (4 - len(payload_b64) % 4) % 4
+                payload = json.loads(base64.b64decode(payload_b64 + "=" * padding))
+                # user_metadata carries the app-level user_id; sub is the Supabase UUID fallback
+                meta = payload.get("user_metadata") or {}
+                return meta.get("user_id") or payload.get("sub")
+            except Exception:
+                return None
+
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if auth_header.startswith("Bearer "):
+            request.telemetry_user_id = _decode_jwt_user(auth_header[7:].strip())
+
+        # Cookie-based auth: supabase_required also accepts access_token cookie
+        if not request.telemetry_user_id:
+            cookie_token = request.COOKIES.get("access_token")
+            if cookie_token:
+                request.telemetry_user_id = _decode_jwt_user(cookie_token)
 
         # Extract session ID if available (browser-based auth)
         if hasattr(request, "session") and request.session:

@@ -13,7 +13,7 @@ from rest_framework.decorators import api_view
 from users.supabase_admin import admin_update_password
 from users.routes.usermetadata import Handleusermetadata
 from core.email_templates import EmailTemplates
-from core.entitlements import get_entitlement_summary
+from core.entitlements import get_entitlement_summary, _wallet_tx_collection
 
 from core.audit_log import audit_from_request, write_audit_log, ACTION_USER_LOGIN, ACTION_USER_LOGOUT, ACTION_LOGIN_FAILED
 
@@ -82,6 +82,24 @@ def check_auth(request):
 @supabase_required
 def entitlement_summary(request):
     return JsonResponse(get_entitlement_summary(request.supabase_user))
+
+
+@api_view(['GET'])
+@supabase_required
+def wallet_transactions(request):
+    user_id = request.supabase_user.get('user_id')
+    limit = min(int(request.GET.get('limit', 20)), 100)
+    txs = list(
+        _wallet_tx_collection()
+        .find({'user_id': user_id}, {'_id': 0})
+        .sort('created_at', -1)
+        .limit(limit)
+    )
+    for tx in txs:
+        if 'created_at' in tx and hasattr(tx['created_at'], 'isoformat'):
+            tx['created_at'] = tx['created_at'].isoformat()
+    return JsonResponse({'transactions': txs})
+
 
 @api_view(['POST'])
 @ratelimit(key='user', rate='5/m', block=True)
@@ -156,6 +174,16 @@ def supabase_login(request):
                 metadata={"reason": "invalid_credentials"},
             )
             return JsonResponse({"error": "Invalid credentials/User Not Found"}, status=401)
+
+        if isinstance(result, dict) and result.get("error") == "email_not_confirmed":
+            write_audit_log(
+                ACTION_LOGIN_FAILED,
+                actor_id="",
+                ip_address=request.META.get("REMOTE_ADDR", ""),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                metadata={"reason": "email_not_confirmed"},
+            )
+            return JsonResponse({"error": "email_not_confirmed", "message": "Please verify your email address before logging in. Check your inbox (and spam folder) for the confirmation email."}, status=403)
 
         access_token = result.get("access_token")
         refresh_token = result.get("refresh_token")
@@ -234,35 +262,44 @@ def supabase_login(request):
 @api_view(['POST'])
 def reset_password(request):
     """
-    POST 
+    POST
     Body: { "new_password": """
-    data = json.loads(request.body.decode("utf-8"))
-    # logger.info(f"reset_password ==>>>> data === {data}")
-    new_password = data.get("new_password")
-    recovery_access_token = data.get("recovery_access_token") 
-    obj = Handleusermetadata()
-    # chk = obj.reset_password(passwd, recovery_access_token)
-    if not recovery_access_token or not new_password:
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        new_password = data.get("new_password")
+        recovery_access_token = data.get("recovery_access_token")
+        obj = Handleusermetadata()
+        if not recovery_access_token or not new_password:
             return JsonResponse({"message": "Missing fields"}, status=400)
 
-    # 1) Decode & verify the token
-    payload = obj.decode_supabase_jwt(recovery_access_token)
-    user_id = payload.get("sub")
-    if not user_id:
-        return JsonResponse({"message": "Invalid token payload (no sub)"}, status=400)
+        # 1) Validate the recovery token via Supabase (handles ES256/HS256 transparently)
+        from core.init_clients import get_supabase_client
+        try:
+            sb = get_supabase_client()
+            user_response = sb.auth.get_user(recovery_access_token)
+            user_id = user_response.user.id if user_response and user_response.user else None
+        except Exception as e:
+            logger.error(f"reset_password: token validation failed: {traceback.format_exc()}")
+            return JsonResponse({"message": "Invalid or expired reset token"}, status=400)
 
-    # 2) Update the password as an admin
-    result = admin_update_password(user_id, new_password)
-    # 'result' should contain info about the updated user or an error
+        if not user_id:
+            return JsonResponse({"message": "Invalid token payload (no sub)"}, status=400)
 
-    if result.user:  # check if user object is returned
-        return JsonResponse({"success": True}, status=200)
-    else:
-        # Possibly check result.error, etc.
-        return JsonResponse({
-            "success": False,
-            "message": "Failed to update user password"
-        }, status=400)
+        # 2) Update the password as an admin
+        try:
+            result = admin_update_password(user_id, new_password)
+        except Exception as e:
+            logger.error(f"reset_password: admin_update_password failed: {traceback.format_exc()}")
+            return JsonResponse({"message": "Failed to update password"}, status=500)
+
+        if result.user:
+            return JsonResponse({"success": True}, status=200)
+        else:
+            return JsonResponse({"success": False, "message": "Failed to update user password"}, status=400)
+
+    except Exception as e:
+        logger.error(f"reset_password: unexpected error: {traceback.format_exc()}")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 @api_view(['POST'])
 def send_reset_password_link(request):
@@ -1124,3 +1161,27 @@ def legal_doc_versions(request):
     """
     from core.legal_versions import LEGAL_DOC_VERSIONS
     return JsonResponse({'versions': LEGAL_DOC_VERSIONS})
+
+
+@api_view(['POST'])
+@ratelimit(key='ip', rate='5/h', method='POST', block=True)
+def resend_confirmation_email(request):
+    """
+    POST /api/users/resend-confirmation/
+    { "email": "user@example.com" }
+
+    Resends the Supabase signup confirmation email. Rate-limited to 5/hr per IP.
+    Always returns 200 to avoid user enumeration.
+    """
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        email = data.get("email", "").strip().lower()
+        if not email:
+            return JsonResponse({"error": "Email is required."}, status=400)
+
+        from core.init_clients import get_supabase_client
+        supabase = get_supabase_client()
+        supabase.auth.resend({"email": email, "type": "signup"})
+    except Exception:
+        logger.error(traceback.format_exc())
+    return JsonResponse({"message": "If that email is registered and unconfirmed, a new confirmation email has been sent."}, status=200)

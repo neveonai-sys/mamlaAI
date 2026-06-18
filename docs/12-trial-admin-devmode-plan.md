@@ -1,13 +1,15 @@
 # 12 — Trial System, Admin Emails, Dev Mode & Pricing Fixes
 
-> **Status:** PLANNING — Approved. Ready for implementation.
-> Last updated: 2026-04-18
+> **Status:** ✅ COMPLETE — All phases implemented.
+> Last updated: 2026-06-09
 
 ---
 
 ## TL;DR
 
-The 30-day Free Trial already exists on the landing page and backend (`trial` plan code). This sprint wires it up correctly end-to-end — reactive UI countdown, credits-exhaustion detection, dev bypass, admin emails via env var, new plan codes (Phase A), and eCourts Basic ₹99→₹299. No payment gateway changes.
+The 30-day Free Trial already exists on the landing page and backend (`trial` plan code). This sprint wired it up correctly end-to-end — reactive UI countdown, credits-exhaustion detection, dev bypass, admin emails via env var, new plan codes (Phase A), and eCourts Basic ₹99→₹299. No payment gateway changes.
+
+**Also completed (2026-06-09, Phase A.5):** Wallet UI + manual admin top-up — see [docs/09-pricing-and-billing-plan.md](09-pricing-and-billing-plan.md) Phase A.5 for full details.
 
 ---
 

@@ -52,7 +52,14 @@ def supabase_required(view_func):
         try:
             supabase_user = verify_supabase_token(access_token)
             request.supabase_user = supabase_user
-            # logger.debug(f"[supabase_required] Authenticated user: {supabase_user.get('email', 'No email')}")
+            # Update log context now that we have the real user identity
+            uid = supabase_user.get('user_id') or supabase_user.get('email', 'authenticated')
+            try:
+                from core.log_filters import set_log_context
+                set_log_context(getattr(request, 'request_id', '-'), uid)
+                request.telemetry_user_id = uid
+            except Exception:
+                pass
             return view_func(request, *args, **kwargs)
             
         except Exception as e:

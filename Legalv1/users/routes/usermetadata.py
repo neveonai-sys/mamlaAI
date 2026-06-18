@@ -8,6 +8,7 @@ import random
 import jwt
 import uuid
 import logging
+from supabase_auth.errors import AuthApiError
 import string
 import requests
 # from django.conf import settings
@@ -71,10 +72,16 @@ class Handleusermetadata:
                 return res
             else:
                 return False
+        except AuthApiError as err:
+            if "Email not confirmed" in str(err):
+                logging.error(traceback.format_exc())
+                return {"error": "email_not_confirmed"}
+            logging.error(traceback.format_exc())
+            return False
         except Exception as err:
             logging.error(traceback.format_exc())
             return False
-        
+
     def sign_out_supabase(self, scope):
         """
         Sign out a user from Supabase. 
@@ -134,8 +141,8 @@ class Handleusermetadata:
         try:
             payload = jwt.decode(
                 token,
-                os.getenv('SUPABASE_JWT_TOKEN'),
-                algorithms=["HS256"],  # or a list if you have more
+                os.getenv('SUPABASE_JWT_SECRET'),
+                algorithms=["HS256","RS256"],  # or a list if you have more
                 options={"verify_aud": False}  # or True if you want to check "aud"
             )
             return payload

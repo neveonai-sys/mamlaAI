@@ -61,9 +61,13 @@ def insert_new_user_details(user_details):
             elif user_details.get('user_type')=='Client':
                 data["case_ids"] = user_details.get('case_ids')
             elif user_details.get('user_type')=='Paralegal':
-                data["state"] = user_details.get('state') 
-                data["district"] = user_details.get('district') 
+                data["state"] = user_details.get('state')
+                data["district"] = user_details.get('district')
                 data["courts"] = user_details.get('courts')
+                data["template_draft_count"] = 0
+            elif user_details.get('user_type')=='Law Student':
+                data["college_name"] = user_details.get('college_name', '')
+                data["ai_draft_count"] = 0
                 data["template_draft_count"] = 0
             
             # Upsert in local DB

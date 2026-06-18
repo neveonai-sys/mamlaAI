@@ -21,7 +21,8 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 |--------|------|------|-------------|
 | POST | `signup-user/` | No auth | Main signup (Mongo). Token-based or standard; email verification link. |
 | GET | `check-auth/` | **Supabase** | Returns user + sessions. Used by frontend for auth check and session list. |
-| GET | `entitlements/summary/` | **Supabase** | Returns the current entitlement summary (`plan_code`, wallet, trial, `features`) for live quota refreshes in the active frontend. |
+| GET | `entitlements/summary/` | **Supabase** | Returns the current entitlement summary. Includes `plan_code`, `wallet` (balance, currency, `inr_equivalent`), `usage_summary` (`total_credits_consumed`, `trial_value_inr`), `trial`, `features`. |
+| GET | `wallet/transactions/` | **Supabase** | Query: `?limit=N` (max 100, default 20). Returns `{transactions: [{type, credits, amount_inr, note, added_by, created_at}]}` sorted newest-first. |
 | POST | `invalidate-session/` | **Supabase** | Body: `{ "session_id": "..." }`. Invalidates that session. |
 | POST | `get-prefilled-data/` | No auth | Body: `{ "token": "..." }`. Returns prefilled signup data for token. |
 | POST | `onboard-client/` | **Supabase** | Lawyer onboard new client (creates signup link). |
@@ -37,7 +38,8 @@ Base path for all APIs below: **`/api/`** (e.g. production: `https://mamla.ai/ap
 | GET | `auth/check-username` | **Supabase** | Check username availability. |
 | POST | `onboard/` | No auth | New user onboarding (Supabase). |
 | GET | `get-profile` | **Supabase** | Get current user profile. |
-| POST | `login-user/` | No auth | **Supabase login.** Returns user info; frontend stores token. |
+| POST | `login-user/` | No auth | **Supabase login.** Body: `{email, password}`. Returns user info + tokens. On unconfirmed email returns `403 {"error": "email_not_confirmed", "message": "..."}`. |
+| POST | `resend-confirmation/` | No auth | Body: `{email}`. Resends Supabase signup confirmation email. Rate-limited 5/hr per IP. Always returns `200` (no user enumeration). |
 | POST | `send-reset-password-link/` | No auth | Sends password reset email (Supabase). |
 | POST | `reset-user-password/` | No auth | Supabase password reset (token in body/link). |
 | POST | `sign-out-user/` | **Supabase** | Sign out (scope e.g. local). Frontend logout. |
@@ -558,3 +560,19 @@ All endpoints: `POST`, `@supabase_required`. Each returns `{"ok": true, ...resul
 | POST | `/api/agents/case-closure/` | Archive case, generate summary, cancel pending tasks, create shared client note. Body: `case_id` (req), `resolution_type`, `resolution_summary` (req). Returns `{case_summary, stats, client_note_id, next_suggested_action}`. |
 
 **Agent architecture:** Each agent is a deterministic fixed-step Python class in `Legalv1/agents/`. No LangChain/LangGraph — max 2-3 LLM calls per agent via `core/llm_client.chat_complete()`. See `docs/08-lawyer-workflow-plan.md` Section 10.
+
+---
+
+## Admin (`/api/admin/`)
+
+**Module:** `core/admin_views.py`. Caller must be in `BRAIN_ADMIN_EMAILS` (checked via `is_internal_user()`).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/admin/wallet/top-up/` | **Supabase + admin** | Manually add credits to a user's wallet. Body: `{ "target_email": "...", "credits": 150, "note": "UPI ref ABC123", "amount_inr": 199 }`. Returns `{success, target_email, credits_added, new_balance, amount_inr, note}`. Logs to `wallet_transactions` collection. |
+
+**Management command alternative** (no HTTP required):
+```
+python manage.py add_wallet_credits --email user@x.com --credits 150 --note "UPI ref ABC123" --amount-inr 199
+```
+

@@ -9,9 +9,10 @@ import { useIconFont } from '../../hooks/useIconFont';
 import { usePostHog } from '@posthog/react';
 
 const USER_TYPE_OPTIONS = [
-  { value: 'Lawyer',    label: 'Lawyer',           desc: 'I practice law' },
-  { value: 'Client',   label: 'Nagrik (Citizen)',  desc: 'I need legal help' },
-  { value: 'Paralegal', label: 'Paralegal',         desc: 'I assist a legal team' },
+  { value: 'Lawyer',      label: 'Lawyer',           desc: 'I practice law' },
+  { value: 'Law Student', label: 'Law Student',       desc: 'I study law' },
+  { value: 'Client',      label: 'Nagrik (Citizen)',  desc: 'I need legal help' },
+  { value: 'Paralegal',   label: 'Paralegal',         desc: 'I assist a legal team' },
 ];
 
 const INPUT_CLS = `w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg
@@ -35,6 +36,7 @@ export default function Signup() {
     user_type: 'Lawyer',
     barcode_id: '',
     law_firm_name: '',
+    college_name: '',
     state_code: '',
     state_name: '',
     dist_code: '',
@@ -171,6 +173,7 @@ export default function Signup() {
         whatsappOptIn: form.whatsappOptIn,
         barcode_id: form.user_type === 'Lawyer' ? form.barcode_id.trim() : '',
         organization: form.user_type === 'Lawyer' ? form.law_firm_name.trim() : '',
+        college_name: form.user_type === 'Law Student' ? form.college_name.trim() : '',
         state: form.state_name,
         district: form.dist_name,
         courts: [],
@@ -277,12 +280,12 @@ export default function Signup() {
 
                 {/* ── Email ── */}
                 <div>
-                  <label className={LABEL_CLS} htmlFor="email">Professional Email</label>
+                  <label className={LABEL_CLS} htmlFor="email">Email Address</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">mail</span>
                     <input
                       id="email" name="email" type="email" required autoComplete="email"
-                      placeholder="you@lawfirm.com" value={form.email}
+                      placeholder="yourname@gmail.com" value={form.email}
                       onChange={(e) => { handleChange(e); setEmailExists(null); }}
                       onBlur={handleEmailBlur}
                       className={`${ICON_INPUT_CLS} ${emailExists === true ? 'border-red-400 focus:ring-red-300' : emailExists === false ? 'border-emerald-400 focus:ring-emerald-300' : ''}`}
@@ -341,7 +344,7 @@ export default function Signup() {
                     {USER_TYPE_OPTIONS.map((opt) => (
                       <button
                         key={opt.value} type="button"
-                        onClick={() => setForm((f) => ({ ...f, user_type: opt.value, barcode_id: '', law_firm_name: '' }))}
+                        onClick={() => setForm((f) => ({ ...f, user_type: opt.value, barcode_id: '', law_firm_name: '', college_name: '' }))}
                         className={`flex-1 py-2.5 px-2 text-sm font-semibold rounded-lg border transition-all text-center ${
                           form.user_type === opt.value
                             ? 'bg-primary text-ivory border-primary'
@@ -381,6 +384,25 @@ export default function Signup() {
                           id="law_firm_name" name="law_firm_name" type="text"
                           placeholder="Doe &amp; Associates"
                           value={form.law_firm_name} onChange={handleChange}
+                          className={ICON_INPUT_CLS}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Law Student-only fields ── */}
+                {form.user_type === 'Law Student' && (
+                  <div className="space-y-4 rounded-xl border border-primary/10 bg-slate-50 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Student Details</p>
+                    <div>
+                      <label className={LABEL_CLS} htmlFor="college_name">College / Law School Name</label>
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">school</span>
+                        <input
+                          id="college_name" name="college_name" type="text"
+                          placeholder="e.g. National Law School, Bangalore"
+                          value={form.college_name} onChange={handleChange}
                           className={ICON_INPUT_CLS}
                         />
                       </div>

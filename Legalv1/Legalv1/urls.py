@@ -18,9 +18,11 @@ from django.contrib import admin
 from django.urls import path, include
 
 from core.views import health, schema_view, swagger_ui_view, dashboard_home
+from core.admin_views import admin_wallet_top_up
 
 urlpatterns = [
     path('api/health/', health),
+    path('api/admin/wallet/top-up/', admin_wallet_top_up),
     path('api/dashboard/home/', dashboard_home),
     path('api/schema/', schema_view, name='schema'),
     path('api/schema/swagger-ui/', swagger_ui_view, name='swagger-ui'),

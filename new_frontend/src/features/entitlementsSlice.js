@@ -7,6 +7,11 @@ const initialState = {
   wallet: {
     balance: 0,
     currencyCode: 'INR',
+    inrEquivalent: 0,
+  },
+  usageSummary: {
+    totalCreditsConsumed: 0,
+    trialValueInr: 0,
   },
   trial: {
     active: false,
@@ -30,6 +35,11 @@ const entitlementsSlice = createSlice({
       state.wallet = {
         balance: payload.wallet?.balance ?? 0,
         currencyCode: payload.wallet?.currency_code || 'INR',
+        inrEquivalent: payload.wallet?.inr_equivalent ?? 0,
+      };
+      state.usageSummary = {
+        totalCreditsConsumed: payload.usage_summary?.total_credits_consumed ?? 0,
+        trialValueInr: payload.usage_summary?.trial_value_inr ?? 0,
       };
       state.trial = {
         active: Boolean(payload.trial?.active),
@@ -63,6 +73,7 @@ const entitlementsSlice = createSlice({
         state.wallet = {
           ...state.wallet,
           balance: quota.wallet_credits_balance,
+          inrEquivalent: Math.round(quota.wallet_credits_balance * 1.33 * 100) / 100,
         };
       }
       if (typeof quota.is_trial === 'boolean') {
@@ -77,7 +88,8 @@ const entitlementsSlice = createSlice({
       state.planCode = '';
       state.launchAccess = '';
       state.quotaResetAt = '';
-      state.wallet = { balance: 0, currencyCode: 'INR' };
+      state.wallet = { balance: 0, currencyCode: 'INR', inrEquivalent: 0 };
+      state.usageSummary = { totalCreditsConsumed: 0, trialValueInr: 0 };
       state.trial = { active: false, startedAt: '', endsAt: '', daysRemaining: 0 };
       state.features = {};
       state.lastFetchedAt = '';

@@ -1,13 +1,15 @@
 # 09 — Pricing & Billing Plan
 
-> **Status:** Phase A COMPLETE — Plan definitions implemented. Phase B (billing backend + payment gateway) is the next sprint.
-> Last updated: 2026-04-18
+> **Status:** Phase A + Phase A.5 COMPLETE. Phase B (Razorpay gateway) is the next sprint.
+> Last updated: 2026-06-09
 
 ---
 
 ## TL;DR
 
 Three user types × tiered plans, priced for Indian small-town affordability. eCourts deep scraping is a separate paid add-on. A new `billing` Django app extends the existing `entitlements.py` framework. The payment gateway is wired in a separate sprint once confirmed.
+
+**Current state (2026-06-09):** No payment gateway is live yet. Users can see their wallet balance in INR equivalent, and admins can manually credit wallets via API or management command when payment arrives via UPI/bank transfer. Full Razorpay integration is Phase B.
 
 ---
 
@@ -178,6 +180,64 @@ Trial expires whichever comes first: **30 days elapsed** OR **wallet exhausted**
 - Enforce `ecourts_order_download` quota in `ecourts_api/views.py`
 - Enforce `ecourts_case_lookup` quota in `ecourts_api/views.py`
 
+### Phase A.5 — Wallet UI & Manual Admin Top-up ✅ DONE (2026-06-09)
+
+Builds the pre-gateway wallet experience: users see their credit balance in INR equivalent, understand the value their trial has delivered, and admins can credit wallets manually. No Razorpay integration needed.
+
+**`Legalv1/core/entitlements.py`** — updated:
+- Added `DISPLAY_CREDIT_RATE_INR = 1.33` (Regular pack reference rate, display-only, never stored)
+- Added `log_wallet_transaction(user_id, email, type, credits, *, amount_inr, note, added_by)` — writes to `wallet_transactions` collection
+- Added `_wallet_tx_collection()` helper
+- Extended `get_entitlement_summary()` response:
+  - `wallet.inr_equivalent` — `balance × 1.33`, rounded to 2dp
+  - `usage_summary.total_credits_consumed` — Σ `used_count × overage_credit_cost` across all features this cycle
+  - `usage_summary.trial_value_inr` — same converted to INR; shown as "Your trial delivered ≈ ₹X"
+- `consume_feature_use()` now calls `log_wallet_transaction()` on every wallet deduction (type=`deduction`)
+
+**`Legalv1/core/admin_views.py`** — new file:
+- `POST /api/admin/wallet/top-up/` — admin-only (checked via `is_internal_user()`), body: `{ target_email, credits, note, amount_inr }`, increments `wallet_credits_balance`, logs top-up transaction
+
+**`Legalv1/core/management/commands/add_wallet_credits.py`** — new management command:
+```
+python manage.py add_wallet_credits --email user@x.com --credits 150 --note "UPI ref ABC123" --amount-inr 199
+```
+Use this when a user pays via UPI/bank transfer and you need to credit their wallet without the API.
+
+**`Legalv1/users/supabase_views.py`** — updated:
+- Added `GET /api/users/wallet/transactions/?limit=20` — returns user's own transaction history sorted by date desc
+
+**`Legalv1/Legalv1/urls.py`** — updated:
+- Wired `api/admin/wallet/top-up/` from `core.admin_views`
+
+**MongoDB — `wallet_transactions` collection** (now live, ahead of Phase B):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `user_id` | str | Supabase user ID |
+| `email` | str | For human readability in admin queries |
+| `type` | str | `top_up` or `deduction` |
+| `credits` | int | Credits added or deducted |
+| `amount_inr` | float\|null | INR received (top-ups only; null for deductions) |
+| `note` | str | UPI ref, bank ref, or feature code for deductions |
+| `added_by` | str | Admin email, `management_command`, or `system` |
+| `created_at` | datetime | UTC |
+
+**Frontend:**
+
+| File | Change |
+|------|--------|
+| `features/entitlementsSlice.js` | Added `wallet.inrEquivalent`, `usageSummary.{totalCreditsConsumed, trialValueInr}` to state and all reducers |
+| `components/billing/WalletPage.jsx` | New page at `/wallet`: balance card with ₹ display, trial value banner, per-feature usage table with INR cost, UPI top-up instructions, transaction history |
+| `components/dashboard/Dashboard.jsx` | Wallet MetricCard is now a clickable button → `/wallet`; shows `≈ ₹{inrEquivalent}` and trial value sub-stats; "Top Up Credits" CTA renamed to "Add Credits" and navigates to `/wallet` |
+| `AppContent.js` | Added `/wallet` protected route |
+
+**Manual top-up workflow (pre-gateway):**
+1. User contacts team and sends payment via UPI/bank transfer
+2. Admin runs: `python manage.py add_wallet_credits --email X --credits 150 --note "UPI ref" --amount-inr 199`
+   OR calls `POST /api/admin/wallet/top-up/` with admin JWT
+3. User's wallet balance updates immediately; transaction visible in `/wallet` page history
+4. User can now use overage features against the new balance
+
 ### Phase B — Billing Backend
 
 New Django app `Legalv1/billing/`:
@@ -196,14 +256,14 @@ billing/
 
 Register in `Legalv1/Legalv1/settings.py` (`INSTALLED_APPS`) and `Legalv1/Legalv1/urls.py`.
 
-**New MongoDB collections:**
+**New MongoDB collections** (✅ = already created in Phase A.5):
 
-| Collection | Purpose |
-|-----------|---------|
-| `subscriptions` | user_id → plan_code, amount, start/end, gateway sub ID, status |
-| `payment_orders` | each gateway order created (for signature verification traceability) |
-| `wallet_transactions` | credit additions and deductions with reason + timestamp |
-| `ecourts_addons` | user_id → addon_code, activated_at, renews_at, status |
+| Collection | Status | Purpose |
+|-----------|--------|---------|
+| `subscriptions` | Phase B | user_id → plan_code, amount, start/end, gateway sub ID, status |
+| `payment_orders` | Phase B | each gateway order created (for signature verification traceability) |
+| `wallet_transactions` | ✅ Live | credit additions and deductions with reason + timestamp |
+| `ecourts_addons` | Phase B | user_id → addon_code, activated_at, renews_at, status |
 
 **New API endpoints under `/api/billing/`:**
 
@@ -226,20 +286,21 @@ Also extend `GET /api/users/entitlements/summary/` to include:
 
 ### Phase C — Frontend Billing UI
 
-New files in `mamlaAI_ground_zero/frontend/src/`:
+Files in `mamlaAI_ground_zero/frontend/src/` (✅ = already built in Phase A.5):
 
-| File | Purpose |
-|------|---------|
-| `components/billing/PricingPage.jsx` | Public pricing table (Nagrik / Vakil / Firm tabs) |
-| `components/billing/BillingSettings.jsx` | Dashboard billing tab: current plan, upgrade, cancel, wallet history |
-| `components/billing/UpgradeModal.jsx` | Triggered on quota exhaustion from any feature page |
-| `components/billing/WalletWidget.jsx` | Header widget: credit balance + quick top-up button |
-| `components/billing/PlanBadge.jsx` | Small badge in Navbar/profile showing current plan |
-| `features/billingSlice.js` | Redux: `currentPlan`, `walletBalance`, `quotaSummary`, `showUpgradeModal` |
+| File | Status | Purpose |
+|------|--------|---------|
+| `components/billing/WalletPage.jsx` | ✅ Live | Balance card with ₹ equivalent, trial value banner, per-feature usage table, UPI top-up instructions, transaction history |
+| `components/billing/PricingPage.jsx` | Phase C | Public pricing table (Nagrik / Vakil / Firm tabs) |
+| `components/billing/BillingSettings.jsx` | Phase C | Dashboard billing tab: current plan, upgrade, cancel |
+| `components/billing/UpgradeModal.jsx` | Phase C | Triggered on quota exhaustion from any feature page |
+| `components/billing/PlanBadge.jsx` | Phase C | Small badge in Navbar/profile showing current plan |
+| `features/billingSlice.js` | Phase C | Redux slice for Razorpay order flow and subscription state |
 
 Route additions in `AppContent.js`:
-- `/pricing` — public, no auth required
-- `/settings/billing` — protected (Supabase auth)
+- `/wallet` — ✅ Live, protected (Supabase auth) — wallet balance + usage + transaction history
+- `/pricing` — Phase C, public, no auth required
+- `/settings/billing` — Phase C, protected (Supabase auth)
 
 ---
 
