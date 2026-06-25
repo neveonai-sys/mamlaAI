@@ -5,15 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="security-key" content="mamla-secure-key-2026" />
-  <meta name="description" content="Mamla AI is AI-powered legal practice management software for lawyers, law firms, litigants and law students. Automate legal drafting, case management, legal research, eCourts tracking, client management and document analysis — all from one platform." />
-  <meta name="keywords" content="AI legal software, legal practice management software, legal case management software, AI legal drafting software, legal research software, software for lawyers in India, law firm management software, eCourts case tracking, legal workflow automation, AI for lawyers" />
-  <meta property="og:title" content="AI Legal Software for Lawyers & Law Firms | Mamla AI" />
-  <meta property="og:description" content="Mamla AI is AI-powered legal practice management software for lawyers, law firms, litigants and law students in India. Automate legal drafting, eCourts tracking, case management, legal research and document analysis." />
-  <meta property="og:type" content="website" />
-  <meta property="og:locale" content="en_IN" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="AI Legal Software for Lawyers & Law Firms | Mamla AI" />
-  <meta name="twitter:description" content="AI-powered legal practice management software for Indian lawyers, law firms, litigants and law students." />
+  <!-- Per-page <title>, description, canonical, Open Graph & Twitter tags are
+       managed at runtime by react-helmet-async (see components/landing/shared/Seo.jsx)
+       and baked into prerendered pages at build time. Kept out of this template so
+       each route remains the single source of truth (no duplicate tags). -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>AI Legal Software for Lawyers & Law Firms | Legal Practice Management Software | Mamla AI</title>
   <!-- Preconnect for performance -->
@@ -84,66 +79,37 @@
     /* ── Reset + body ── */
     *,::before,::after{box-sizing:border-box;margin:0;padding:0}
     html{-webkit-text-size-adjust:100%;height:100%}
-    body{background:#08111f;color:#fff;font-family:Inter,system-ui,-apple-system,sans-serif;min-height:100%;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    body{background:#f8fafc;color:#0f1727;font-family:Inter,system-ui,-apple-system,sans-serif;min-height:100%;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
     #root{min-height:100vh;display:flex;flex-direction:column}
 
-    /* ── Pre-rendered landing page (sl = static landing) ──────────────────────
-       These styles mirror MinimalLanding.jsx exactly so the React takeover is
-       visually seamless. Cleared for all non-/ routes by the inline script. */
-    .sl{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;background:#08111f;color:#fff;overflow:hidden;position:relative}
-    .sl-bg1{pointer-events:none;position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 30% -5%,rgba(22,52,95,.65) 0%,transparent 65%)}
-    .sl-bg2{pointer-events:none;position:absolute;inset:0;opacity:.03;background-image:radial-gradient(circle,#fff 1px,transparent 1px);background-size:28px 28px}
-    .sl-nav{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
-    .sl-logo{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:#fff;font-weight:600;font-size:1rem;letter-spacing:-.02em}
-    .sl-nav-links{display:flex;align-items:center;gap:.375rem}
-    .sl-btn-ghost{padding:.375rem .75rem;border-radius:.5rem;color:rgba(255,255,255,.65);font-size:.875rem;text-decoration:none;font-weight:500}
-    .sl-btn-primary{padding:.375rem .75rem;border-radius:.5rem;background:#16345f;color:#fff;font-size:.875rem;font-weight:600;text-decoration:none}
-    .sl-main{position:relative;z-index:10;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem 1.25rem;gap:1.5rem;max-width:72rem;margin:0 auto;width:100%;overflow:hidden}
-    .sl-left{display:flex;flex-direction:column;align-items:center;text-align:center;flex-shrink:0;width:100%}
-    .sl-badge{display:inline-flex;align-items:center;gap:.375rem;border:1px solid rgba(22,52,95,.4);background:rgba(22,52,95,.1);padding:.25rem .75rem;border-radius:9999px;font-size:.6875rem;font-weight:500;color:#7ba4d4;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem}
-    .sl-pulse{display:inline-block;width:.375rem;height:.375rem;border-radius:50%;background:#34d399;animation:sl-pulse 2s cubic-bezier(.4,0,.6,1) infinite}
-    @keyframes sl-pulse{0%,100%{opacity:1}50%{opacity:.5}}
-    .sl-h1{font-size:2.1rem;font-weight:700;line-height:1.15;margin-bottom:.75rem;letter-spacing:-.025em}
-    .sl-accent{color:#7ba4d4}
-    .sl-desc{color:rgba(255,255,255,.55);font-size:.875rem;line-height:1.625;margin-bottom:.75rem;max-width:24rem}
-    .sl-badges{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1.25rem}
-    .sl-trust{display:inline-flex;align-items:center;gap:.375rem;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);padding:.125rem .625rem;border-radius:9999px;font-size:.625rem;font-weight:500;color:rgba(255,255,255,.45);letter-spacing:.05em}
-    .sl-dot{display:inline-block;width:.375rem;height:.375rem;border-radius:50%;background:#34d399}
-    .sl-ctas{display:flex;flex-direction:column;gap:.625rem;width:100%;margin-bottom:1rem}
-    .sl-cta-main{display:block;padding:.75rem 1.5rem;border-radius:.75rem;background:#16345f;color:#fff;font-weight:600;font-size:.875rem;text-align:center;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
-    .sl-cta-sec{display:block;padding:.75rem 1.5rem;border-radius:.75rem;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);font-size:.875rem;font-weight:500;text-align:center;text-decoration:none}
-    .sl-explore{display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:.5rem;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:rgba(255,255,255,.6);font-size:.875rem;text-decoration:none}
-    .sl-cards{display:none}
-    .sl-card{display:flex;align-items:flex-start;gap:1rem;border-radius:1rem;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);padding:1rem;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
-    .sl-card-icon{flex-shrink:0;display:flex;width:2.25rem;height:2.25rem;align-items:center;justify-content:center;border-radius:.5rem;background:rgba(22,52,95,.25);color:#7ba4d4;border:1px solid rgba(22,52,95,.2)}
-    .sl-card-title{font-size:.875rem;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:.125rem}
-    .sl-card-desc{font-size:.78125rem;color:rgba(255,255,255,.45);line-height:1.6}
-    .sl-footer{position:relative;z-index:10;flex-shrink:0;border-top:1px solid rgba(255,255,255,.08);padding:.625rem 1.25rem;display:flex;flex-direction:column;align-items:center;gap:.375rem;font-size:.75rem;color:rgba(255,255,255,.25)}
-    .sl-footer-nav{display:flex;align-items:center;gap:1rem}
+    /* ── Pre-rendered light landing (sl = static landing) ─────────────────────
+       Mirrors MinimalLanding.jsx hero so the React takeover is seamless.
+       Cleared for all non-/ routes by the inline script. */
+    .sl{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;background:#f8fafc;color:#0f1727;position:relative}
+    .sl-nav{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:#fff;border-bottom:1px solid #f1f5f9;flex-shrink:0}
+    .sl-logo{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:#0f1727;font-weight:700;font-size:1.125rem;letter-spacing:-.02em}
+    .sl-nav-links{display:flex;align-items:center;gap:.5rem}
+    .sl-btn-ghost{padding:.5rem .75rem;border-radius:.375rem;color:#475569;font-size:.875rem;text-decoration:none;font-weight:500}
+    .sl-btn-primary{padding:.625rem 1.25rem;border-radius:.375rem;background:#16345f;color:#fff;font-size:.875rem;font-weight:600;text-decoration:none}
+    .sl-main{position:relative;z-index:10;flex:1;display:flex;flex-direction:column;justify-content:center;padding:3rem 1.25rem;max-width:80rem;margin:0 auto;width:100%}
+    .sl-left{display:flex;flex-direction:column;align-items:flex-start;text-align:left;max-width:36rem}
+    .sl-h1{font-size:2.25rem;font-weight:800;line-height:1.1;margin-bottom:1rem;letter-spacing:-.025em;color:#0f1727}
+    .sl-accent{color:#16345f;display:block}
+    .sl-desc{color:#475569;font-size:1.0625rem;line-height:1.7;margin-bottom:2rem;max-width:32rem}
+    .sl-ctas{display:flex;flex-flow:row wrap;gap:1rem}
+    .sl-cta-main{display:block;padding:1rem 2rem;border-radius:.5rem;background:#16345f;color:#fff;font-weight:700;font-size:1.0625rem;text-align:center;text-decoration:none}
+    .sl-cta-sec{display:block;padding:1rem 2rem;border-radius:.5rem;border:1px solid #cbd5e1;color:#0f1727;font-weight:700;font-size:1.0625rem;text-align:center;text-decoration:none}
+    .sl-footer{position:relative;z-index:10;flex-shrink:0;background:#0f172a;padding:1.5rem 1.25rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;font-size:.8125rem;color:#94a3b8;text-align:center}
+    .sl-footer-nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1.25rem}
     .sl-footer a{color:inherit;text-decoration:none}
     @media(min-width:640px){
-      .sl-logo{font-size:1.125rem}
-      .sl-nav{padding:.875rem 2.5rem}
-      .sl-nav-links{gap:.5rem}
-      .sl-btn-ghost,.sl-btn-primary{padding:.5rem 1rem}
-      .sl-main{flex-direction:row;padding:0 2.5rem;gap:2.5rem}
-      .sl-left{align-items:flex-start;text-align:left;max-width:480px}
-      .sl-h1{font-size:2.6rem}
-      .sl-desc{font-size:1rem;margin-bottom:1rem;max-width:none}
-      .sl-badges{justify-content:flex-start}
-      .sl-trust{font-size:.6875rem}
-      .sl-ctas{flex-direction:row;align-items:stretch;gap:.75rem;width:auto}
-      .sl-cta-main,.sl-cta-sec{font-size:.9375rem}
-      .sl-cards{display:flex;flex-direction:column;justify-content:center;gap:.75rem;flex:1;min-width:0}
-      .sl-footer{flex-direction:row;justify-content:space-between;padding:.75rem 1.5rem}
+      .sl-nav{padding:1rem 2.5rem}
+      .sl-h1{font-size:3rem}
     }
     @media(min-width:1024px){
-      .sl-nav{padding:.875rem 5rem}
-      .sl-main{padding:0 5rem;gap:4rem}
-      .sl-left{max-width:520px}
-      .sl-h1{font-size:3.2rem}
-      .sl-desc{font-size:1.125rem}
-      .sl-card{padding:1.25rem}
+      .sl-nav{padding:1rem 5rem}
+      .sl-main{padding:5rem}
+      .sl-h1{font-size:3.5rem}
     }
   </style>
 </head>
@@ -156,9 +122,6 @@
       The inline script below clears it for all non-root routes.
     -->
     <div class="sl">
-      <div aria-hidden="true" class="sl-bg1"></div>
-      <div aria-hidden="true" class="sl-bg2"></div>
-
       <header class="sl-nav">
         <a href="/" class="sl-logo" aria-label="Mamla.AI home">
           <!-- MamlaLogoIcon (dark=false) inlined as static SVG -->
@@ -196,68 +159,37 @@
               <path d="M22,50 Q52,35 82,50" fill="none" stroke="#FF9800" stroke-width="0.8" opacity="0.25" stroke-dasharray="3,3"/>
             </g>
           </svg>
-          <span>Mamla.AI</span>
+          <span>Mamla.ai</span>
         </a>
         <nav class="sl-nav-links">
-          <a href="/login" class="sl-btn-ghost">Log In</a>
-          <a href="/signup" class="sl-btn-primary">Sign Up Free</a>
+          <a href="/login" class="sl-btn-ghost">Sign in</a>
+          <a href="/signup" class="sl-btn-primary">Sign In / Register</a>
         </nav>
       </header>
 
       <main class="sl-main">
-        <!-- Left column: hero text + CTAs -->
         <div class="sl-left">
-          <span class="sl-badge">
-            <span class="sl-pulse"></span>
-            Now in Beta &mdash; Lock beta pricing
-          </span>
-
           <h1 class="sl-h1">
-            AI Legal Software for <span class="sl-accent">Lawyers, Law Firms &amp; Litigants</span>
+            Your Gateway to Indian <span class="sl-accent">Legal Solutions</span>
           </h1>
 
           <p class="sl-desc">
-            AI legal drafting, eCourts case tracking, legal research, calendar management and client lifecycle management &mdash; all from one AI-powered legal platform for India.
+            Navigate the complexities of Indian law with clarity and ease. AI legal drafting, eCourts case tracking, legal research and case management &mdash; all from one comprehensive platform.
           </p>
 
-          <div class="sl-badges">
-            <span class="sl-trust"><span class="sl-dot"></span>District Courts</span>
-            <span class="sl-trust"><span class="sl-dot"></span>High Courts</span>
-            <span class="sl-trust"><span class="sl-dot"></span>Supreme Court</span>
-          </div>
-
           <div class="sl-ctas">
-            <a href="/signup" class="sl-cta-main">Start Free &mdash; No card needed</a>
-            <a href="/login" class="sl-cta-sec">Log In</a>
-          </div>
-
-          <a href="/website" class="sl-explore">
-            Explore all features, pricing &amp; plans
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="14" height="14"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
-          </a>
-        </div>
-
-        <!-- Right column: feature cards (sm+ only) -->
-        <div class="sl-cards">
-          <div class="sl-card">
-            <span class="sl-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="20" height="20"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
-            <div><p class="sl-card-title">AI Drafting</p><p class="sl-card-desc">Court-ready petitions in seconds &mdash; trained on Indian legal formats.</p></div>
-          </div>
-          <div class="sl-card">
-            <span class="sl-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="20" height="20"><path d="M3 21h18M6 18V9m4 9V9m4 9V9m4 9V9M3 9l9-6 9 6"/></svg></span>
-            <div><p class="sl-card-title">Live eCourt Data</p><p class="sl-card-desc">Real-time case status from all 25 High Courts and District Courts.</p></div>
-          </div>
-          <div class="sl-card">
-            <span class="sl-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="20" height="20"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-            <div><p class="sl-card-title">Hearing Calendar</p><p class="sl-card-desc">Smart deadline tracking and automated hearing reminders.</p></div>
+            <a href="/signup" class="sl-cta-main">Start Free</a>
+            <a href="/website" class="sl-cta-sec">Explore Platform</a>
           </div>
         </div>
       </main>
 
       <footer class="sl-footer">
-        <span>&copy; 2026 Neveon AI Technologies Pvt. Ltd.</span>
+        <span>&copy; 2026 Neveon AI Technologies Pvt. Ltd. &mdash; Your trusted partner for Indian legal solutions.</span>
         <nav class="sl-footer-nav">
-          <a href="/website#pricing">Pricing</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/about">About</a>
+          <a href="/case-tracking">Case Tracking</a>
           <a href="/login">Log In</a>
           <a href="/signup">Sign Up</a>
         </nav>
@@ -265,9 +197,11 @@
     </div>
   </div>
   <!--
-    Clear the pre-rendered landing for all non-root routes.
+    Remove the hand-written static landing (.sl) on all non-root routes.
     Runs synchronously during HTML parse — before first paint — so no flash.
+    Only the .sl block is removed (not the whole #root), so prerendered hub
+    pages produced by react-snap keep their static HTML for SEO + hydration.
   -->
-  <script>if(location.pathname!=='/')document.getElementById('root').innerHTML=''</script>
+  <script>if(location.pathname!=='/'){var sl=document.querySelector('#root > .sl');if(sl)sl.remove();}</script>
 </body>
 </html>

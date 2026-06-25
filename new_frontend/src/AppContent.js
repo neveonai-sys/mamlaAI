@@ -16,6 +16,12 @@ import { initializeAnalytics, trackPageView, setAnalyticsUser, clearAnalyticsUse
 // ─── Lazy-loaded screens ─────────────────────────────────────────────────────
 const MinimalLanding     = lazy(() => import('./components/landing/MinimalLanding'));
 const LandingPage        = lazy(() => import('./components/landing/LandingPage'));
+const FeaturesPage       = lazy(() => import('./components/landing/pages/FeaturesPage'));
+const CaseTrackingPage   = lazy(() => import('./components/landing/pages/CaseTrackingPage'));
+const SolutionsPage      = lazy(() => import('./components/landing/pages/SolutionsPage'));
+const PricingPage        = lazy(() => import('./components/landing/pages/PricingPage'));
+const ResourcesPage      = lazy(() => import('./components/landing/pages/ResourcesPage'));
+const AboutPage          = lazy(() => import('./components/landing/pages/AboutPage'));
 const Login              = lazy(() => import('./components/auth/Login'));
 const Signup             = lazy(() => import('./components/auth/Signup'));
 const ResetPassword      = lazy(() => import('./components/auth/ResetPassword'));
@@ -63,7 +69,10 @@ const ClientCasePage     = lazy(() => import('./components/cases/ClientCasePage'
 const GuidedDraftingPage = lazy(() => import('./components/drafting/GuidedDraftingPage'));
 
 // ─── Public routes that skip auth check ─────────────────────────────────────
-const PUBLIC_ROUTES = ['/', '/login', '/signup', '/reset-password', '/website'];
+const PUBLIC_ROUTES = [
+  '/', '/login', '/signup', '/reset-password', '/website',
+  '/features', '/case-tracking', '/solutions', '/pricing', '/resources', '/about',
+];
 
 function GlobalSpinner() {
   return (
@@ -169,6 +178,12 @@ export default function AppContent() {
         {/* ── Public ──────────────────────────────────────────────────── */}
         <Route path="/"               element={<MinimalLanding />} />
         <Route path="/website"        element={<LandingPage />} />
+        <Route path="/features"       element={<FeaturesPage />} />
+        <Route path="/case-tracking"  element={<CaseTrackingPage />} />
+        <Route path="/solutions"      element={<SolutionsPage />} />
+        <Route path="/pricing"        element={<PricingPage />} />
+        <Route path="/resources"      element={<ResourcesPage />} />
+        <Route path="/about"          element={<AboutPage />} />
         <Route path="/login"          element={<Login />} />
         <Route path="/signup"         element={<Signup />} />
         <Route path="/reset-password" element={<ResetPassword />} />

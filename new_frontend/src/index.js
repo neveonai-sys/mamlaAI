@@ -1,6 +1,7 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, hydrateRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
+import { HelmetProvider } from 'react-helmet-async';
 import { store } from './store';
 import App from './App';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -36,18 +37,33 @@ posthog.init(process.env.REACT_APP_POSTHOG_KEY, {
 });
 
 const container = document.getElementById('root');
-const root = createRoot(container);
 
-root.render(
+const tree = (
   <React.StrictMode>
     <PostHogProvider client={posthog}>
       <PostHogErrorBoundary>
         <ErrorBoundary>
           <Provider store={store}>
-            <App />
+            <HelmetProvider>
+              <App />
+            </HelmetProvider>
           </Provider>
         </ErrorBoundary>
       </PostHogErrorBoundary>
     </PostHogProvider>
   </React.StrictMode>
 );
+
+// `react-snap` prerenders the hub pages to static HTML at build time. When that
+// prerendered markup is present we hydrate it; otherwise we render fresh.
+// The hand-tuned static landing (`.sl`) baked into index.html for fast LCP must
+// NOT be hydrated (its markup intentionally differs from <MinimalLanding/>), so
+// we treat it as an empty mount and render over it.
+const firstChild = container.firstElementChild;
+const isStaticLanding = firstChild && firstChild.classList.contains('sl');
+
+if (container.hasChildNodes() && !isStaticLanding) {
+  hydrateRoot(container, tree);
+} else {
+  createRoot(container).render(tree);
+}
