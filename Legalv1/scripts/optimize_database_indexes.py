@@ -12,7 +12,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Legalv1.settings')
 django.setup()
 
 from pymongo import ASCENDING, DESCENDING, TEXT, IndexModel
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 import logging
 
 logger = logging.getLogger('django')
@@ -25,7 +25,7 @@ def optimize_aidrafts_indexes():
         logger.error("MongoDB client not available")
         return False
     
-    collection = mongo['legaldb']['aidrafts_complete_data']
+    collection = get_mongo_db()['aidrafts_complete_data']
     
     # Define comprehensive indexes (excluding text index that conflicts with Bengali data)
     indexes = [
@@ -39,7 +39,15 @@ def optimize_aidrafts_indexes():
         IndexModel([('created_on', DESCENDING)], name='created_on_idx'),
         IndexModel([('last_updated_on', DESCENDING)], name='last_updated_idx'),
         IndexModel([('status', ASCENDING), ('last_updated_on', DESCENDING)], name='status_updated_idx'),
-        # Text index removed due to Bengali language conflict in existing data
+        # Text index on draft_name — language_override set to '_text_lang_override' (a field that never
+        # exists in our documents) so MongoDB never tries to interpret our 'language' field as a
+        # MongoDB text-search language token (which would reject values like 'Hindi', 'Bengali', etc.)
+        IndexModel(
+            [('draft_name', TEXT)],
+            name='draft_name_text_index',
+            default_language='english',
+            language_override='_text_lang_override'
+        ),
     ]
     
     try:
@@ -66,7 +74,7 @@ def optimize_talkdoc_indexes():
     if not mongo:
         return False
     
-    db = mongo['legaldb']
+    db = get_mongo_db()
     
     # RAG documents indexes
     doc_indexes = [
@@ -117,7 +125,7 @@ def optimize_user_indexes():
     if not mongo:
         return False
     
-    db = mongo['legaldb']
+    db = get_mongo_db()
     
     # User sessions indexes
     session_indexes = [

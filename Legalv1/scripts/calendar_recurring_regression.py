@@ -14,7 +14,7 @@ django.setup()
 
 from calendar_management.routes.createupdateevents import Eventmanagement
 from calendar_management.views import _serialize_event
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 
 def assert_true(condition, message):
@@ -24,7 +24,7 @@ def assert_true(condition, message):
 
 def main():
     mongo = get_mongo_client()
-    collection = mongo['legaldb']['user_details']
+    collection = get_mongo_db()['user_details']
     user_id = f'regression-calendar-{uuid.uuid4().hex[:10]}'
     email = f'{user_id}@example.com'
 

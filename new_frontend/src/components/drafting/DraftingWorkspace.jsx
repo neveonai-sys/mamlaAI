@@ -1,9 +1,57 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import apiClient from '../../services/api';
+import { usePostHog } from '@posthog/react';
+import { getCase } from '../../services/casesApi';
 import DOMPurify from 'dompurify';
+import { refreshEntitlements } from '../../features/entitlementsActions';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+import { saveAndShare } from '../../utils/nativeFileUtils';
+
+function buildQuotaNotice(quota, fallbackMessage = '') {
+  if (!quota) return null;
+
+  const remaining = typeof quota.remaining_included === 'number' ? quota.remaining_included : null;
+  const walletBalance = typeof quota.wallet_credits_balance === 'number' ? quota.wallet_credits_balance : 0;
+  const walletCharged = typeof quota.wallet_credits_charged === 'number' ? quota.wallet_credits_charged : 0;
+
+  if (quota.allowed === false) {
+    if (quota.next_cta === 'top_up_credits') {
+      return {
+        tone: 'error',
+        message: fallbackMessage || 'This draft has exhausted its included AI suggestions. Add wallet credits to continue.',
+      };
+    }
+    return {
+      tone: 'error',
+      message: fallbackMessage || 'This draft cannot use more AI suggestions right now.',
+    };
+  }
+
+  if (walletCharged > 0) {
+    return {
+      tone: 'info',
+      message: `${walletCharged} wallet credit${walletCharged === 1 ? '' : 's'} used for this suggestion. ${walletBalance} credit${walletBalance === 1 ? '' : 's'} remaining.`,
+    };
+  }
+
+  if (remaining !== null && remaining <= 2) {
+    return {
+      tone: 'warning',
+      message: `${remaining} included AI suggestion${remaining === 1 ? '' : 's'} left on this draft before credit usage starts.`,
+    };
+  }
+
+  return null;
+}
+
+function quotaNoticeClassName(tone) {
+  if (tone === 'error') return 'border-red-200 bg-red-50 text-red-700';
+  if (tone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-800';
+  return 'border-sky-200 bg-sky-50 text-sky-700';
+}
 
 // ─── Inline formatting toolbar ───────────────────────────────────────────────
 function EditorToolbar() {
@@ -46,11 +94,9 @@ function EditorToolbar() {
 }
 
 // ─── Left sidebar with doc outline ───────────────────────────────────────────
-function DraftSidebar({ sections, activeSectionIdx, onSelectSection, savedDrafts, onLoadDraft }) {
-  const [showSaved, setShowSaved] = useState(false);
-
+function DraftSidebar({ sections, activeSectionIdx, onSelectSection }) {
   return (
-    <aside className="w-64 flex flex-col border-r border-primary/10 bg-ivory flex-shrink-0">
+    <aside className="w-60 flex flex-col border-r border-primary/10 bg-ivory flex-shrink-0 xl:w-64">
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
         <div className="pt-2 pb-2 px-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Document Outline</p>
@@ -72,36 +118,13 @@ function DraftSidebar({ sections, activeSectionIdx, onSelectSection, savedDrafts
         ) : (
           <p className="text-xs text-slate-400 px-3 py-2 italic">No outline yet</p>
         )}
-
-        <div className="pt-4 pb-2 px-3 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saved Drafts</p>
-          <button
-            onClick={() => setShowSaved((v) => !v)}
-            className="text-primary hover:opacity-70 text-[10px] font-bold"
-          >
-            {showSaved ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        {showSaved && savedDrafts.length > 0 && (
-          <div className="space-y-1">
-            {savedDrafts.map((d) => (
-              <button
-                key={d.draft_id || d.session_id || d.id}
-                onClick={() => onLoadDraft(d)}
-                className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:text-primary hover:bg-primary/5 rounded transition-colors truncate"
-              >
-                {d.draft_name || d.title || 'Untitled Draft'}
-              </button>
-            ))}
-          </div>
-        )}
       </nav>
     </aside>
   );
 }
 
 // ─── AI assistant right panel ─────────────────────────────────────────────────
-function AIPanel({ onPrompt, loading, messages }) {
+function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled, sections, activeSectionIdx, onSectionChange }) {
   const [input, setInput] = useState('');
   const bottomRef = useRef(null);
 
@@ -110,7 +133,7 @@ function AIPanel({ onPrompt, loading, messages }) {
   }, [messages]);
 
   function handleSend() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || promptDisabled) return;
     onPrompt(input.trim());
     setInput('');
   }
@@ -122,14 +145,50 @@ function AIPanel({ onPrompt, loading, messages }) {
     'Check for ambiguous language',
   ];
 
+  const activeSectionName = sections?.[activeSectionIdx]?.section_name
+    || sections?.[activeSectionIdx]?.section_title
+    || (sections?.length > 0 ? `Section ${activeSectionIdx + 1}` : null);
+
   return (
-    <aside className="w-96 flex flex-col border-l border-primary/10 bg-ivory flex-shrink-0">
+    <aside className="flex w-[340px] flex-col border-l border-primary/10 bg-ivory flex-shrink-0 xl:w-[360px]">
       <div className="p-4 border-b border-primary/10 flex items-center justify-between flex-shrink-0">
         <h3 className="font-bold text-sm flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-xl">auto_awesome</span>
           AI Assistant
         </h3>
       </div>
+
+      {/* Section target selector */}
+      {sections && sections.length > 0 && (
+        <div className="mx-4 mt-3 flex-shrink-0">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+            Refining section
+          </label>
+          <select
+            value={activeSectionIdx}
+            onChange={(e) => onSectionChange(Number(e.target.value))}
+            disabled={promptDisabled || loading}
+            className="w-full rounded-lg border border-primary/20 bg-white px-3 py-1.5 text-xs font-medium text-ink focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {sections.map((sec, i) => (
+              <option key={sec.section_id || i} value={i}>
+                {sec.section_name || sec.section_title || `Section ${i + 1}`}
+              </option>
+            ))}
+          </select>
+          {activeSectionName && (
+            <p className="text-[10px] text-slate-400 mt-1">
+              All AI suggestions will update <span className="font-semibold text-primary">{activeSectionName}</span>. Switch sections above before sending.
+            </p>
+          )}
+        </div>
+      )}
+
+      {quotaNotice && (
+        <div className={`mx-4 mt-4 rounded-xl border px-3 py-2 text-xs font-medium ${quotaNoticeClassName(quotaNotice.tone)}`}>
+          {quotaNotice.message}
+        </div>
+      )}
 
       {/* Conversation */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
@@ -144,6 +203,7 @@ function AIPanel({ onPrompt, loading, messages }) {
                 <button
                   key={s}
                   onClick={() => onPrompt(s)}
+                  disabled={promptDisabled || loading}
                   className="flex items-center justify-between px-3 py-2 text-xs font-medium bg-primary/5 text-primary rounded-lg border border-primary/10 hover:bg-primary/10 transition-colors text-left"
                 >
                   {s}
@@ -194,15 +254,16 @@ function AIPanel({ onPrompt, loading, messages }) {
                 handleSend();
               }
             }}
-            placeholder="Ask AI to refine, add clauses, check compliance…"
+            placeholder={promptDisabled ? 'AI suggestions are unavailable for this draft right now.' : 'Ask AI to refine, add clauses, check compliance…'}
             rows={2}
             className="flex-1 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 text-xs text-ink
                        placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30
-                       resize-none transition-all"
+                       resize-none transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={promptDisabled}
           />
           <button
             onClick={handleSend}
-            disabled={loading || !input.trim()}
+            disabled={loading || !input.trim() || promptDisabled}
             className="flex-shrink-0 size-9 bg-primary text-ivory rounded-lg flex items-center justify-center
                        hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -296,7 +357,7 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
         <button type="button" className="btn-ghost text-xs" onClick={onAddCustom}>Add Entry</button>
       </div>
       <div className="rounded-xl border border-primary/10 overflow-hidden bg-white">
-        <div className="grid grid-cols-[44px_1fr_1fr] gap-0 border-b border-primary/10 bg-ivory/70 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+        <div className="grid grid-cols-[44px_1fr_1fr_1fr] gap-0 border-b border-primary/10 bg-ivory/70 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
           <label className="flex items-center justify-center py-3">
             <input
               type="checkbox"
@@ -308,11 +369,12 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
             />
           </label>
           <div className="py-3 px-3">Case ID</div>
+          <div className="py-3 px-3">Title</div>
           <div className="py-3 px-3">Client Name</div>
         </div>
         <div className="max-h-64 overflow-y-auto custom-scrollbar divide-y divide-primary/10">
           {rows.map((row) => (
-            <label key={row.id} className="grid grid-cols-[44px_1fr_1fr] gap-0 items-center px-0 py-0 hover:bg-primary/5 cursor-pointer">
+            <label key={row.id} className="grid grid-cols-[44px_1fr_1fr_1fr] gap-0 items-center px-0 py-0 hover:bg-primary/5 cursor-pointer">
               <span className="flex items-center justify-center py-3">
                 <input
                   type="checkbox"
@@ -321,6 +383,7 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
                 />
               </span>
               <span className="py-3 px-3 text-sm text-slate-700">{row.case_id || '-'}</span>
+              <span className="py-3 px-3 text-sm text-slate-700">{row.case_title || '-'}</span>
               <span className="py-3 px-3 text-sm text-slate-700">{row.client_name || '-'}</span>
             </label>
           ))}
@@ -337,7 +400,12 @@ function DraftForSelector({ rows, selectedIds, onToggle, onToggleAll, onAddCusto
 export default function DraftingWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const dispatch = useDispatch();
+  const posthog = usePostHog();
   const { user_type } = useSelector((s) => s.user);
+  const { trial, wallet, features } = useSelector((s) => s.entitlements);
 
   // ── State ──
   const [phase, setPhase] = useState('init'); // 'init' | 'editing'
@@ -345,6 +413,9 @@ export default function DraftingWorkspace() {
   const [sections, setSections] = useState([]);
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
   const [savedDrafts, setSavedDrafts] = useState([]);
+
+  // Pre-fill context from DraftContextAgent (passed via router state)
+  const [caseContext, setCaseContext] = useState(null);
   const [filterData, setFilterData] = useState(null);
   const [aiMessages, setAiMessages] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -353,13 +424,15 @@ export default function DraftingWorkspace() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftForData, setDraftForData] = useState([]);
   const [aiSuggestionCount, setAiSuggestionCount] = useState(0);
+  const [suggestionQuota, setSuggestionQuota] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sectionHistory, setSectionHistory] = useState([]);
-  const [locationUpdating, setLocationUpdating] = useState(false);
   const [currentSavedDraftId, setCurrentSavedDraftId] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [showOutlinePanel] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   // Init form state
   const [query, setQuery] = useState('');
@@ -403,6 +476,19 @@ export default function DraftingWorkspace() {
   const [selectedDraftForIds, setSelectedDraftForIds] = useState([]);
 
   const isClientUser = user_type === 'Client';
+  const remainingSuggestionCount = Math.max(0, 7 - aiSuggestionCount);
+  const draftingQuota = features?.brain_drafting_actions;
+  const suggestionQuotaNotice = buildQuotaNotice(suggestionQuota, error);
+  const suggestionPromptDisabled = suggestionQuota?.allowed === false;
+
+  // Send-to-client modal state
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendToEmails, setSendToEmails] = useState('');
+  const [sendCcEmails, setSendCcEmails] = useState('');
+  const [sendNote, setSendNote] = useState('');
+  const [sendLoading, setSendLoading] = useState(false);
+  const [sendFormat, setSendFormat] = useState('docx');
+  const [sendResult, setSendResult] = useState(null); // { ok: bool, message: str }
 
   function normalizeDraftForEntries(draftFor) {
     if (!draftFor) return [];
@@ -491,7 +577,7 @@ export default function DraftingWorkspace() {
   function buildSelectedDraftFor() {
     return draftForRows
       .filter((row) => selectedDraftForIds.includes(row.id))
-      .map((row) => ({ case_id: row.case_id || '', client_name: row.client_name || '', client_id: row.client_id || '' }));
+      .map((row) => ({ case_id: row.case_id || '', case_title: row.case_title || '', client_name: row.client_name || '', client_id: row.client_id || '' }));
   }
 
   function handleToggleDraftFor(id, checked) {
@@ -562,6 +648,7 @@ export default function DraftingWorkspace() {
     const nextSections = response.data?.draft_sections ?? [];
     setSections(nextSections);
     setAiSuggestionCount(response.data?.ai_suggested_update_count ?? 0);
+    setSuggestionQuota(null);
     return nextSections;
   }
 
@@ -583,7 +670,9 @@ export default function DraftingWorkspace() {
     apiClient.get('users/filter_with_details/').then((r) => setFilterData(r.data)).catch(() => {});
     refreshSavedDrafts();
     apiClient.get('users/get-states/').then((r) => {
-      setStates(r.data?.states ?? r.data ?? []);
+      const raw = r.data?.states ?? r.data ?? [];
+      // Normalise: old API returned plain strings, new returns [{state_code,name}]
+      setStates(raw.map((s) => (typeof s === 'string' ? s : s.name)));
     }).catch(() => {});
     apiClient.get('aidrafts/get_supported_languages').then((r) => {
       setLanguages(r.data?.languages ?? r.data ?? []);
@@ -598,16 +687,22 @@ export default function DraftingWorkspace() {
       rows.push({
         id: caseId,
         case_id: caseId,
+        case_title: client.case_title || '',
         client_id: client.client_id || client.phone_number || '',
         client_name: `${client.Fname || ''} ${client.Lname || ''}`.trim() || 'Unnamed',
       });
     });
-    (filterData.clientIds_without_case || []).forEach((client) => {
+    // clientIds_without_case rows removed — orphan clients no longer surfaced in UI
+    (filterData.caseIds_without_client || []).forEach((entry) => {
+      // entry is now {case_id, case_title} — defensive fallback for old string shape
+      const caseId = entry?.case_id || entry;
+      if (!caseId) return;
       rows.push({
-        id: client.user_id || `client-${client.phone_number}`,
-        case_id: '',
-        client_id: client.user_id || client.phone_number || '',
-        client_name: `${client.Fname || ''} ${client.Lname || ''}`.trim() || 'Unnamed',
+        id: caseId,
+        case_id: caseId,
+        case_title: entry?.case_title || '',
+        client_id: '',
+        client_name: '(No client)',
       });
     });
     setDraftForRows(rows);
@@ -634,8 +729,10 @@ export default function DraftingWorkspace() {
   // Load districts when state changes
   useEffect(() => {
     if (!selectedState) { setDistricts([]); setSelectedDistrict(''); return; }
-    apiClient.get(`users/get-districts/?state=${encodeURIComponent(selectedState)}`).then((r) => {
-      setDistricts(r.data?.districts ?? r.data ?? []);
+    apiClient.get(`users/get-districts/?state_code=${encodeURIComponent(selectedState)}`).then((r) => {
+      const raw = r.data?.districts ?? r.data ?? [];
+      // Normalise: old API returned plain strings, new returns [{dist_code,name}]
+      setDistricts(raw.map((d) => (typeof d === 'string' ? d : d.name)));
       setSelectedDistrict('');
       setSelectedCourt('');
       setCourts([]);
@@ -667,6 +764,40 @@ export default function DraftingWorkspace() {
       setSelectedTemplateName('');
     }).catch(() => {});
   }, [selectedTemplateType]);
+
+  // ── Consume DraftContextAgent prefill from router state ──
+  useEffect(() => {
+    const prefill = location.state?.prefill;
+    if (!prefill || id) return; // don't override if loading existing draft
+    setCaseContext(prefill);
+    if (prefill.context_summary) setQuery(prefill.context_summary);
+    if (prefill.draft_type) setSelectedDocType(prefill.draft_type);
+    const loc = prefill.location || {};
+    if (loc.state) setSelectedState(loc.state);
+    if (loc.district) setSelectedDistrict(loc.district);
+    if (loc.court) setSelectedCourt(loc.court);
+    const caseId = prefill.draft_for?.case_id;
+    if (caseId) setSelectedCaseId(caseId);
+  }, [location.state, id]);
+
+  // ── If opened via ?case_id= URL param, pre-set case and doc type ──
+  useEffect(() => {
+    const caseIdParam = searchParams.get('case_id');
+    if (!caseIdParam || id || location.state?.prefill) return;
+    const STAGE_TO_TYPE = {
+      Filing: 'Petition / Plaint',
+      Pleadings: 'Written Statement',
+      Evidence: 'Affidavit',
+      Arguments: 'Written Submissions',
+      Appeal: 'Memorandum of Appeal',
+    };
+    getCase(caseIdParam).then((res) => {
+      const caseData = res.data;
+      setSelectedCaseId(caseIdParam);
+      const stage = caseData?.stage;
+      if (stage && STAGE_TO_TYPE[stage]) setSelectedDocType(STAGE_TO_TYPE[stage]);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── If launched with an id, load that draft ──
   useEffect(() => {
@@ -720,6 +851,7 @@ export default function DraftingWorkspace() {
     }
     setInitLoading(true);
     setError('');
+    dispatch(beginBlocking({ message: 'Generating your draft. This can take a few moments...' }));
     try {
       const payload = {
         user_query: query,
@@ -761,6 +893,9 @@ export default function DraftingWorkspace() {
       } else {
         res = await apiClient.post('aidrafts/initial_request/', payload);
       }
+      if (res.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       const newSessionId = res.data?.session_id || res.data?.id;
       if (!newSessionId) throw new Error('No session ID returned');
 
@@ -773,19 +908,25 @@ export default function DraftingWorkspace() {
       setDraftForData(payload.draft_for || []);
       syncCurrentSavedDraftMeta(res.data?.draft_id, res.data?.last_updated_on || res.data?.draft_saved_at);
       setHasUnsavedChanges(false);
+      posthog?.capture('draft_created', { input_method: inputMethod, document_type: payload.document_type });
       setPhase('editing');
       navigate(`/drafting/${newSessionId}`, { replace: true });
       setQuery('');
       setSourceFile(null);
     } catch (err) {
+      if (err.response?.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       setError(err.response?.data?.error || err.message || 'Failed to create draft.');
     } finally {
+      dispatch(stopBlocking());
       setInitLoading(false);
     }
   }
 
   // ── Load saved draft ──
   async function handleLoadDraft(draft) {
+    dispatch(beginBlocking({ message: 'Loading saved draft...' }));
     try {
       const sId = draft.session_id || draft.id;
       const dId = draft.draft_id;
@@ -801,6 +942,8 @@ export default function DraftingWorkspace() {
       navigate(`/drafting/${sId}`, { replace: true });
     } catch {
       setError('Could not load the selected draft.');
+    } finally {
+      dispatch(stopBlocking());
     }
   }
 
@@ -812,6 +955,7 @@ export default function DraftingWorkspace() {
     if (templateSource === 'upload' && !templateFile) { setError('Please choose a .docx file to upload.'); return; }
     setTemplateLoading(true);
     setError('');
+    dispatch(beginBlocking({ message: 'Preparing draft from template...' }));
     try {
       const fd = new FormData();
       fd.append('draft_type', selectedTemplateType);
@@ -834,6 +978,9 @@ export default function DraftingWorkspace() {
       const res = await apiClient.post('aidrafts/upload_template', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      if (res.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       const newSId = res.data?.session_id || res.data?.id;
       if (!newSId) throw new Error('No session ID returned');
       const sectRes = await apiClient.get('aidrafts/get_draft_sections', { params: { session_id: newSId } });
@@ -851,8 +998,12 @@ export default function DraftingWorkspace() {
       setPhase('editing');
       navigate(`/drafting/${newSId}`, { replace: true });
     } catch (err) {
+      if (err.response?.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       setError(err.response?.data?.error || err.message || 'Failed to load template.');
     } finally {
+      dispatch(stopBlocking());
       setTemplateLoading(false);
     }
   }
@@ -860,12 +1011,7 @@ export default function DraftingWorkspace() {
   async function handleDownloadSampleTemplate() {
     try {
       const res = await apiClient.get('aidrafts/download_template', { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'sample_template.docx';
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveAndShare(res.data, 'sample_template.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     } catch {
       alert('Download failed. Please try again.');
     }
@@ -920,9 +1066,11 @@ export default function DraftingWorkspace() {
 
   // ── AI prompt ──
   async function handleAIPrompt(prompt) {
-    if (!sessionId) return;
+    if (!sessionId || suggestionPromptDisabled) return;
+    posthog?.capture('ai_suggestion_requested', { session_id: sessionId });
     setAiMessages((m) => [...m, { role: 'user', content: prompt }]);
     setAiLoading(true);
+    setError('');
     try {
       const activeSection = sections[activeSectionIdx];
       const res = await apiClient.post('aidrafts/refine_section/', {
@@ -933,6 +1081,10 @@ export default function DraftingWorkspace() {
       });
       const refined = res.data?.refined_content || res.data?.content || '';
       setAiSuggestionCount(res.data?.ai_update_count ?? aiSuggestionCount);
+      setSuggestionQuota(res.data?.quota || null);
+      if (res.data?.quota) {
+        refreshEntitlements(dispatch);
+      }
       setAiMessages((m) => [...m, { role: 'assistant', content: refined }]);
 
       // Update the section in state
@@ -945,6 +1097,14 @@ export default function DraftingWorkspace() {
         setHasUnsavedChanges(true);
       }
     } catch (err) {
+      const nextQuota = err.response?.data?.quota || null;
+      setSuggestionQuota(nextQuota);
+      if (nextQuota) {
+        refreshEntitlements(dispatch);
+      }
+      if (nextQuota) {
+        setError(buildQuotaNotice(nextQuota, err.response?.data?.error)?.message || err.response?.data?.error || 'AI suggestions are unavailable right now.');
+      }
       setAiMessages((m) => [
         ...m,
         { role: 'assistant', content: err.response?.data?.error || 'Sorry, I could not process that request.' },
@@ -959,12 +1119,10 @@ export default function DraftingWorkspace() {
     if (!sessionId) return;
     try {
       const res = await apiClient.post('aidrafts/export/', { session_id: sessionId, format }, { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${draftTitle}.${format}`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const mimeType = format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      await saveAndShare(res.data, `${draftTitle}.${format}`, mimeType);
     } catch {
       alert('Export failed. Please try again.');
     }
@@ -986,6 +1144,7 @@ export default function DraftingWorkspace() {
         draft_sections: sections,
         draft_for: draftForData,
       });
+      posthog?.capture('draft_saved', { session_id: sessionId });
       setSaveStatus('saved');
       setHasUnsavedChanges(false);
       syncCurrentSavedDraftMeta(response.data?.draft_id, response.data?.last_updated_on || response.data?.saved_at);
@@ -1008,6 +1167,28 @@ export default function DraftingWorkspace() {
       setSaveStatus('saved');
     } catch {
       setError('Failed to revert draft.');
+    }
+  }
+
+  async function handleSendDraft(e) {
+    e.preventDefault();
+    setSendLoading(true);
+    setSendResult(null);
+    try {
+      const toList = sendToEmails.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+      const ccList = sendCcEmails.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+      await apiClient.post('aidrafts/send_draft/', {
+        session_id: sessionId,
+        to_emails: toList,
+        cc_emails: ccList,
+        note: sendNote.trim(),
+        format: sendFormat,
+      });
+      setSendResult({ ok: true, message: `Draft sent to ${toList.join(', ')} as ${sendFormat.toUpperCase()}` });
+    } catch (err) {
+      setSendResult({ ok: false, message: err.response?.data?.error || 'Failed to send. Please try again.' });
+    } finally {
+      setSendLoading(false);
     }
   }
 
@@ -1103,28 +1284,6 @@ export default function DraftingWorkspace() {
     }
   }
 
-  async function handleUpdateLocation() {
-    if (!sessionId || !selectedState || !selectedDistrict) {
-      setError('Select at least state and district to update location.');
-      return;
-    }
-    setLocationUpdating(true);
-    setError('');
-    try {
-      await apiClient.post('aidrafts/set_location', {
-        session_id: sessionId,
-        state: selectedState,
-        district: selectedDistrict,
-      });
-      await refreshDraftSections(sessionId);
-      setHasUnsavedChanges(false);
-    } catch {
-      setError('Failed to update location.');
-    } finally {
-      setLocationUpdating(false);
-    }
-  }
-
   const activeSection = sections[activeSectionIdx];
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -1134,14 +1293,7 @@ export default function DraftingWorkspace() {
     const docCategories = filterData?.document_categories || [];
     return (
       <div className="flex h-full">
-        {/* Left sidebar */}
-        <DraftSidebar
-          sections={[]}
-          activeSectionIdx={-1}
-          onSelectSection={() => {}}
-          savedDrafts={savedDrafts}
-          onLoadDraft={handleLoadDraft}
-        />
+
 
         {/* Center: init form */}
         <div className="flex-1 flex items-start justify-center p-10 overflow-y-auto">
@@ -1156,6 +1308,16 @@ export default function DraftingWorkspace() {
               <p className="text-slate-500 text-sm">
                 Create from scratch, load a saved draft, or start from an existing template.
               </p>
+              {/* Guided Draft entry */}
+              <button
+                type="button"
+                onClick={() => navigate('/drafting/guided')}
+                className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition"
+              >
+                <span className="material-symbols-outlined text-lg">chat</span>
+                Guided Draft (Recommended)
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-primary text-ivory text-[10px] font-bold">NEW</span>
+              </button>
             </div>
 
             {/* Tab bar */}
@@ -1184,6 +1346,25 @@ export default function DraftingWorkspace() {
             {/* ── Tab 0: New Draft ── */}
             {initTab === 0 && (
               <form onSubmit={handleCreateDraft} className="space-y-6">
+                {/* Case context banner — shown when navigated from CaseHub via DraftContextAgent */}
+                {caseContext && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 text-sm text-primary">
+                      <span className="material-symbols-outlined text-base mt-0.5">auto_awesome</span>
+                      <div>
+                        <span className="font-semibold">Case context loaded:</span>{' '}
+                        <span className="text-primary/80">{caseContext.draft_for?.case_title || 'Case'}</span>
+                        {caseContext.context_summary && (
+                          <p className="text-xs text-primary/60 mt-0.5 line-clamp-2">{caseContext.context_summary}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => { setCaseContext(null); setQuery(''); }}
+                      className="text-primary/40 hover:text-primary/70 transition flex-shrink-0">
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                )}
                 {/* Document type selector */}
                 {docCategories.length > 0 && (
                   <div>
@@ -1683,8 +1864,22 @@ export default function DraftingWorkspace() {
           )}
           <span className="text-xs text-slate-500 hidden lg:flex items-center gap-1">
             <span className="material-symbols-outlined text-sm">auto_awesome</span>
-            {Math.max(0, 7 - aiSuggestionCount)} AI suggestions left
+            {remainingSuggestionCount} AI suggestions left on this draft
           </span>
+          {typeof draftingQuota?.remaining_included === 'number' && (
+            <span className="text-xs text-primary hidden xl:flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1">
+              <span className="material-symbols-outlined text-sm">workspace_premium</span>
+              {draftingQuota.remaining_included} Brain drafting actions left
+            </span>
+          )}
+
+          <button
+            className={`btn-ghost flex items-center gap-1.5 text-xs ${showAiPanel ? 'bg-primary/8 text-primary' : ''}`}
+            onClick={() => setShowAiPanel((current) => !current)}
+          >
+            <span className="material-symbols-outlined text-base">right_panel_open</span>
+            {showAiPanel ? 'Hide AI' : 'Show AI'}
+          </button>
           <button
             className="btn-ghost flex items-center gap-1.5 text-xs"
             onClick={handleSaveDraft}
@@ -1717,22 +1912,35 @@ export default function DraftingWorkspace() {
             <span className="material-symbols-outlined text-base">download</span>
             Export
           </button>
+          {!isClientUser && sessionId && (
+            <button
+              className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-amber-600 transition-all"
+              onClick={() => { setSendResult(null); setShowSendModal(true); }}
+            >
+              <span className="material-symbols-outlined text-base">forward_to_inbox</span>
+              Send to Client
+            </button>
+          )}
         </div>
       </header>
 
+      {suggestionQuotaNotice && (
+        <div className={`border-b px-6 py-3 text-sm ${quotaNoticeClassName(suggestionQuotaNotice.tone)}`}>
+          {suggestionQuotaNotice.message}
+        </div>
+      )}
+
       {/* 3-pane body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Outline */}
-        <DraftSidebar
-          sections={sections}
-          activeSectionIdx={activeSectionIdx}
-          onSelectSection={setActiveSectionIdx}
-          savedDrafts={savedDrafts}
-          onLoadDraft={handleLoadDraft}
-        />
+
 
         {/* Center: Editor */}
         <main className="flex-1 flex flex-col bg-background-light overflow-hidden">
+          {(remainingSuggestionCount <= 2 || (trial?.active && typeof draftingQuota?.remaining_included === 'number' && draftingQuota.remaining_included <= 3)) && (
+            <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-800">
+              {remainingSuggestionCount <= 2 ? `This draft is nearing its 7-suggestion limit. ${remainingSuggestionCount} suggestion${remainingSuggestionCount === 1 ? '' : 's'} left before credits or upgrade are needed.` : `Brain drafting usage is running low. ${draftingQuota.remaining_included} premium action${draftingQuota.remaining_included === 1 ? '' : 's'} left${wallet?.balance ? ` and ${wallet.balance} credits available` : ''}.`}
+            </div>
+          )}
           <EditorToolbar />
           <div className="border-b border-primary/10 bg-white px-6 py-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -1746,26 +1954,19 @@ export default function DraftingWorkspace() {
                 <span className="material-symbols-outlined text-sm">article</span>
                 {sections.length} sections
               </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+                <span className="material-symbols-outlined text-sm">place</span>
+                Location locked from draft setup
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <select value={selectedState} onChange={(e) => setSelectedState(e.target.value)} className="input-base min-w-[140px] py-2 text-xs">
-                <option value="">State</option>
-                {states.map((state) => <option key={state} value={state}>{state}</option>)}
-              </select>
-              <select value={selectedDistrict} onChange={(e) => setSelectedDistrict(e.target.value)} className="input-base min-w-[140px] py-2 text-xs" disabled={!selectedState}>
-                <option value="">District</option>
-                {districts.map((district) => <option key={district} value={district}>{district}</option>)}
-              </select>
-              <button className="btn-ghost text-xs" onClick={handleUpdateLocation} disabled={locationUpdating || !selectedState || !selectedDistrict}>
-                {locationUpdating ? 'Updating…' : 'Update Location'}
-              </button>
               <button className="btn-ghost text-xs" onClick={handleAddSection}>
                 Add Section
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar">
-            <div className="max-w-[800px] mx-auto bg-white editor-container min-h-[1100px] p-12 md:p-16 rounded-sm shadow-xl border border-primary/5">
+          <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar">
+            <div className="mx-auto max-w-[1040px] rounded-[1.25rem] border border-primary/5 bg-white p-8 shadow-xl editor-container min-h-[1100px] md:p-12 xl:p-14">
               {sections.length > 0 ? (
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="draft-sections">
@@ -1851,8 +2052,152 @@ export default function DraftingWorkspace() {
         </main>
 
         {/* Right: AI Panel */}
-        <AIPanel onPrompt={handleAIPrompt} loading={aiLoading} messages={aiMessages} />
+        {showAiPanel && (
+          <AIPanel
+            onPrompt={handleAIPrompt}
+            loading={aiLoading}
+            messages={aiMessages}
+            quotaNotice={suggestionQuotaNotice}
+            promptDisabled={suggestionPromptDisabled}
+            sections={sections}
+            activeSectionIdx={activeSectionIdx}
+            onSectionChange={setActiveSectionIdx}
+          />
+        )}
       </div>
+
+      {/* ── Send to Client modal ─────────────────────────────────────────── */}
+      {showSendModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ background: 'rgba(10,20,40,0.65)', backdropFilter: 'blur(4px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget && !sendLoading) setShowSendModal(false); }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-elevated overflow-hidden">
+            {/* Header */}
+            <div className="bg-background-dark px-6 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">AI Draft</p>
+                <h3 className="text-lg font-black text-white mt-0.5">Send to Client</h3>
+              </div>
+              <button
+                onClick={() => setShowSendModal(false)}
+                disabled={sendLoading}
+                className="rounded-xl p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+            <div className="h-0.5 bg-gradient-to-r from-[#FF9800] via-[#FF9800]/60 to-transparent" />
+
+            {sendResult ? (
+              <div className="px-6 py-8 flex flex-col items-center gap-4 text-center">
+                <span
+                  className={`material-symbols-outlined text-5xl ${sendResult.ok ? 'text-emerald-500' : 'text-red-400'}`}
+                >
+                  {sendResult.ok ? 'check_circle' : 'error'}
+                </span>
+                <p className="text-sm font-semibold text-ink">{sendResult.message}</p>
+                {sendResult.ok && (
+                  <p className="text-xs text-slate-400">The attachment was sent successfully.</p>
+                )}
+                <button
+                  onClick={() => setShowSendModal(false)}
+                  className="mt-2 rounded-xl bg-primary px-6 py-2 text-sm font-bold text-white"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSendDraft} className="px-6 py-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Attachment Format</label>
+                  <div className="flex gap-2">
+                    {[{ val: 'docx', icon: 'description', label: 'DOCX' }, { val: 'pdf', icon: 'picture_as_pdf', label: 'PDF' }].map(({ val, icon, label }) => (
+                      <button
+                        key={val} type="button"
+                        onClick={() => setSendFormat(val)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-all ${
+                          sendFormat === val
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-primary/40'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-base">{icon}</span>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    To <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={sendToEmails}
+                    onChange={(e) => setSendToEmails(e.target.value)}
+                    placeholder="client@email.com, another@email.com"
+                    required
+                    className="w-full rounded-xl border border-primary/20 bg-slate-50 px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <p className="mt-1 text-[10px] text-slate-400">Comma-separated. Max 5 recipients.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">CC</label>
+                  <input
+                    type="text"
+                    value={sendCcEmails}
+                    onChange={(e) => setSendCcEmails(e.target.value)}
+                    placeholder="optional@email.com"
+                    className="w-full rounded-xl border border-primary/20 bg-slate-50 px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Note to client</label>
+                  <textarea
+                    value={sendNote}
+                    onChange={(e) => setSendNote(e.target.value)}
+                    placeholder="Optional message that will appear in the email body…"
+                    rows={3}
+                    className="w-full rounded-xl border border-primary/20 bg-slate-50 px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  The draft will be sent as a single <strong>{sendFormat.toUpperCase()}</strong> attachment.
+                </p>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowSendModal(false)}
+                    disabled={sendLoading}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sendLoading || !sendToEmails.trim()}
+                    className="rounded-xl bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {sendLoading ? (
+                      <>
+                        <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-base">send</span>
+                        Send Draft
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

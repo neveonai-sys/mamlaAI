@@ -1,0 +1,23 @@
+Section 1
+Title: Electronic evidence precedent overview
+Indian electronic-evidence case law is best understood as a reliability framework. The major concerns are authorship, device or system provenance, completeness, integrity, and the conditions under which electronic output can be relied upon. Mamla Brain should use these case notes to structure proof questions, not merely to recite admissibility buzzwords.
+
+Section 2
+Title: Anvar style certificate discipline note
+The enduring lesson from the certificate-centric line of authority is that secondary presentation of electronic material often requires formal system-linked support. Practically, this means a screenshot or printout should trigger follow-up questions: from what system, by whom, under what control, and with what supporting certification or metadata. Retrieval should surface these questions whenever the record depends on copied or exported electronic content.
+
+Section 3
+Title: Arjun Panditrao style strictness and sequencing note
+The more recent clarification trend emphasizes that electronic proof cannot be treated casually merely because the content appears intuitive or familiar. The practical point for Mamla Brain is that users should be warned early if their case depends on chats, emails, server data, CCTV exports, or phone extracts without a clean proof path. Late-stage attempts to repair proof gaps can become strategically expensive.
+
+Section 4
+Title: Navjot Sandhu transitional caution note
+Earlier flexibility in electronic proof has been narrowed by later doctrine, so retrieval should be careful about mixing old and new formulations. Where a user relies on an older, more permissive understanding, the assistant should signal that the safer current approach is to build a stronger formal proof foundation rather than hoping an informal extract will be accepted at face value.
+
+Section 5
+Title: Practical message-chain and device data note
+For chats, emails, and app-based records, precedent patterns suggest that completeness matters nearly as much as authenticity. Selective screenshots, cropped threads, and forwarded images are weak when context, participants, timestamps, or device control are disputed. Mamla Brain should therefore push users toward source-level exports, account ownership markers, and corroboration from surrounding conduct.
+
+Section 6
+Title: Electronic evidence synthesis for outputs
+When electronic evidence is central, the assistant should organize the answer around four questions: what the record tends to prove, whether the system/source is identified, whether a compliant proof path exists, and what corroboration reduces integrity disputes. This is more valuable than a bare citation to certificate doctrine without practical next steps.

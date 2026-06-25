@@ -41,7 +41,7 @@ import os
 import logging
 from typing import Optional
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Provider constants
@@ -69,6 +69,7 @@ APP_OPENAI_MODELS: dict = {
     "create_drafts:fill_draft":     os.getenv("OPENAI_CREATE_DRAFTS_MODEL",   "gpt-4o"),
     "create_drafts:update_draft":   os.getenv("OPENAI_CREATE_DRAFTS_MODEL",   "gpt-4o"),
     # Brain tiers — all stay on stronger models; kept as OpenAI slugs
+    "brain:t0":                     os.getenv("BRAIN_T0_OPENAI_MODEL",        "gpt-4o-mini"),   # intent gate fallback
     "brain:t1":                     os.getenv("BRAIN_T1_OPENAI_MODEL",        "gpt-4o-mini"),
     "brain:t2":                     os.getenv("BRAIN_T2_OPENAI_MODEL",        "gpt-4o-mini"),
     "brain:t3":                     os.getenv("BRAIN_T3_OPENAI_MODEL",        "gpt-4o"),
@@ -87,6 +88,7 @@ APP_OPENROUTER_MODELS: dict = {
     "create_drafts:fill_draft":     os.getenv("OPENROUTER_CREATE_DRAFTS_MODEL",       "openai/gpt-4o"),
     "create_drafts:update_draft":   os.getenv("OPENROUTER_CREATE_DRAFTS_MODEL",       "openai/gpt-4o"),
     # Mamla-Brain tiers (pre-wired; activated when mamla_brain app is deployed)
+    "brain:t0":                     os.getenv("BRAIN_T0_MODEL",               "meta-llama/llama-3.2-1b-instruct:free"),  # free intent gate
     "brain:t1":                     os.getenv("BRAIN_T1_MODEL",                       "meta-llama/llama-3.1-8b-instruct"),
     "brain:t2":                     os.getenv("BRAIN_T2_MODEL",                       "anthropic/claude-3-haiku"),
     "brain:t3":                     os.getenv("BRAIN_T3_MODEL",                       "anthropic/claude-sonnet-4-5"),
@@ -150,8 +152,9 @@ def chat_complete(
     model: Optional[str] = None,
     temperature: float = 0.3,
     max_tokens: int = 2048,
+    return_usage: bool = False,
     **kwargs,
-) -> str:
+):
     """Call the LLM and return the assistant's text content.
 
     Args:
@@ -197,7 +200,15 @@ def chat_complete(
         max_tokens=max_tokens,
         **kwargs,
     )
-    return response.choices[0].message.content
+    text = response.choices[0].message.content
+    if return_usage:
+        usage = getattr(response, 'usage', None)
+        return text, {
+            'prompt_tokens':     getattr(usage, 'prompt_tokens',     0) if usage else 0,
+            'completion_tokens': getattr(usage, 'completion_tokens', 0) if usage else 0,
+            'model':             getattr(response, 'model', resolved_model),
+        }
+    return text
 
 
 def vision_complete(

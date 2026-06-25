@@ -1,262 +1,145 @@
-# Mamla.AI - Legal Tech Platform
+# Mamla.AI — Legal Tech Platform
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/Django-3.2%2B-green)](https://www.djangoproject.com/)
-[![React](https://img.shields.io/badge/React-17.0%2B-61DAFB)](https://reactjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-4.2%2B-green)](https://www.djangoproject.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB)](https://reactjs.org/)
+[![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248)](https://www.mongodb.com/)
+[![Auth](https://img.shields.io/badge/Auth-Supabase-3ECF8E)](https://supabase.com/)
 
-## Overview
-Mamla.AI is a comprehensive legal technology platform designed to bring legal services to your fingertips. The platform connects lawyers with clients, streamlines case management, and provides AI-powered legal assistance.
-
-## Features
-
-### AI-Powered Legal Assistance
-- AI-driven document generation and review
-- Legal research assistance
-- Document template management
-- Automated legal drafting
-
-### User Management
-- Secure authentication with Supabase
-- Role-based access control (Lawyers, Clients, Admins)
-- Client onboarding and management
-- Multi-device session management
-
-### Case Management
-- Case creation and tracking
-- Document organization
-- Calendar and deadline management
-- Client communication portal
-
-### Search & Discovery
-- Advanced legal document search
-- Lawyer directory
-- Case law database
-- Document version control
-
-### Mobile Responsive
-- Fully responsive design
-- Cross-browser compatibility
-- Progressive Web App (PWA) support
-
-## Tech Stack
-
-### Backend
-- **Framework**: Django 3.2+
-- **Database**: MongoDB (Primary), PostgreSQL (via Supabase)
-- **Authentication**: Supabase Auth
-- **Search**: OpenSearch
-- **Task Queue**: Celery with Redis
-- **API**: Django REST Framework
-- **Caching**: Redis
-- **Storage**: Supabase Storage, AWS S3
-
-### Frontend
-- **Framework**: React 17+
-- **State Management**: Redux Toolkit
-- **Styling**: Tailwind CSS
-- **UI Components**: Headless UI, Custom Components
-- **Form Handling**: React Hook Form
-- **Routing**: React Router
-
-### DevOps
-- **Containerization**: Docker
-- **CI/CD**: GitHub Actions
-- **Monitoring**: Sentry
-- **Logging**: ELK Stack
-
-## Getting Started
-
-### Prerequisites
-- Python 3.8+
-- Node.js 16+
-- MongoDB 4.4+
-- Redis 6.0+
-- Docker (optional)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/neveonai-sys/mamlaAI.git
-   cd mamlaAI
-   ```
-
-2. **Set up backend**
-   ```bash
-   # Create and activate virtual environment
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-   # Install Python dependencies
-   pip install -r requirements.txt
-
-   # Set up environment variables
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-3. **Set up frontend**
-   ```bash
-   cd ../mamlaAI_ground_zero/frontend
-   npm install
-   cp .env.example .env.local
-   # Edit .env.local with your frontend configuration
-   ```
-
-4. **Initialize the database**
-   ```bash
-   python manage.py migrate
-   python manage.py createsuperuser
-   ```
-
-5. **Run the development servers**
-   ```bash
-   # Backend (in project root)
-   python manage.py runserver
-
-   # Frontend (in mamlaAI_ground_zero/frontend directory)
-   npm start
-   ```
-
-## Configuration
-
-### Environment Variables
-Create a `.env` file in the project root with the following variables:
-
-```env
-# Django
-DEBUG=True
-SECRET_KEY=your-secret-key
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-# Database
-MONGODB_URI=mongodb://localhost:27017/
-MONGODB_NAME=legaldb
-
-# Supabase
-SUPABASE_URL=your-supabase-url
-SUPABASE_KEY=your-supabase-key
-SUPABASE_SERVICE_ROLE=your-service-role
-
-# AWS (if using S3)
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_STORAGE_BUCKET_NAME=your-bucket-name
-
-# Celery
-CELERY_BROKER_URL=redis://localhost:6379/0
-```
-
-## Documentation
-
-**Architecture, API reference, and incremental improvement plans** are in the **`docs/`** folder. Start here for a precise picture of the codebase:
-
-- **[docs/README.md](docs/README.md)** — Index of all docs (architecture, backend, frontend, API reference, changelog).
-- Use these when onboarding, refactoring, or asking an AI to continue work: they describe *what*, *how*, and *where* things happen and what changes were made.
-
-API paths and auth are documented in **docs/04-api-reference.md**; the list there is the source of truth for current endpoints.
-
-## Project Structure
-
-```
-mamlaAI/
-├── Legalv1/                  # Django backend
-│   ├── users/               # User management
-│   ├── ai_draft/            # AI document generation
-│   ├── calendar_management/  # Calendar and scheduling
-│   ├── create_drafts/        # Document creation
-│   ├── search_facility/      # Search functionality
-│   └── whatsapp_module/      # WhatsApp integration
-│
-├── frontend_webpack/         # Legacy React frontend
-│   ├── public/              # Static files
-│   └── src/
-│       ├── components/      # Reusable UI components
-│       ├── pages/           # Page components
-│       ├── store/           # Redux store
-│       └── services/        # API services
-│
-├── mamlaAI_ground_zero/frontend/  # Active React frontend served by Nginx
-│
-├── advocate_list/            # Lawyer directory
-├── draftdocs/               # Document templates
-└── docker/                  # Docker configuration
-```
-
-## API Documentation
-
-API documentation is available at `/api/docs/` when running the development server.
-
-### Authentication
-- `POST /api/auth/login/` - User login
-- `POST /api/auth/signup/` - User registration
-- `POST /api/auth/refresh/` - Refresh access token
-
-### Documents
-- `GET /api/documents/` - List documents
-- `POST /api/documents/` - Create new document
-- `GET /api/documents/{id}/` - Get document details
-- `PUT /api/documents/{id}/` - Update document
-- `DELETE /api/documents/{id}/` - Delete document
-
-## Testing
-
-### Backend Tests
-```bash
-python manage.py test
-```
-
-### Frontend Tests
-```bash
-cd ../mamlaAI_ground_zero/frontend
-npm test
-```
-
-frontend commands:
-```
-Development: npm start
-Production: npm run start:prod or npm run build && npx serve -s dist -l 3000
-```
-
-## Deployment
-
-### Production
-```bash
-# Build frontend
-cd frontend_webpack
-npm run build
-
-# Collect static files
-python manage.py collectstatic --noinput
-
-# Run with Gunicorn
-gunicorn Legalv1.wsgi:application -w 4 -b :8000
-```
-
-### Docker
-```bash
-docker-compose up --build
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contact
-
-For support or queries, please contact neveon.ai@gmail.com or open an issue in the repository.
+> AI-native legal workspace for lawyers — from case intake to court-ready drafts.
 
 ---
 
-<div align="center">
-  Made with ❤️ by the MamlaAi Team
-</div>
+## What Mamla.AI Does
+
+Mamla.AI gives lawyers a full AI-assisted workspace to manage cases, clients, documents, and court research in one place. It is built specifically for the Indian legal system.
+
+### Case & Client Management
+- **Case Registry** — create and track cases with auto-generated `MC-YYYY-XXXXXX` reference IDs
+- **7-tab Case Hub** — hearings, notes, tasks, drafts, documents, calendar, and eCourts — all scoped to one case
+- **Client Onboarding** — invite clients via token-based signup link; link existing users to cases
+- **Client Profile** — contact card with full linked-case history
+
+### AI-Powered Legal Drafting
+- **DraftingWorkspace** — multi-section AI draft editor with section reorder, history, revert, and PDF export
+- **Guided Drafting** — conversational intake agent (up to 10 turns) extracts facts from the lawyer, generates a structured draft plan, then produces the full draft
+- **Template-based Drafts** — load from pre-built templates or upload your own reference document
+- **Draft Context Agent** — pre-loads case facts and linked documents before generating
+
+### TalkDoc — Document Intelligence
+- Upload PDFs, DOCX, CSV, XLSX, or images; chat with them using RAG retrieval
+- Session-scoped document context — each chat locks its own document set
+- Scanned PDF / image OCR via multimodal LLM fallback
+- Table extraction from PDF/DOCX, CSV/XLSX formatting into indexable text
+- Two usage buckets: `brain_doc_analysis` (with documents) and `general_legal_chat` (no documents)
+- Session-bundle charging — one quota unit covers up to 10 turns per session
+
+### Mamla Brain Framework
+- Domain-reasoning API usable as `legal`, `banking`, or `markets` mode
+- Dual auth: first-party Supabase token or third-party `X-Brain-API-Key`
+- Tiered LLM routing (T1 micro / T2 balanced / T3 strong) per request complexity
+- Knowledge-base retrieval per domain (OpenSearch-backed, ingestible from source files)
+- Case Companion — structured legal reasoning with citations
+
+### eCourts Intelligence
+- **Scraper-first runtime** at `/api/ecourts/` — CNR lookup, case status (party/advocate/filing/FIR), cause list, court orders, caveat (staged)
+- **LangGraph orchestration** (opt-in via `ECOURTS_USE_LANGGRAPH=true`) — 8 shared skill nodes, 3 learning-registry modules (navigation selector tracking, CAPTCHA strategy ranking, workflow metrics)
+- **eCourts v2 proxy** at `/api/ecourts/v2/` — FastAPI scraper bridge for full dropdown hierarchy (state → district → complex → establishment), court orders by party / case number / court number / order date with PDF download
+- **High Court support** — 5 HC terminal screens (case status, court orders, cause list, case detail, HC/bench selector) with `DLHC`/`UPHC`/`WBCHCJ`-aware CNR auto-routing
+- CAPTCHA solving via Capsolver + local EasyOCR fallback
+
+### Legal Calendar
+- FullCalendar-powered legal calendar with month/week/day/agenda views
+- Linked multi-day series with `only once` / `this and following` / `entire series` edit/delete semantics
+- Conflict intelligence — time-overlap detection with advisory resolution
+- Case/client-aware event intake; separate email delivery to creator and each participant
+
+### Other
+- **Court Update Subscriptions** — subscribe to specific courts; receive daily cause-list alerts
+- **Search** — OpenSearch-backed document search with index management
+- **Mobile App** — Full build instructions in `docs/15-mobile-capacitor-setup.md`
+- **WhatsApp Webhook** — integrated (low priority; left stable)
+
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+|-------|-------------|
+| **Backend** | Django 4.2, MongoDB (PyMongo), Supabase Auth, Redis, Celery, OpenSearch |
+| **Email** | Resend SDK — `mamla@noreply.mamla.ai` |
+| **LLM** | OpenAI + OpenRouter (provider-switchable via `LLM_DEFAULT_PROVIDER`) |
+| **Frontend** | React 18, Redux Toolkit, Tailwind CSS, Webpack 5, FullCalendar |
+| **eCourts** | LangGraph, curl_cffi (TLS impersonation), Capsolver, EasyOCR |
+| **Infra** | Gunicorn (prod) + Nginx, Redis, MongoDB Atlas (or local) |
+
+---
+
+## Repository Layout
+
+```
+Adalatai_ground_zero/
+├── Legalv1/                        # Django backend
+│   ├── Legalv1/                    #   Project settings + root URLs
+│   ├── core/                       #   Shared clients (Mongo, Supabase), health, init command
+│   ├── users/                      #   Auth, profiles, onboarding
+│   ├── ai_draft/                   #   AI drafting sessions + guided intake
+│   ├── create_drafts/              #   Template-based drafts
+│   ├── cases/                      #   Case registry, hearings, notes, tasks
+│   ├── agents/                     #   6 focused agents (intake → closure + conversational draft)
+│   ├── calendar_management/        #   Events CRUD + recurring series
+│   ├── talkdoc/                    #   RAG document Q&A
+│   ├── mamla_brain/                #   Domain reasoning framework
+│   ├── ecourts_scraper/            #   Scraper-first eCourts runtime (active)
+│   ├── ecourt_scrapped/            #   eCourts v2 FastAPI proxy layer (active)
+│   ├── ecourts_api/                #   Partner-token eCourts client (deprecated — reference only)
+│   ├── search_facility/            #   OpenSearch document search
+│   ├── utilities/                  #   Email, state/district/court lookups
+│   ├── todaysupdates/              #   Court subscriptions + daily updates
+│   ├── whatsapp_module/            #   WhatsApp webhook
+│   ├── scripts/                    #   One-off DB index/backfill scripts
+│   ├── legalenv                    #   Prod env file (git-ignored)
+│   └── legalenv.dev                #   Dev env file (git-ignored)
+│
+├── mamlaAI_ground_zero/
+│   └── frontend/                   # Active React SPA (Tailwind + Webpack)
+│       ├── src/
+│       │   ├── AppContent.js       #   All route definitions (start here)
+│       │   ├── store.js            #   Redux store
+│       │   ├── features/           #   userSlice, entitlementsSlice, chatDocsSlice, uiSlice
+│       │   ├── components/         #   All pages and UI components
+│       │   └── services/           #   apiClient + casesApi
+│       ├── webpack.dev.js          #   Dev server — proxies /api → backend :8100
+│       └── webpack.prod.js         #   Production build + env injection
+│
+├── frontend_webpack/               # Previous React SPA (reference only)
+├── docs/                           # Architecture, API reference, changelog ← read first
+├── advocate_list/                  # Lawyer directory CSV exports
+├── draftdocs/                      # Legal draft templates
+└── logs/                           # Runtime logs (git-ignored)
+```
+
+---
+
+## Documentation
+
+Everything needed to understand, extend, or deploy the codebase lives in [`docs/`](docs/):
+
+| Doc | Contents |
+|-----|----------|
+| [`docs/00-agent-quickref.md`](docs/00-agent-quickref.md) | One-page map of every key file, collection, API prefix, route, and env var |
+| [`docs/01-architecture-overview.md`](docs/01-architecture-overview.md) | Repo layout, component relationships, auth + data flow |
+| [`docs/02-backend-legalv1.md`](docs/02-backend-legalv1.md) | Django apps, MongoDB, auth, Celery, env vars, LLM config |
+| [`docs/03-frontend-webpack.md`](docs/03-frontend-webpack.md) | React routes, Redux slices, API client, build config |
+| [`docs/04-api-reference.md`](docs/04-api-reference.md) | Full endpoint reference (method, path, auth, description) |
+| [`docs/05-changelog-and-improvements.md`](docs/05-changelog-and-improvements.md) | What was changed, why, and what comes next |
+| [`docs/06-ecourts-scraper.md`](docs/06-ecourts-scraper.md) | eCourts scraper architecture, terminal flows, selectors |
+| [`docs/00-running-locally.md`](docs/00-running-locally.md) | Local dev setup and production start commands |
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+<div align="center">Made with ❤️ by the Mamla.AI team</div>

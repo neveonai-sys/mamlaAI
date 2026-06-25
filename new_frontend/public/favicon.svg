@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="fv_navy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#1a3a6b"/>
+      <stop offset="100%" stop-color="#0f2544"/>
+    </linearGradient>
+    <linearGradient id="fv_saff" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#FF9800"/>
+      <stop offset="100%" stop-color="#FFB74D"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background tile -->
+  <rect width="64" height="64" rx="13" fill="#0f2544"/>
+
+  <!-- Dome arch -->
+  <path d="M10,32 Q10,8 32,8 Q54,8 54,32"
+    fill="none" stroke="#D8E3F2" stroke-width="3" stroke-linecap="round"/>
+  <!-- Inner arch glow -->
+  <path d="M15,32 Q15,14 32,14 Q49,14 49,32"
+    fill="none" stroke="#FF9800" stroke-width="0.9" stroke-linecap="round" opacity="0.45"/>
+
+  <!-- Finial -->
+  <circle cx="32" cy="7" r="2.5" fill="url(#fv_saff)"/>
+  <line x1="32" y1="4.5" x2="32" y2="2"
+    stroke="url(#fv_saff)" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Left pillar -->
+  <rect x="7"  y="30" width="10" height="3" rx="1" fill="#4A79BF"/>
+  <rect x="8.5" y="33" width="7" height="24" rx="0.8" fill="#4A79BF"/>
+  <rect x="7"  y="55" width="10" height="3" rx="1" fill="url(#fv_saff)"/>
+
+  <!-- Right pillar -->
+  <rect x="47" y="30" width="10" height="3" rx="1" fill="#4A79BF"/>
+  <rect x="48.5" y="33" width="7" height="24" rx="0.8" fill="#4A79BF"/>
+  <rect x="47" y="55" width="10" height="3" rx="1" fill="url(#fv_saff)"/>
+
+  <!-- M diagonals -->
+  <line x1="12" y1="33" x2="32" y2="48"
+    stroke="#D8E3F2" stroke-width="3" stroke-linecap="round"/>
+  <line x1="52" y1="33" x2="32" y2="48"
+    stroke="#D8E3F2" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Neural node at M valley -->
+  <circle cx="32" cy="48" r="3.2" fill="#0f2544" stroke="#FF9800" stroke-width="1.2"/>
+  <circle cx="32" cy="48" r="1.4" fill="#FF9800"/>
+
+  <!-- Steps -->
+  <rect x="4"  y="58" width="56" height="2.5" rx="1" fill="#D8E3F2" opacity="0.5"/>
+  <rect x="1"  y="61" width="62" height="2"   rx="1" fill="url(#fv_saff)" opacity="0.6"/>
+</svg>

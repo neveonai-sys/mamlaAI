@@ -16,7 +16,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.lib.units import inch
 import datetime
 # from multiprocessing import Process
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import chat_complete
 from create_drafts.tasks import send_email_celery
 from search_facility.routes.handlesearch import Handlesearch
@@ -40,7 +40,7 @@ class Createupdatefetchdrafts:
         mongo = get_mongo_client()
         if mongo is None:
             raise Exception("Mongo client is not initialized.")
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
 
     def fetch_distinct_draft_types(self):

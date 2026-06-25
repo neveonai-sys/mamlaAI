@@ -1,0 +1,31 @@
+Section 1
+Title: Civil procedure orientation and case framing
+Civil procedure starts by identifying the nature of the dispute, the relief sought, the proper forum, and the parties who must be before the court. A sound civil case frame explains the cause of action, the factual chronology, the documents relied on, and the interim protection needed before final adjudication. When building retrieval context for civil disputes, priority should be given to pleadings, contracts, notices, payment records, title documents, correspondence, and prior orders between the same parties.
+
+Section 2
+Title: Territorial, pecuniary, and subject-matter forum assessment
+Forum selection in civil disputes should test three questions in sequence: whether the court can hear this type of dispute, whether the monetary value places the matter within the court's pecuniary range, and whether the factual events or property location connect the dispute to the territory of that court. A weak forum connection creates delay and procedural objections. Retrieval systems should flag keywords tied to jurisdiction, branch office location, registered office, delivery location, payment place, and immovable property situs.
+
+Section 3
+Title: Pleading discipline and document-first drafting
+A civil plaint or written statement should be drafted around material facts rather than evidence-heavy narrative. The pleading should identify the parties, the transaction or relationship, the dates that matter, the breaches or defaults, the reliefs claimed, and any limitation-saving facts. Documents should support, not replace, the material facts. For reasoning assistance, each factual allegation should map to at least one probable supporting document or witness source.
+
+Section 4
+Title: Interim relief and preservation strategy
+Interim relief is often where practical leverage is created in civil litigation. The court usually looks for a serious triable issue, comparative hardship, and the risk of irreversible injury if protection is delayed. Common preservation concerns include asset dissipation, continued breach, third-party alienation, and evidence destruction. A useful knowledge base should detect language indicating urgency, threatened transfers, misuse of confidential information, or repeated breaches despite notice.
+
+Section 5
+Title: Service, appearance, and procedural defaults
+Service problems can distort the timeline of a case more than merits issues. A case file should track when notice was sent, whether service was complete, whether appearance was entered, and whether any ex parte risk exists. Drafting support should recognize returned notices, refusal endorsements, substituted-service language, and repeated adjournments tied to non-service or non-appearance.
+
+Section 6
+Title: Framing issues and burden mapping
+Once pleadings close, the dispute should be reduced to a small set of issues that the court must answer. Each issue should identify who carries the initial burden, what evidence is likely relevant, and which admissions may narrow the controversy. For retrieval purposes, issue framing works best when questions are tagged as contract formation, breach, payment, title, possession, agency, notice, limitation, or damages.
+
+Section 7
+Title: Trial preparation and evidentiary organization
+Trial preparation should separate admitted facts, disputed facts, and legally irrelevant background. Documentary bundles should be organized chronologically and witness preparation should focus on proving contested elements rather than repeating pleadings. Retrieval summaries should be optimized to answer: what happened, how it can be proved, what the other side is likely to deny, and what contradictions already exist on record.
+
+Section 8
+Title: Decree, execution, and enforcement follow-through
+Winning a decree is only part of the workflow; enforcement strategy should be considered early. The case record should preserve information about assets, bank accounts, properties, salary sources, counterparties, and third-party obligations that may matter at execution stage. A retrieval system that surfaces enforceability indicators can materially improve downstream litigation planning.

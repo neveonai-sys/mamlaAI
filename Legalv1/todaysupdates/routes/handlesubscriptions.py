@@ -3,7 +3,7 @@ import os
 # from io import BytesIO
 # from docx import Document
 # from pdfminer.high_level import extract_text as extract_text_from_pdf
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 import datetime
 import json
 import traceback
@@ -20,7 +20,7 @@ class CreateandmanageSubscription:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
 
     def get_user_subscriptions(self, user_id):

@@ -6,6 +6,7 @@ from pymongo import MongoClient, IndexModel
 from pymongo.errors import ConnectionFailure
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from django.core.cache import caches
+from django.core.exceptions import ImproperlyConfigured
 import logging
 import os
 from django.conf import settings
@@ -40,17 +41,28 @@ class DatabaseClients:
     def _init_mongo_client(self):
         """Initialize MongoDB client with connection pooling"""
         try:
-            mongo_uri = settings.MONGO_URI #os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+            mongo_uri = (settings.MONGO_URI or '').strip()
+            if not mongo_uri:
+                raise ImproperlyConfigured(
+                    "MONGO_URI is not configured. Set MONGO_URI or the MONGO_HOSTNAME/MONGO_PWD/MONGO_APPNAME trio in Legalv1/legalenv."
+                )
             self._mongo_client = MongoClient(
                 mongo_uri,
-                maxPoolSize=100,  # Maximum number of connections in the pool
-                minPoolSize=10,   # Minimum number of connections to maintain
-                maxIdleTimeMS=30000,  # Close idle connections after 30s
-                connectTimeoutMS=10000,  # Fail fast if can't connect
-                socketTimeoutMS=30000,    # Wait 30s for query responses
-                serverSelectionTimeoutMS=5000,  # Timeout for server selection
+                maxPoolSize=100,       # Maximum connections in the pool
+                minPoolSize=0,         # Don't hold idle connections — Atlas closes them anyway,
+                                       # triggering AutoReconnect noise in the background thread.
+                                       # PyMongo reconnects on demand with no user impact.
+                maxIdleTimeMS=25000,   # Close our idle connections after 25 s — *before* Atlas's
+                                       # idle-connection timeout fires (typically 30–60 s on Atlas).
+                                       # Prevents the race where Atlas closes first and PyMongo's
+                                       # pool maintenance logs spurious AutoReconnect errors.
+                connectTimeoutMS=10000,          # Fail fast if can't open a new connection
+                socketTimeoutMS=30000,           # Wait up to 30 s for a query response
+                serverSelectionTimeoutMS=5000,   # Give up server selection after 5 s
+                heartbeatFrequencyMS=30000,      # Topology heartbeat interval (default 10 s → 30 s
+                                                 # reduces connection churn against Atlas).
                 retryWrites=True,
-                retryReads=True
+                retryReads=True,
             )
             # Test the connection
             self._mongo_client.admin.command('ping')
@@ -98,10 +110,16 @@ def get_mongo_client() -> MongoClient:
     """Get MongoDB client with connection pooling"""
     return db_clients.mongo
 
+def get_mongo_db():
+    """Get the configured MongoDB database (respects MONGO_DB_NAME env var)"""
+    from django.conf import settings
+    return db_clients.mongo[settings.MONGO_DB_NAME]
+
 def ensure_indexes():
     """Create necessary database indexes"""
     try:
-        db = db_clients.mongo['legaldb']
+        from django.conf import settings
+        db = db_clients.mongo[settings.MONGO_DB_NAME]
         
         # List of supported languages
         SUPPORTED_LANGUAGES = {
@@ -185,7 +203,18 @@ def ensure_indexes():
             aidrafts.create_index([
                 ("draft_name", "text")
             ], name="draft_name_text_index")
-        
+
+        # Cases app indexes
+        db["cases"].create_index([("lawyer_id", 1), ("status", 1)])
+        db["cases"].create_index([("client_ids", 1)])
+        db["cases"].create_index([("cnr", 1)])
+        db["cases"].create_index([("case_ref", 1)], unique=True)
+        db["hearing_notes"].create_index([("case_id", 1), ("hearing_date", -1)])
+        db["case_notes"].create_index([("case_id", 1), ("created_at", -1)])
+        db["case_notes"].create_index([("case_id", 1), ("visibility", 1)])
+        db["case_tasks"].create_index([("case_id", 1), ("status", 1)])
+        db["case_tasks"].create_index([("assigned_to", 1), ("due_date", 1)])
+
         logger.info("Database indexes created/verified successfully")
     except Exception as e:
         logger.error(f"Error creating database indexes: {e}")

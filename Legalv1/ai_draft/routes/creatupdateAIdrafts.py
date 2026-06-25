@@ -5,8 +5,8 @@ import os
 import math
 from io import BytesIO
 from docx import Document
-from pymongo import ASCENDING, DESCENDING
-from core.init_clients import get_mongo_client
+from pymongo import ASCENDING, DESCENDING, ReturnDocument
+from core.init_clients import get_mongo_client, get_mongo_db
 from pdfminer.high_level import extract_text as extract_text_from_pdf
 import datetime
 import json
@@ -22,7 +22,7 @@ class CreateupdatefetchAIdrafts:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         collection = db['aidrafts_complete_data']
         # Indexes are created via scripts/optimize_database_indexes.py
         # No need to create them on every request
@@ -160,7 +160,7 @@ class CreateupdatefetchAIdrafts:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
 
         document = db['draft_content_data'].find_one(query)
         logger.info(f"fetch_existing_template_text ----> query: {query}, document: {document}")
@@ -335,31 +335,43 @@ Example:
     def update_content_using_AI_with_user_input(self, session_id, section_id, suggestion):
         try:
             session = self.get_mongo_client_db().find_one({'_id': ObjectId(session_id)})
+            all_sections = session.get('draft_sections', [])
             section = next(
-                (s for s in session['draft_sections'] if s['section_id'] == section_id), None
+                (s for s in all_sections if s['section_id'] == section_id), None
+            )
+
+            # Build a brief summary of the other sections for context
+            other_sections_context = '\n'.join(
+                f'  - {s["section_name"]}: {(s.get("content") or "")[:300].strip()}{"..." if len(s.get("content") or "") > 300 else ""}'
+                for s in all_sections if s['section_id'] != section_id and (s.get('content') or '').strip()
+            )
+            context_block = (
+                f"\nFor context, the rest of the draft contains these sections:\n{other_sections_context}\n"
+                if other_sections_context else ''
             )
 
             # Construct prompt for LLM
-            prompt = f"""
-You previously drafted the following section titled "{section['section_name']}":
+            prompt = f"""You are refining one section of a legal draft.{context_block}
+The section to update is titled "{section['section_name']}":
 
 {section['content']}
 
-The user has the following suggestions or changes:
+The user's instruction for this section:
 
 {suggestion}
 
-Please provide an updated version of this section, incorporating the user's suggestions, and ensure it complies with Indian legal standards.
+Update ONLY this section, incorporating the user's instruction. Ensure the content aligns with the rest of the draft and complies with Indian legal standards.
 
 Return ONLY the updated section content. Do not include any headings, labels, preamble, or extra commentary."""
 
-            updated_content = chat_complete(
+            updated_content, _usage = chat_complete(
                 messages=[{'role': 'user', 'content': prompt}],
                 app_scenario='ai_draft:update_section',
                 temperature=0.4,
                 max_tokens=2000,
+                return_usage=True,
             )
-            return {'mssg': updated_content}
+            return {'mssg': updated_content, 'usage': _usage}
         except Exception as e:
             logger.error(f"[update_content_using_AI_with_user_input]  ============>>>>>>: {traceback.format_exc()}")
             return {'mssg': False}
@@ -1020,14 +1032,27 @@ Here is the case document:
             update_result = self.get_mongo_client_db().find_one_and_update(
                 {'user_id': self.user_id, '_id': session_object_id},
                 {'$inc': {'ai_suggested_update_count': 1}},
-                return_document=True  # This will return the document after the update
+                return_document=ReturnDocument.AFTER
             )
 
             # Now you can access the final count from the updated document
-            final_count = update_result.get('ai_suggested_update_count')
+            final_count = (update_result or {}).get('ai_suggested_update_count', 0)
             return final_count
         except Exception as e:
             logger.error(f"Exception in update_ai_suggested_content_count: {traceback.format_exc()}")
+            return 0
+
+
+    def get_ai_suggested_content_count(self, session_id):
+        try:
+            session_object_id = ObjectId(session_id)
+            draft = self.get_mongo_client_db().find_one(
+                {'user_id': self.user_id, '_id': session_object_id},
+                {'ai_suggested_update_count': 1},
+            )
+            return int((draft or {}).get('ai_suggested_update_count', 0))
+        except Exception:
+            logger.error(f"Exception in get_ai_suggested_content_count: {traceback.format_exc()}")
             return 0
 
 

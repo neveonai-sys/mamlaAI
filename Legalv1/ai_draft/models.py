@@ -1,8 +1,8 @@
 # from pymongo import ASCENDING, DESCENDING
-# from core.init_clients import get_mongo_client
+# from core.init_clients import get_mongo_client, get_mongo_db
 
 # mongo = get_mongo_client()
-# db = mongo['legaldb']
+# db = get_mongo_db()
 
 # class Session:
 #     collection = db['aidrafts_complete_data']

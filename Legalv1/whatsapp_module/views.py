@@ -15,7 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
 from whatsapp_module.routes.handlewhatsappmessage import Whatsappmessageformulation
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 logger = logging.getLogger('django')
 
@@ -26,7 +26,7 @@ def get_mongo_client_db():
     mongo = get_mongo_client()
     if not mongo:
         return None
-    return mongo["legaldb"]
+    return get_mongo_db()
 
 
 def verify_request_signature(request):

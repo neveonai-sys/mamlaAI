@@ -13,8 +13,11 @@ from rest_framework.decorators import api_view
 from users.supabase_admin import admin_update_password
 from users.routes.usermetadata import Handleusermetadata
 from core.email_templates import EmailTemplates
+from core.entitlements import get_entitlement_summary, _wallet_tx_collection
 
-logger = logging.getLogger('django')
+from core.audit_log import audit_from_request, write_audit_log, ACTION_USER_LOGIN, ACTION_USER_LOGOUT, ACTION_LOGIN_FAILED
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['GET'])
@@ -66,12 +69,37 @@ def check_auth(request):
                 'lastname': supabase_user.get('lname'),
                 'email_id': supabase_user.get('email'),
                 'user_type': supabase_user.get('user_type'),
-                'sessions': session_info
+                'sessions': session_info,
+                'entitlements': get_entitlement_summary(supabase_user),
             })
         raise
     except Exception as err:
         logger.error(traceback.format_exc())
         return JsonResponse({'error message': str(err)}, status=500)
+
+
+@api_view(['GET'])
+@supabase_required
+def entitlement_summary(request):
+    return JsonResponse(get_entitlement_summary(request.supabase_user))
+
+
+@api_view(['GET'])
+@supabase_required
+def wallet_transactions(request):
+    user_id = request.supabase_user.get('user_id')
+    limit = min(int(request.GET.get('limit', 20)), 100)
+    txs = list(
+        _wallet_tx_collection()
+        .find({'user_id': user_id}, {'_id': 0})
+        .sort('created_at', -1)
+        .limit(limit)
+    )
+    for tx in txs:
+        if 'created_at' in tx and hasattr(tx['created_at'], 'isoformat'):
+            tx['created_at'] = tx['created_at'].isoformat()
+    return JsonResponse({'transactions': txs})
+
 
 @api_view(['POST'])
 @ratelimit(key='user', rate='5/m', block=True)
@@ -100,11 +128,12 @@ def onboarding_new_user(request):
         courts = req_body.get('courts', [])
         if isinstance(courts, str):
             courts = [courts]
+        organization = req_body.get('organization', '')
 
         whatsapp_opt_in = req_body.get('whatsappOptIn', False)
         agreed_tnc = req_body.get('agreedTnC', False)
         obj = Handleusermetadata()
-        chk = obj.create_newuser_and_insert_metadata(phone_number=phone_number, fname=fname, lname=lname, email=email, password=password, user_type=user_type, whatsappOptIn=whatsapp_opt_in, agreedTnC=agreed_tnc, user_status="A", barcode_id=barcode_id, case_ids=case_ids, state=state, district=district, courts=courts)
+        chk = obj.create_newuser_and_insert_metadata(phone_number=phone_number, fname=fname, lname=lname, email=email, password=password, user_type=user_type, whatsappOptIn=whatsapp_opt_in, agreedTnC=agreed_tnc, user_status="A", barcode_id=barcode_id, case_ids=case_ids, state=state, district=district, courts=courts, organization=organization)
         if chk:
             return JsonResponse({"message": "Onboarded successfully."}, status=200)
         return JsonResponse({"message": "Onboarding Failed."}, status=400)
@@ -137,7 +166,24 @@ def supabase_login(request):
         result = obj.sign_in_supabase(email, password)
         # logger.info(f"supabase_login ------>>>> {result}")
         if not result:
+            write_audit_log(
+                ACTION_LOGIN_FAILED,
+                actor_id="",
+                ip_address=request.META.get("REMOTE_ADDR", ""),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                metadata={"reason": "invalid_credentials"},
+            )
             return JsonResponse({"error": "Invalid credentials/User Not Found"}, status=401)
+
+        if isinstance(result, dict) and result.get("error") == "email_not_confirmed":
+            write_audit_log(
+                ACTION_LOGIN_FAILED,
+                actor_id="",
+                ip_address=request.META.get("REMOTE_ADDR", ""),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                metadata={"reason": "email_not_confirmed"},
+            )
+            return JsonResponse({"error": "email_not_confirmed", "message": "Please verify your email address before logging in. Check your inbox (and spam folder) for the confirmation email."}, status=403)
 
         access_token = result.get("access_token")
         refresh_token = result.get("refresh_token")
@@ -166,7 +212,15 @@ def supabase_login(request):
         #user_id, access_token, refresh_token, ip_address, location, device_type
         session_manager.create_session(user_id, access_token, refresh_token, ip_address, location, device_type)
 
-        logger.info(f"User logged in: {fname}, Device: {device_type}, IP: {ip_address}, Location: {location}")
+        logger.info("User logged in: %s Device: %s IP: %s Location: %s", fname, device_type, ip_address, location)
+        write_audit_log(
+            ACTION_USER_LOGIN,
+            actor_id=user_id,
+            actor_type=user_type or "",
+            ip_address=ip_address,
+            user_agent=user_agent_string,
+            metadata={"device_type": device_type, "location": location},
+        )
 
         response = JsonResponse({
             'redirect': 'home',
@@ -174,6 +228,7 @@ def supabase_login(request):
             'firstname': fname,
             'lastname': lname,
             'user_type': user_type,
+            'access_token': access_token,  # used by native (Capacitor) clients only
         })
 
         # Set the access token in an HttpOnly, Secure cookie
@@ -207,35 +262,44 @@ def supabase_login(request):
 @api_view(['POST'])
 def reset_password(request):
     """
-    POST 
+    POST
     Body: { "new_password": """
-    data = json.loads(request.body.decode("utf-8"))
-    # logger.info(f"reset_password ==>>>> data === {data}")
-    new_password = data.get("new_password")
-    recovery_access_token = data.get("recovery_access_token") 
-    obj = Handleusermetadata()
-    # chk = obj.reset_password(passwd, recovery_access_token)
-    if not recovery_access_token or not new_password:
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        new_password = data.get("new_password")
+        recovery_access_token = data.get("recovery_access_token")
+        obj = Handleusermetadata()
+        if not recovery_access_token or not new_password:
             return JsonResponse({"message": "Missing fields"}, status=400)
 
-    # 1) Decode & verify the token
-    payload = obj.decode_supabase_jwt(recovery_access_token)
-    user_id = payload.get("sub")
-    if not user_id:
-        return JsonResponse({"message": "Invalid token payload (no sub)"}, status=400)
+        # 1) Validate the recovery token via Supabase (handles ES256/HS256 transparently)
+        from core.init_clients import get_supabase_client
+        try:
+            sb = get_supabase_client()
+            user_response = sb.auth.get_user(recovery_access_token)
+            user_id = user_response.user.id if user_response and user_response.user else None
+        except Exception as e:
+            logger.error(f"reset_password: token validation failed: {traceback.format_exc()}")
+            return JsonResponse({"message": "Invalid or expired reset token"}, status=400)
 
-    # 2) Update the password as an admin
-    result = admin_update_password(user_id, new_password)
-    # 'result' should contain info about the updated user or an error
+        if not user_id:
+            return JsonResponse({"message": "Invalid token payload (no sub)"}, status=400)
 
-    if result.user:  # check if user object is returned
-        return JsonResponse({"success": True}, status=200)
-    else:
-        # Possibly check result.error, etc.
-        return JsonResponse({
-            "success": False,
-            "message": "Failed to update user password"
-        }, status=400)
+        # 2) Update the password as an admin
+        try:
+            result = admin_update_password(user_id, new_password)
+        except Exception as e:
+            logger.error(f"reset_password: admin_update_password failed: {traceback.format_exc()}")
+            return JsonResponse({"message": "Failed to update password"}, status=500)
+
+        if result.user:
+            return JsonResponse({"success": True}, status=200)
+        else:
+            return JsonResponse({"success": False, "message": "Failed to update user password"}, status=400)
+
+    except Exception as e:
+        logger.error(f"reset_password: unexpected error: {traceback.format_exc()}")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 @api_view(['POST'])
 def send_reset_password_link(request):
@@ -268,7 +332,8 @@ def sign_out_supabase(request):
         
         session_manager = SessionManager()
         session_manager.invalidate_session(access_token)
-        
+        audit_from_request(request, ACTION_USER_LOGOUT)
+
         response = JsonResponse({"message": "Successfully logged out."})
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
@@ -696,6 +761,14 @@ def list_clients(request):
                 }
 
         result = list(clients.values())
+        search = request.GET.get('search', '').strip().lower()
+        if search:
+            result = [
+                c for c in result
+                if search in (c.get('name') or '').lower()
+                or search in (c.get('email') or '').lower()
+                or search in (c.get('phone') or '')
+            ]
         return JsonResponse({"results": result, "count": len(result)})
     except Exception as e:
         logger.error(traceback.format_exc())
@@ -710,12 +783,12 @@ def update_client_detail(request, client_id):
     Body: {fname, lname, email, phone, ...}
     """
     try:
-        from core.init_clients import get_mongo_client
+        from core.init_clients import get_mongo_client, get_mongo_db
         data = json.loads(request.body or b"{}")
         allowed = {k: v for k, v in data.items() if k in ('fname', 'lname', 'email', 'phonenumber', 'phone_number', 'address', 'notes')}
         if not allowed:
             return JsonResponse({"error": "No updatable fields provided"}, status=400)
-        db = get_mongo_client()['legaldb']
+        db = get_mongo_db()
         res = db['user_details'].update_one({"user_id": client_id}, {"$set": allowed})
         if res.matched_count:
             return JsonResponse({"message": "Updated"})
@@ -765,7 +838,350 @@ def invite_client_handler(request):
             creator_id=user_id, fname=fname, lname=lname,
             user_type='Client', phonenumber=phonenumber, email=email, case_id=case_id
         )
-        return JsonResponse({"message": "Invite sent", "signup_link": signup_link})
+        new_client = obj.check_user_exists("phone", phonenumber) if phonenumber else obj.check_user_exists("email", email)
+        new_client_id = new_client.get('user_id') if new_client else None
+        return JsonResponse({"message": "Invite sent", "signup_link": signup_link, "client_id": new_client_id})
     except Exception as e:
         logger.error(traceback.format_exc())
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(['PATCH'])
+@supabase_required
+def update_client_status(request, client_id):
+    """
+    PATCH /api/users/clients/<client_id>/status/
+    Body: {"status": "A" | "I"}
+    Allows a lawyer to activate ("A") or deactivate ("I") a client.
+    """
+    try:
+        supa_user = request.supabase_user
+        lawyer_id = supa_user.get('user_id')
+        data = json.loads(request.body or b'{}')
+        new_status = (data.get('status') or '').strip().upper()
+        if new_status not in ('A', 'I'):
+            return JsonResponse({'error': 'status must be "A" (active) or "I" (inactive)'}, status=400)
+
+        obj = Handleusermetadata()
+        db = obj.get_mongo_client_db()
+
+        # Ownership check: lawyer must have this client in their client_ids
+        lawyer_doc = db['user_details'].find_one({'user_id': lawyer_id}, {'client_ids': 1})
+        if not lawyer_doc or client_id not in (lawyer_doc.get('client_ids') or []):
+            return JsonResponse({'error': 'Client not associated with your account'}, status=403)
+
+        res = db['user_details'].update_one({'user_id': client_id}, {'$set': {'user_status': new_status}})
+        if not res.matched_count:
+            return JsonResponse({'error': 'Client not found'}, status=404)
+        return JsonResponse({'message': 'Status updated', 'status': new_status})
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@supabase_required
+def resend_client_invite(request, client_id):
+    """
+    POST /api/users/clients/<client_id>/resend-invite/
+    Body: {"email": "..."} (optional — adds/updates email before sending invite)
+    Generates a fresh signup token and sends an invite email.
+    Only valid for pending clients (user_status = "P" and no supabase_id).
+    Returns 400 if the client has already registered.
+    """
+    try:
+        from Legalv1.settings import FRONTEND_URL
+        from users.tasks import send_email_celery
+        from core.init_clients import get_supabase_client
+
+        supa_user = request.supabase_user
+        lawyer_id = supa_user.get('user_id')
+        data = json.loads(request.body or b'{}')
+
+        obj = Handleusermetadata()
+        db = obj.get_mongo_client_db()
+
+        # Ownership check: lawyer must have this client in their client_ids
+        lawyer_doc = db['user_details'].find_one({'user_id': lawyer_id}, {'client_ids': 1})
+        if not lawyer_doc or client_id not in (lawyer_doc.get('client_ids') or []):
+            return JsonResponse({'error': 'Client not associated with your account'}, status=403)
+
+        client_doc = db['user_details'].find_one({'user_id': client_id})
+        if not client_doc:
+            return JsonResponse({'error': 'Client not found'}, status=404)
+
+        # Block if the client has already signed up (supabase_id is set)
+        if client_doc.get('supabase_id'):
+            return JsonResponse({'error': 'Client has already registered'}, status=400)
+
+        # Optionally update email if provided in the request body
+        email = (data.get('email') or '').strip()
+        if email:
+            db['user_details'].update_one({'user_id': client_id}, {'$set': {'email': email}})
+            try:
+                supabase = get_supabase_client()
+                supabase.table('user_metadata').update({'email': email}).eq('user_id', client_id).execute()
+            except Exception:
+                logger.warning(f'resend_client_invite: could not sync email to Supabase for {client_id}')
+        else:
+            # Fall back to stored email
+            try:
+                supabase = get_supabase_client()
+                resp = supabase.table('user_metadata').select('email').eq('user_id', client_id).single().execute()
+                email = (resp.data or {}).get('email') or client_doc.get('email') or ''
+            except Exception:
+                email = client_doc.get('email') or ''
+
+        if not email:
+            return JsonResponse({'error': 'Email is required to send an invite'}, status=400)
+
+        # Get client first name for the email body
+        try:
+            supabase = get_supabase_client()
+            meta_resp = supabase.table('user_metadata').select('first_name').eq('user_id', client_id).single().execute()
+            fname = (meta_resp.data or {}).get('first_name') or client_doc.get('fname') or 'there'
+        except Exception:
+            fname = client_doc.get('fname') or 'there'
+
+        # Get lawyer name for the email body
+        lawyer_data = obj.check_user_exists('user_id', lawyer_id) or {}
+        lawyer_fname = lawyer_data.get('fname') or 'your lawyer'
+        lawyer_lname = lawyer_data.get('lname') or ''
+
+        # Generate a fresh signup token and build the invite link
+        signup_token = obj.generate_signup_token(lawyer_id, client_id)
+        signup_link = f"{FRONTEND_URL}/signup?token={signup_token}"
+
+        # Send the invite email asynchronously
+        email_subject, email_body = EmailTemplates.client_signup_invitation(fname, lawyer_fname, lawyer_lname, signup_link)
+        send_email_celery.delay(email, email_subject, email_body)
+
+        return JsonResponse({'message': 'Invite sent', 'signup_link': signup_link})
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+def save_consent_event(request):
+    """
+    POST /api/users/consent-events/
+    Body: {
+      "consent_type": "cookie_preferences" | "terms_of_service" | etc,
+      "version": "1.0",
+      "preferences": {...},
+      "source": "web" | "mobile" | "admin"
+    }
+    
+    Saves consent events to MongoDB for audit purposes.
+    Works with or without authentication (for anonymous users).
+    If authenticated, links to user_id.
+    """
+    try:
+        data = json.loads(request.body or b'{}')
+        consent_type = data.get('consent_type', '').strip()
+        preferences = data.get('preferences', {})
+        source = data.get('source', 'web').strip()
+
+        if not consent_type:
+            return JsonResponse({'error': 'consent_type is required'}, status=400)
+
+        # Use server-authoritative version for legal docs; fall back to client-supplied.
+        from core.legal_versions import LEGAL_DOC_VERSIONS, SERVER_AUTHORITATIVE_TYPES
+        if consent_type in SERVER_AUTHORITATIVE_TYPES:
+            version = LEGAL_DOC_VERSIONS.get(consent_type, '1.0')
+        else:
+            version = data.get('version', LEGAL_DOC_VERSIONS.get(consent_type, '1.0')).strip()
+
+        # Try to extract user_id from authenticated request
+        user_id = None
+        if hasattr(request, 'supabase_user'):
+            user_id = request.supabase_user.get('user_id')
+
+        # Capture IP and User-Agent
+        ip_address = request.META.get('REMOTE_ADDR', 'unknown')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+        # Get MongoDB client
+        from core.init_clients import get_mongo_client, get_mongo_db
+        db = get_mongo_db()
+
+        # Build consent document
+        consent_doc = {
+            'consent_type': consent_type,
+            'version': version,
+            'preferences': preferences,
+            'source': source,
+            'ip_address': ip_address,
+            'user_agent': user_agent,
+            'created_at': datetime.datetime.utcnow(),
+        }
+
+        if user_id:
+            consent_doc['user_id'] = user_id
+
+        # Insert into consent_events collection
+        result = db['consent_events'].insert_one(consent_doc)
+
+        # If authenticated, optionally update user_details with latest consent summary
+        if user_id:
+            db['user_details'].update_one(
+                {'user_id': user_id},
+                {
+                    '$set': {
+                        f'consent_{consent_type}_version': version,
+                        f'consent_{consent_type}_updated_at': datetime.datetime.utcnow(),
+                    }
+                }
+            )
+
+        logger.info(f"Consent event saved: {consent_type} for user_id={user_id}")
+        return JsonResponse({'message': 'Consent recorded', 'event_id': str(result.inserted_id)})
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@supabase_required
+def export_user_data(request):
+    """
+    GDPR/DPDP data export — returns all stored data for the authenticated user.
+    GET /api/users/privacy/export-data/
+    """
+    try:
+        from core.init_clients import get_mongo_db
+        db = get_mongo_db()
+        user_id = request.supabase_user.get('user_id')
+
+        profile = db['user_details'].find_one({'user_id': user_id}, {'_id': 0})
+
+        usage_events = list(db['usage_events'].find(
+            {'user_id': user_id},
+            {'_id': 0, 'ip_address': 0, 'user_agent': 0},
+        ).sort('timestamp', -1).limit(500))
+        for e in usage_events:
+            if 'timestamp' in e:
+                e['timestamp'] = e['timestamp'].isoformat()
+
+        consent_events = list(db['consent_events'].find(
+            {'user_id': user_id},
+            {'_id': 0, 'ip_address': 0, 'user_agent': 0},
+        ).sort('created_at', -1))
+        for c in consent_events:
+            if 'created_at' in c:
+                c['created_at'] = c['created_at'].isoformat()
+
+        subscription = db['subscriptions'].find_one({'user_id': user_id}, {'_id': 0})
+        if subscription:
+            for k in ('created_at', 'updated_at', 'cancelled_at', 'current_period_start', 'current_period_end'):
+                if subscription.get(k):
+                    subscription[k] = subscription[k].isoformat()
+
+        from core.audit_log import ACTION_EXPORT_USER_DATA
+        audit_from_request(request, ACTION_EXPORT_USER_DATA)
+        return JsonResponse({
+            'user_id': user_id,
+            'profile': profile or {},
+            'usage_events': usage_events,
+            'consent_events': consent_events,
+            'subscription': subscription or {},
+            'exported_at': datetime.datetime.utcnow().isoformat(),
+        })
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@supabase_required
+def delete_user_data(request):
+    """
+    GDPR/DPDP right to erasure — anonymises stored data for the authenticated user.
+    Preserves billing records (legal/financial hold) but removes PII.
+    POST /api/users/privacy/delete-data/
+    Body: {"confirm": true}
+    """
+    try:
+        import json as _json
+        body = _json.loads(request.body or '{}')
+        if not body.get('confirm'):
+            return JsonResponse({'error': 'Send {"confirm": true} to confirm deletion'}, status=400)
+
+        from core.init_clients import get_mongo_db
+        db = get_mongo_db()
+        user_id = request.supabase_user.get('user_id')
+        now = datetime.datetime.utcnow()
+
+        db['user_details'].update_one(
+            {'user_id': user_id},
+            {'$set': {
+                'email': f'deleted_{user_id}@deleted.invalid',
+                'phone': '',
+                'full_name': 'Deleted User',
+                'bar_registration': '',
+                'deleted_at': now,
+                'deletion_requested_at': now,
+            }},
+        )
+
+        db['usage_events'].update_many(
+            {'user_id': user_id},
+            {'$set': {'ip_address': '', 'user_agent': ''}},
+        )
+
+        db['consent_events'].update_many(
+            {'user_id': user_id},
+            {'$set': {'ip_address': '', 'user_agent': ''}},
+        )
+
+        from core.audit_log import ACTION_DELETE_USER_DATA
+        audit_from_request(request, ACTION_DELETE_USER_DATA, metadata={'initiated_by': 'self'})
+
+        logger.info('[Privacy] Data deletion completed for user_id=%s', user_id)
+        return JsonResponse({
+            'status': 'deleted',
+            'user_id': user_id,
+            'deleted_at': now.isoformat(),
+            'note': 'Billing/invoice records are retained as required by financial regulations.',
+        })
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+def legal_doc_versions(request):
+    """
+    GET /api/users/legal-doc-versions/
+
+    Returns the current canonical version of every legal document.
+    Frontend uses this before showing T&C / Privacy dialogs so it can
+    detect whether the user has accepted the latest version.
+    """
+    from core.legal_versions import LEGAL_DOC_VERSIONS
+    return JsonResponse({'versions': LEGAL_DOC_VERSIONS})
+
+
+@api_view(['POST'])
+@ratelimit(key='ip', rate='5/h', method='POST', block=True)
+def resend_confirmation_email(request):
+    """
+    POST /api/users/resend-confirmation/
+    { "email": "user@example.com" }
+
+    Resends the Supabase signup confirmation email. Rate-limited to 5/hr per IP.
+    Always returns 200 to avoid user enumeration.
+    """
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        email = data.get("email", "").strip().lower()
+        if not email:
+            return JsonResponse({"error": "Email is required."}, status=400)
+
+        from core.init_clients import get_supabase_client
+        supabase = get_supabase_client()
+        supabase.auth.resend({"email": email, "type": "signup"})
+    except Exception:
+        logger.error(traceback.format_exc())
+    return JsonResponse({"message": "If that email is registered and unconfirmed, a new confirmation email has been sent."}, status=200)

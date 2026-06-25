@@ -9,7 +9,7 @@ import datetime
 import logging
 import traceback
 from bson import ObjectId
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import chat_complete
 from django.core.cache import cache
 
@@ -20,7 +20,7 @@ def _get_collection():
     mongo = get_mongo_client()
     if not mongo:
         return None
-    return mongo['legaldb']['aidrafts_complete_data']
+    return get_mongo_db()['aidrafts_complete_data']
 
 
 @shared_task(bind=True, max_retries=3)

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -20,6 +20,8 @@ import {
   addMinutes,
 } from 'date-fns';
 import apiClient from '../../services/api';
+import { useSearchParams } from 'react-router-dom';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 
 const EVENT_TYPE_OPTIONS = [
   'Court Hearing',
@@ -527,9 +529,11 @@ function EventField({ label, children, hint }) {
 
 export default function CalendarPage() {
   const calendarRef = useRef(null);
+  const dispatch = useDispatch();
   const { firstname, lastname, email, user_type } = useSelector((state) => state.user);
   const fullName = `${firstname || ''} ${lastname || ''}`.trim() || email || 'Lead counsel';
   const readOnly = user_type === 'Client';
+  const [searchParams] = useSearchParams();
 
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -604,28 +608,46 @@ export default function CalendarPage() {
   const caseOptions = useMemo(() => {
     return [
       ...filterData.mappedRows.map((row) => row.caseId),
-      ...filterData.casesWithoutClient,
+      // casesWithoutClient entries are now {case_id, case_title} objects
+      ...filterData.casesWithoutClient.map((e) => e?.case_id || e),
     ].filter((value, index, arr) => value && arr.indexOf(value) === index);
   }, [filterData]);
 
   const clientOptions = useMemo(() => {
     return [
       ...filterData.mappedRows.map((row) => row.clientName),
-      ...filterData.clientsWithoutCase,
     ].filter((value, index, arr) => value && arr.indexOf(value) === index);
   }, [filterData]);
 
-  async function fetchEvents(startDate = currentRange.start, endDate = currentRange.end) {
-    setLoading(true);
+  async function withBlocking(message, action) {
+    dispatch(beginBlocking({ message }));
     try {
-      const response = await apiClient.get(`calendar/events/?start_date=${startDate}&end_date=${endDate}&page_size=500`);
-      const results = Array.isArray(response.data?.results) ? response.data.results : [];
-      setEvents(results.map(normalizeEventFromApi));
-    } catch {
-      setToast({ open: true, severity: 'error', message: 'Unable to load calendar events right now.' });
+      return await action();
     } finally {
-      setLoading(false);
+      dispatch(stopBlocking());
     }
+  }
+
+  async function fetchEvents(startDate = currentRange.start, endDate = currentRange.end, { blockUi = false } = {}) {
+    setLoading(true);
+    const load = async () => {
+      try {
+        const response = await apiClient.get(`calendar/events/?start_date=${startDate}&end_date=${endDate}&page_size=500`);
+        const results = Array.isArray(response.data?.results) ? response.data.results : [];
+        setEvents(results.map(normalizeEventFromApi));
+      } catch {
+        setToast({ open: true, severity: 'error', message: 'Unable to load calendar events right now.' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (blockUi) {
+      await withBlocking('Loading calendar...', load);
+      return;
+    }
+
+    await load();
   }
 
   async function fetchCaseClientData() {
@@ -653,9 +675,18 @@ export default function CalendarPage() {
   }
 
   useEffect(() => {
-    fetchEvents();
+    fetchEvents(currentRange.start, currentRange.end, { blockUi: true });
     fetchCaseClientData();
   }, []);
+
+  // ── If opened via ?case_id= URL param, pre-open editor for a new hearing ──
+  useEffect(() => {
+    const caseIdParam = searchParams.get('case_id');
+    if (!caseIdParam) return;
+    setEventForm((f) => ({ ...f, caseId: caseIdParam, eventType: 'Court Hearing' }));
+    setEditorMode('create');
+    setEditorOpen(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (calendarRef.current && activeView !== 'agenda') {
@@ -782,7 +813,7 @@ export default function CalendarPage() {
   async function runConflictCheck(form = eventForm, showDialog = true) {
     setCheckingConflicts(true);
     try {
-      const response = await apiClient.post('calendar/conflicts/check/', buildPayloadFromForm(form));
+      const response = await withBlocking('Checking scheduling conflicts...', () => apiClient.post('calendar/conflicts/check/', buildPayloadFromForm(form)));
       const report = response.data;
       setConflictReport(report);
       if (report?.has_conflicts && showDialog) setConflictDialogOpen(true);
@@ -812,56 +843,58 @@ export default function CalendarPage() {
 
     setSaving(true);
     try {
-      const payload = buildPayloadFromForm(form, { includeId: editorMode === 'edit' });
-      if (options.allowConflict) {
-        payload.conflict_status = 'conflict';
-        payload.resolution_summary = buildConflictResolutionText(conflictReport);
-      }
-      const shouldReloadRange = Boolean(
-        form.recurring ||
-        form.startDate !== form.endDate ||
-        (editorMode === 'edit' && form.occurrence && form.occurrence !== 'only once')
-      );
-      let response;
-      if (editorMode === 'edit' && form.id) {
-        if (form.recurring && form.occurrence === 'entire series') {
-          response = await apiClient.put(`calendar/events/${form.id}/`, {
-            ...payload,
-            updatedFields: buildUpdatedFields(initialForm, form),
-            occurrence: form.occurrence,
-            recurring: form.recurring,
+      await withBlocking('Saving calendar event...', async () => {
+        const payload = buildPayloadFromForm(form, { includeId: editorMode === 'edit' });
+        if (options.allowConflict) {
+          payload.conflict_status = 'conflict';
+          payload.resolution_summary = buildConflictResolutionText(conflictReport);
+        }
+        const shouldReloadRange = Boolean(
+          form.recurring ||
+          form.startDate !== form.endDate ||
+          (editorMode === 'edit' && form.occurrence && form.occurrence !== 'only once')
+        );
+        let response;
+        if (editorMode === 'edit' && form.id) {
+          if (form.recurring && form.occurrence === 'entire series') {
+            response = await apiClient.put(`calendar/events/${form.id}/`, {
+              ...payload,
+              updatedFields: buildUpdatedFields(initialForm, form),
+              occurrence: form.occurrence,
+              recurring: form.recurring,
+            });
+          } else {
+            response = await apiClient.put(`calendar/events/${form.id}/`, payload);
+          }
+        } else {
+          response = await apiClient.post('calendar/events/', payload);
+        }
+
+        const returnedEvent = response.data?.event;
+        if (shouldReloadRange) {
+          await fetchEvents(currentRange.start, currentRange.end);
+        } else if (returnedEvent) {
+          const normalized = normalizeEventFromApi(returnedEvent);
+          setEvents((previous) => {
+            if (editorMode === 'edit') {
+              return previous.map((item) => (item.id === normalized.id ? normalized : item));
+            }
+            return [...previous, normalized];
           });
         } else {
-          response = await apiClient.put(`calendar/events/${form.id}/`, payload);
+          fetchEvents();
         }
-      } else {
-        response = await apiClient.post('calendar/events/', payload);
-      }
 
-      const returnedEvent = response.data?.event;
-      if (shouldReloadRange) {
-        await fetchEvents(currentRange.start, currentRange.end);
-      } else if (returnedEvent) {
-        const normalized = normalizeEventFromApi(returnedEvent);
-        setEvents((previous) => {
-          if (editorMode === 'edit') {
-            return previous.map((item) => (item.id === normalized.id ? normalized : item));
-          }
-          return [...previous, normalized];
+        setEditorOpen(false);
+        setConflictDialogOpen(false);
+        setConflictReport(null);
+        setToast({
+          open: true,
+          severity: 'success',
+          message: options.allowConflict
+            ? (editorMode === 'edit' ? 'Event saved with a conflict flag.' : 'Event created with a conflict flag.')
+            : (editorMode === 'edit' ? 'Event updated successfully.' : 'Event created successfully.'),
         });
-      } else {
-        fetchEvents();
-      }
-
-      setEditorOpen(false);
-      setConflictDialogOpen(false);
-      setConflictReport(null);
-      setToast({
-        open: true,
-        severity: 'success',
-        message: options.allowConflict
-          ? (editorMode === 'edit' ? 'Event saved with a conflict flag.' : 'Event created with a conflict flag.')
-          : (editorMode === 'edit' ? 'Event updated successfully.' : 'Event created successfully.'),
       });
     } catch (error) {
       setToast({
@@ -878,22 +911,24 @@ export default function CalendarPage() {
     if (!eventForm.id || readOnly) return;
     setSaving(true);
     try {
-      const shouldReloadRange = Boolean(eventForm.recurring || (eventForm.occurrence && eventForm.occurrence !== 'only once'));
-      await apiClient.delete(`calendar/events/${eventForm.id}/`, {
-        data: {
-          title: eventForm.title,
-          partyBEmail: eventForm.partyBEmail,
-          occurrence: eventForm.occurrence,
-          recurring: eventForm.recurring,
-        },
+      await withBlocking('Deleting calendar event...', async () => {
+        const shouldReloadRange = Boolean(eventForm.recurring || (eventForm.occurrence && eventForm.occurrence !== 'only once'));
+        await apiClient.delete(`calendar/events/${eventForm.id}/`, {
+          data: {
+            title: eventForm.title,
+            partyBEmail: eventForm.partyBEmail,
+            occurrence: eventForm.occurrence,
+            recurring: eventForm.recurring,
+          },
+        });
+        if (shouldReloadRange) {
+          await fetchEvents(currentRange.start, currentRange.end);
+        } else {
+          setEvents((previous) => previous.filter((item) => item.id !== eventForm.id));
+        }
+        setEditorOpen(false);
+        setToast({ open: true, severity: 'success', message: 'Event deleted successfully.' });
       });
-      if (shouldReloadRange) {
-        await fetchEvents(currentRange.start, currentRange.end);
-      } else {
-        setEvents((previous) => previous.filter((item) => item.id !== eventForm.id));
-      }
-      setEditorOpen(false);
-      setToast({ open: true, severity: 'success', message: 'Event deleted successfully.' });
     } catch (error) {
       setToast({
         open: true,
@@ -915,15 +950,17 @@ export default function CalendarPage() {
         end: changeInfo.event.endStr,
         allDay: changeInfo.event.allDay,
       };
-      await apiClient.put(`calendar/events/${changeInfo.event.id}/`, movingEvent);
-      if (movingEvent.recurring) {
-        await fetchEvents(currentRange.start, currentRange.end);
-      } else {
-        setEvents((previous) =>
-          previous.map((item) => (item.id === changeInfo.event.id ? normalizeEventFromApi(movingEvent) : item))
-        );
-      }
-      setToast({ open: true, severity: 'success', message: 'Event timing updated.' });
+      await withBlocking('Updating calendar event...', async () => {
+        await apiClient.put(`calendar/events/${changeInfo.event.id}/`, movingEvent);
+        if (movingEvent.recurring) {
+          await fetchEvents(currentRange.start, currentRange.end);
+        } else {
+          setEvents((previous) =>
+            previous.map((item) => (item.id === changeInfo.event.id ? normalizeEventFromApi(movingEvent) : item))
+          );
+        }
+        setToast({ open: true, severity: 'success', message: 'Event timing updated.' });
+      });
     } catch {
       changeInfo.revert();
       setToast({ open: true, severity: 'error', message: 'Unable to move the event.' });
@@ -972,7 +1009,7 @@ export default function CalendarPage() {
 
       <Toast toast={toast} onClose={() => setToast((previous) => ({ ...previous, open: false }))} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_320px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_320px]">
         <aside className="overflow-hidden rounded-[28px] border border-primary/10 bg-[linear-gradient(180deg,#fffdfa_0%,#f7f0e8_100%)] shadow-[0_20px_40px_rgba(49,31,14,0.08)]">
           <div className="flex flex-col gap-6 p-6">
             <div className="flex items-center gap-3">
@@ -1085,32 +1122,16 @@ export default function CalendarPage() {
 
         <section className="overflow-hidden rounded-[28px] border border-primary/10 bg-white shadow-[0_20px_40px_rgba(49,31,14,0.08)]">
           <div className="border-b border-primary/10 bg-white/85 px-6 py-5 backdrop-blur-sm">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-3xl font-black tracking-tight text-ink">{currentRange.label}</h2>
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                    {filteredEvents.length} live events
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-slate-500">
-                  Advanced legal scheduling with conflict checks, rescheduling support, and case-aware event intake.
-                </p>
+            {/* Row 1: title + view controls */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-3xl font-black tracking-tight text-ink">{currentRange.label}</h2>
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                  {filteredEvents.length} live events
+                </span>
               </div>
 
-              <div className="flex w-full max-w-xl flex-col gap-3">
-                <div className="flex items-center gap-3 rounded-full border border-primary/10 bg-primary/5 px-4 py-3">
-                  <span className="material-symbols-outlined text-slate-400">search</span>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search cases, clients, locations, or notes"
-                    className="w-full bg-transparent text-sm text-ink placeholder:text-slate-400 outline-none"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex flex-wrap gap-2">
                     {[
                       ['dayGridMonth', 'Month'],
@@ -1147,8 +1168,19 @@ export default function CalendarPage() {
                       <span className="material-symbols-outlined text-base">refresh</span>
                     </button>
                   </div>
-                </div>
               </div>
+            </div>
+
+            {/* Row 2: search bar — always full width, never competes with date */}
+            <div className="mt-4 flex items-center gap-3 rounded-full border border-primary/10 bg-primary/5 px-4 py-3">
+              <span className="material-symbols-outlined text-slate-400">search</span>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search cases, clients, locations, or notes"
+                className="w-full bg-transparent text-sm text-ink placeholder:text-slate-400 outline-none"
+              />
             </div>
           </div>
 
@@ -1235,7 +1267,7 @@ export default function CalendarPage() {
           </div>
         </section>
 
-        <aside className="overflow-hidden rounded-[28px] border border-primary/10 bg-[linear-gradient(180deg,#fffdfa_0%,#f7f0e8_100%)] shadow-[0_20px_40px_rgba(49,31,14,0.08)]">
+        <aside className="hidden xl:block overflow-hidden rounded-[28px] border border-primary/10 bg-[linear-gradient(180deg,#fffdfa_0%,#f7f0e8_100%)] shadow-[0_20px_40px_rgba(49,31,14,0.08)]">
           <div className="flex h-full flex-col gap-5 p-6">
             <div className="flex items-start justify-between gap-4">
               <div>

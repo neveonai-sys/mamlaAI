@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse, HttpResponseNotFound
 from rest_framework.decorators import api_view
 from supabase_required import supabase_required
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 import logging
 import datetime
 import traceback
@@ -27,7 +27,7 @@ def dashboard_home(request):
         if not user_id:
             return JsonResponse({'error': 'User ID not found in token'}, status=401)
 
-        db = get_mongo_client()['legaldb']
+        db = get_mongo_db()
         now = datetime.datetime.utcnow()
         in_30_days = now + datetime.timedelta(days=30)
 

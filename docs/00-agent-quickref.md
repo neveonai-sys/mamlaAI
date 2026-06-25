@@ -15,8 +15,15 @@
 | Any frontend change (routes, Redux, Axios, components) | `docs/03-frontend-webpack.md` |
 | eCourts / court data / scraper | `docs/06-ecourts-scraper.md` |
 | Big picture / repo layout | `docs/01-architecture-overview.md` |
+| Project graph / system map | `docs/16-project-graphify.md` |
 | What was last changed / what to do next | `docs/05-changelog-and-improvements.md` |
+| Local dev setup, start commands, env vars | `docs/00-running-locally.md` |
 | Mamla Brain framework (RAG+LLM, Case Companion, external API) | `docs/07-mamla-brain-framework.md` |
+| **One-stop lawyer workflow plan (case registry, agents, hearing prep, client portal)** | `docs/08-lawyer-workflow-plan.md` |
+| **Unified Case Hub + context-aware workflow — COMPLETE (2026-04-04)** | `docs/10-unified-casehub-plan.md` |
+| **Agentic Guided Drafting Flow (conversational intake → draft generation)** | `docs/11-agentic-guided-drafting-plan.md` |
+| **Pricing, billing plans, user types, payment gateway architecture** | `docs/09-pricing-and-billing-plan.md` |
+| **Mobile app (Capacitor) — Android/iOS setup, JWT/Bearer auth, build workflow** | `docs/15-mobile-capacitor-setup.md` |
 
 ---
 
@@ -42,8 +49,12 @@
 | Calendar recurring regression script | `Legalv1/scripts/calendar_recurring_regression.py` |
 | Utilities (email, state/district/court) | `Legalv1/utilities/views.py` · `Legalv1/utilities/urls.py` |
 | TalkDoc (RAG) views + URLs | `Legalv1/talkdoc/views.py` · `Legalv1/talkdoc/urls.py` |
-| eCourts API (ACTIVE) views + URLs | `Legalv1/ecourts_api/views.py` · `Legalv1/ecourts_api/urls.py` |
-| eCourts Scraper (DISABLED) | `Legalv1/ecourts_scraper/` — do not enable without resolving CAPTCHA |
+| Mamla Brain framework app | `Legalv1/mamla_brain/` |
+| eCourts Scraper (ACTIVE) views + URLs | `Legalv1/ecourts_scraper/views.py` · `Legalv1/ecourts_scraper/urls.py` |
+| eCourts v2 proxy to FastAPI scraper (ACTIVE) | `Legalv1/ecourt_scrapped/views.py` · `Legalv1/ecourt_scrapped/urls.py` · `Legalv1/ecourt_scrapped/services/scraper_client.py` · `Legalv1/ecourt_scrapped/services/master_data.py` · `Legalv1/ecourt_scrapped/services/ecourts_crawler.py` |
+| Case registry (cases, hearing notes, notes, tasks) | `Legalv1/cases/views.py` · `Legalv1/cases/urls.py` · `Legalv1/cases/routes/` |
+| AI agents (intake, doc-intel, hearing prep, post-hearing, draft context, closure, **conversational draft**) | `Legalv1/agents/views.py` · `Legalv1/agents/urls.py` · `Legalv1/agents/base_agent.py` · `Legalv1/agents/*.py` · **`Legalv1/agents/conversational_draft_agent.py`** |
+| eCourts direct API (DEPRECATED reference only) | `Legalv1/ecourts_api/` — keep commented/out of runtime |
 | Search views + URLs | `Legalv1/search_facility/views.py` · `Legalv1/search_facility/urls.py` |
 | Today's Updates views + URLs | `Legalv1/todaysupdates/views.py` · `Legalv1/todaysupdates/urls.py` |
 | WhatsApp webhook (do not touch) | `Legalv1/whatsapp_module/views.py` · `Legalv1/whatsapp_module/urls.py` |
@@ -60,11 +71,19 @@
 | `draft_content_data` · `user_draft_data` | create_drafts app |
 | `signup_tokens` · `feedback` | users app |
 | `state_district_court_data` | utilities app |
-| `ecourts_cache` | ecourts_api + ecourts_scraper (shared). Keys: `api:case:<cnr>`, `api:search:<hash>`, `defaults:cases`, `defaults:litigants`, `defaults:lawyers` |
+| `ecourts_cache` | ecourts_scraper cache entries (`hc:*`, `dc:*`) |
+| `ecourts_reference_data` | ecourts_scraper terminal dropdown/reference datasets |
 | `ecourts_scrape_jobs` | ecourts_scraper (disabled) |
+| `ecourts_master_data` | ecourt_scrapped (cached dropdown data for v2 API — live scrape + TTL cache) |
+| `ecourts_states` · `ecourts_districts` | ecourt_scrapped (pre-seeded location data, read by master_data.py first) |
 | `whatsapp_chat_sessions` · `service_orders` | whatsapp_module |
+| `cases` | cases app — internal case registry |
+| `hearing_notes` | cases app — prep + outcome per hearing |
+| `case_notes` | cases app — threaded notes (internal/shared visibility) |
+| `case_tasks` | cases app — tasks per case |
+| `draft_conversations` | ai_draft app — guided drafting conversational intake sessions (ConversationalDraftAgent) |
 
-Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_client()`.
+DB name: **`MONGO_DB_NAME`** env var (prod: `mamladb`, dev: `legaldb`). Get active DB via `core.init_clients.get_mongo_db()`. Never hardcode `['legaldb']`.
 
 ---
 
@@ -81,7 +100,11 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | `/api/search/` | `search_facility` |
 | `/api/todaysupdates/` | `todaysupdates` |
 | `/api/talkdoc/` | `talkdoc` |
-| `/api/ecourts/` | `ecourts_api` (active) |
+| `/api/brain/` | `mamla_brain` |
+| `/api/cases/` | `cases` (case registry, hearing notes, case notes, tasks) |
+| `/api/agents/` | `agents` (CaseIntake, DocumentIntel, HearingPrep, PostHearing, DraftContext, CaseClosure) |
+| `/api/ecourts/` | `ecourts_scraper` (active) |
+| `/api/ecourts/v2/` | `ecourt_scrapped` (proxy to standalone FastAPI scraper) |
 | `/api/webhook/` | `whatsapp_module` |
 | (root) | `calendersetup` (Google Calendar OAuth) |
 
@@ -99,27 +122,26 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 
 ## Frontend — exact file paths
 
+Active frontend first. `frontend_webpack/` is the previous UI only.
+
 | What | Exact path |
 |------|-----------|
-| App entry | `frontend_webpack/src/index.js` |
-| Theme + Router wrapper | `frontend_webpack/src/App.js` |
-| **All routes + auth check** | `frontend_webpack/src/AppContent.js` |
-| Redux store | `frontend_webpack/src/store.js` |
-| User slice (auth state) | `frontend_webpack/src/features/userSlice.js` |
-| Chat docs slice | `frontend_webpack/src/features/chatDocsSlice.js` |
-| **Axios instance** (baseURL, interceptors, auth header) | `frontend_webpack/src/components/common/AxiosInstance.jsx` |
-| Layout (Navbar + Outlet) | `frontend_webpack/src/components/layout/Layout.jsx` |
-| Navbar | `frontend_webpack/src/components/layout/Navbar.jsx` |
-| Login page (Supabase) | `frontend_webpack/src/components/auth/LoginSupabase.jsx` (or similar) |
-| Error boundary | `frontend_webpack/src/components/ErrorBoundary.jsx` |
-| Security utils | `frontend_webpack/src/utils/securityUtils.js` |
-| Security middleware (Axios) | `frontend_webpack/src/middleware/securityMiddleware.js` |
-| TalkDoc service | `frontend_webpack/src/services/talkdocService.js` |
-| Webpack common config | `frontend_webpack/webpack.common.js` |
-| Webpack prod config (env injection) | `frontend_webpack/webpack.prod.js` |
-| Webpack dev config (proxy /api) | `frontend_webpack/webpack.dev.js` |
-| Package.json | `frontend_webpack/package.json` |
-| Deprecated / unused components | `frontend_webpack/src/components/unused/` — not in any route |
+| App entry | `mamlaAI_ground_zero/frontend/src/index.js` |
+| Router wrapper | `mamlaAI_ground_zero/frontend/src/App.js` |
+| **All routes + auth check** | `mamlaAI_ground_zero/frontend/src/AppContent.js` |
+| Redux store | `mamlaAI_ground_zero/frontend/src/store.js` |
+| User slice (auth state) | `mamlaAI_ground_zero/frontend/src/features/userSlice.js` |
+| Entitlements slice | `mamlaAI_ground_zero/frontend/src/features/entitlementsSlice.js` |
+| Chat docs slice | `mamlaAI_ground_zero/frontend/src/features/chatDocsSlice.js` |
+| **API client** (baseURL, interceptors, auth header) | `mamlaAI_ground_zero/frontend/src/services/api.js` |
+| App shell | `mamlaAI_ground_zero/frontend/src/components/layout/AppShell.jsx` |
+| Sidebar | `mamlaAI_ground_zero/frontend/src/components/layout/Sidebar.jsx` |
+| Top bar | `mamlaAI_ground_zero/frontend/src/components/layout/TopBar.jsx` |
+| Login page | `mamlaAI_ground_zero/frontend/src/components/auth/Login.jsx` |
+| Error boundary | `mamlaAI_ground_zero/frontend/src/components/common/ErrorBoundary.jsx` |
+| Security utils | `mamlaAI_ground_zero/frontend/src/utils/securityUtils.js` |
+| Tailwind tokens | `mamlaAI_ground_zero/frontend/tailwind.config.js` · `mamlaAI_ground_zero/frontend/src/index.css` |
+| Previous frontend reference | `frontend_webpack/` |
 
 ---
 
@@ -132,17 +154,24 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | API client (apiClient, withCredentials) | `mamlaAI_ground_zero/frontend/src/services/api.js` |
 | Redux store | `mamlaAI_ground_zero/frontend/src/store.js` |
 | User slice | `mamlaAI_ground_zero/frontend/src/features/userSlice.js` |
+| Entitlements slice | `mamlaAI_ground_zero/frontend/src/features/entitlementsSlice.js` |
+| Entitlements refresh helper | `mamlaAI_ground_zero/frontend/src/features/entitlementsActions.js` |
 | Chat docs slice | `mamlaAI_ground_zero/frontend/src/features/chatDocsSlice.js` |
 | App entry / Router | `mamlaAI_ground_zero/frontend/src/index.js` |
 | All routes | `mamlaAI_ground_zero/frontend/src/AppContent.js` |
 | **Dashboard** (agenda uses `upcoming_events_list`) | `mamlaAI_ground_zero/frontend/src/components/dashboard/Dashboard.jsx` |
 | **Command Center** (quick actions, live events) | `mamlaAI_ground_zero/frontend/src/components/dashboard/CommandCenter.jsx` |
-| **Drafting Workspace** (new draft, load draft, load template, save/revert, section history, location refresh) | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` |
+| **Drafting Workspace** (new draft, load draft, load template, save/revert, section history, location refresh, quota-aware AI suggestion UX) | `mamlaAI_ground_zero/frontend/src/components/drafting/DraftingWorkspace.jsx` |
+| **Guided Drafting Page** (conversational intake → draft_plan → generate; start with case/docs/scratch; mid-chat doc upload; ready banner with DraftPlanCard) | `mamlaAI_ground_zero/frontend/src/components/drafting/GuidedDraftingPage.jsx` |
 | **Calendar Page** (advanced legal calendar shell, FullCalendar, conflict workflow, case/client-aware intake, multi-day linked-series UX) | `mamlaAI_ground_zero/frontend/src/components/calendar/CalendarPage.jsx` |
 | **Court Updates** (subscription management + filter tabs) | `mamlaAI_ground_zero/frontend/src/components/courts/CourtUpdates.jsx` |
-| **Document Workspace** (TalkDoc / RAG chat, two-window flow: setup library for upload/delete/load chats, case/client-aware document filters, timestamped document labels, focused viewer+chat work window, live uploads into active chats, image preview, API-backed case/client suggestions with case→client autofill/filtering, session-scoped docs) | `mamlaAI_ground_zero/frontend/src/components/documents/DocumentWorkspace.jsx` |
+| **Document Workspace** (TalkDoc / RAG chat, two-window flow: setup library for upload/delete/load chats, case/client-aware document filters, timestamped document labels, focused viewer+chat work window, live uploads into active chats, image preview, API-backed case/client suggestions with case→client autofill/filtering, session-scoped docs, session-aware Brain quota banners/locks for both document analysis and general legal chat) | `mamlaAI_ground_zero/frontend/src/components/documents/DocumentWorkspace.jsx` |
 | **Case Detail** (hearings, null-safe date rendering) | `mamlaAI_ground_zero/frontend/src/components/cases/CaseDetail.jsx` |
-| **Client Onboarding** | `mamlaAI_ground_zero/frontend/src/components/clients/ClientOnboarding.jsx` |
+| **Case Registry** (case list + `CreateCaseModal` with inline Link Client section) | `mamlaAI_ground_zero/frontend/src/components/cases/CaseRegistry.jsx` |
+| **Case Hub** (7-tab case detail: Hearings, Notes, Tasks, Drafts, Documents, Calendar, eCourts; `case_ref` copy-chip in header; all tabs case-scoped via backend `?case_id=` filters) | `mamlaAI_ground_zero/frontend/src/components/cases/CaseHub.jsx` |
+| **Client Onboarding** (rows navigate to `/clients/:clientId`) | `mamlaAI_ground_zero/frontend/src/components/clients/ClientOnboarding.jsx` |
+| **Client Profile** (contact card + linked-case list; NEW) | `mamlaAI_ground_zero/frontend/src/components/clients/ClientProfile.jsx` |
+| Cases API wrappers (incl. `listCalendarEventsByCase`) | `mamlaAI_ground_zero/frontend/src/services/casesApi.js` |
 | Webpack dev config (proxy /api) | `mamlaAI_ground_zero/frontend/webpack.dev.js` |
 | Webpack prod config | `mamlaAI_ground_zero/frontend/webpack.prod.js` |
 | Tailwind config | `mamlaAI_ground_zero/frontend/tailwind.config.js` |
@@ -163,6 +192,13 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | `/home`, `/about`, `/sessions`, `/calendar`, `/my-updates`, `/feedback`, `/todays-updates` | Various pages | Protected (all users) |
 | `/draft-with-ai`, `/chat-with-docs` | DraftWithAI, ChatWithDocs | Protected (Lawyer or Client) |
 | `/onboard-client` | OnboardClient | Protected (Lawyer only) |
+| `/drafting` | DraftingWorkspace | Protected |
+| `/drafting/guided` | GuidedDraftingPage | Protected |
+| `/drafting/:id` | DraftingWorkspace | Protected |
+| `/cases` | CaseRegistry | Protected |
+| `/cases/:caseId` | CaseHub | Protected |
+| `/clients` | ClientOnboarding | Protected |
+| `/clients/:clientId` | ClientProfile | Protected |
 | `*` | — | Redirect to `/` |
 
 ---
@@ -183,12 +219,18 @@ Primary DB name: **`legaldb`**. Get client via `core.init_clients.get_mongo_clie
 | Variable | Used in | Purpose |
 |----------|---------|---------|
 | `MONGO_URI` | Backend settings | MongoDB connection string |
+| `MONGO_DB_NAME` | Backend settings | Active database name (prod: `mamladb`, dev: `legaldb`) |
+| `RESEND_API_KEY` | Backend settings | Resend SDK key for all outbound email |
+| `EMAIL_FROM` | Backend settings | From address for outbound email (`mamla@noreply.mamla.ai`) |
 | `FRONTEND_URL` | Backend settings | Used in email links, redirects (never hardcode `mamla.ai`) |
-| `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` | Backend settings | Supabase project config |
-| `ECOURT_TOKEN` | `ecourts_api` | eCourts partner API auth token |
+| `SUPABASE_URL` · `SUPABASE_SECRET_KEY` | Backend settings | Supabase project config (backend secret key) |
+| `ECOURTS_CAPSOLVER_API_KEY` / `CAPSOLVER_API_KEY` | `ecourts_scraper` | Capsolver token for CAPTCHA solving |
+| `BRAIN_T1_MODEL` · `BRAIN_T2_MODEL` · `BRAIN_T3_MODEL` | Backend settings | Mamla Brain tiered model routing |
+| `BRAIN_MONTHLY_FREE_QUOTA` | Backend settings | Default external Brain API-key quota |
+| `BRAIN_ADMIN_EMAILS` | Backend settings | Comma-separated admin emails → `internal` plan (unlimited). Set in `legalenv.dev`. Never commit. |
 | `REDIS_URL` | Backend settings | Redis broker + cache |
 | `REACT_APP_API_BASE_URL` | Frontend Webpack prod build | API base URL injected at build time |
-| `REACT_APP_SUPABASE_URL` · `REACT_APP_SUPABASE_ANON_KEY` | Frontend | Supabase client init on frontend |
+| `REACT_APP_SUPABASE_URL` · `REACT_APP_SUPABASE_PUBLISHABLE_KEY` | Frontend | Supabase publishable key injected at build time |
 
 Backend env is loaded via `legalenv` (dotenv). File: `Legalv1/legalenv`.  
 Frontend env is injected by Webpack DefinePlugin in `webpack.prod.js`.
@@ -221,7 +263,7 @@ Frontend env is injected by Webpack DefinePlugin in `webpack.prod.js`.
 
 Beat tasks (in `Legalv1/Legalv1/settings.py`):
 - `ecourts_scraper`: cache cleanup (4AM), health-check selectors (3AM), refresh causelists (6:30/12:30/18:30), refresh tracked cases (2AM)
-- `ecourts_api.tasks`: `populate_case_defaults` (daily 6:30AM), `populate_litigant_defaults` (daily 6:35AM), `populate_lawyer_defaults` (weekly Monday 6:40AM)
+- `ecourts_scraper.tasks`: `seed_reference_data` (daily 1:15AM), cache cleanup (4AM), health-check selectors (3AM), refresh causelists (6:30/12:30/18:30), refresh tracked cases (2AM)
 - `utilities.tasks`: fetch today's meetings (6AM), hourly reminders, cleanup previous-day index (23:59), consolidated reminders (6PM)
 - `users.tasks`: cleanup/invalidate sessions (every 5min/15min/weekly)
 - `whatsapp_module.tasks`: assign orders (9PM), paralegal reminders (every 2h), notify clients (6PM)
@@ -232,7 +274,7 @@ Beat tasks (in `Legalv1/Legalv1/settings.py`):
 
 | Thing | Status | Reason |
 |-------|--------|--------|
-| `ecourts_scraper` app | **Disabled** | CAPTCHA blocking browser automation. `ecourts_api` is the active replacement. |
+| `ecourts_api` app | **Deprecated reference only** | Keep code for historical rollback/debugging, but do not wire it into runtime, Beat, or frontend helpers. |
 | WhatsApp module | **Unchanged** | Low priority; to be refactored later. Do not touch. |
 | `src/components/unused/` | **Not in routes** | Deprecated; safe to delete but kept for reference. |
 | `models.py` files in apps | **Commented out** | Apps use raw MongoDB. Do not add ORM models. |

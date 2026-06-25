@@ -6,7 +6,7 @@ from search_facility.task import index_doc_celery
 # from celery import group, chord
 import logging
 from bson.objectid import ObjectId
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 logger = logging.getLogger('django')
 
@@ -23,7 +23,7 @@ class Handlesearch:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
 
     def index_document_opensearch(self):
@@ -38,7 +38,7 @@ class Handlesearch:
     def search_document_by_index(self, query_string):
         try:
             response = self.opensearch_client.search(
-            index="documents",
+            index=os.getenv("OPENSEARCH_INDEX_PREFIX", "") + "documents",
             body={
                 "query": {
                     "multi_match": {
@@ -93,7 +93,7 @@ class Handlesearch:
             # logger.info(f"hit found contengt ----- query == {query} ")
             # Execute the search query
             response = self.opensearch_client.search(
-                index="documents",  # Name of your OpenSearch index
+                index=os.getenv("OPENSEARCH_INDEX_PREFIX", "") + "documents",  # Name of your OpenSearch index
                 body=query
             )
 

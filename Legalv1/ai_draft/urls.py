@@ -33,6 +33,13 @@ authenticated_urlpatterns = [
     path('download_template', views.send_default_template_for_create_draft),
     path('get_draft_for', views.get_draft_for_draftsession_id),
     path('get_supported_languages', views.get_supported_languages),
+    # ── Guided Drafting (conversational intake → draft generation) ──
+    path('guide/start/', views.guide_start),
+    path('guide/message/', views.guide_message),
+    path('guide/upload_doc/', views.guide_upload_doc),
+    path('guide/generate/', views.guide_generate),
+    # ── Draft email delivery ──
+    path('send_draft/', views.send_draft_to_client),
 ]
 
 # Test draft endpoints (no authentication required, rate limited)

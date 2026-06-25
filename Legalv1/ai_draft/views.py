@@ -12,8 +12,22 @@ from supabase_required import supabase_required
 from django.core.cache import cache
 import traceback
 import logging
+from core.analytics import record_usage_event
+from core.entitlements import authorize_feature_use, consume_feature_use, get_feature_quota_payload
 
 logger = logging.getLogger('django')
+
+
+def _quota_error_response(message, quota, status):
+    return JsonResponse({'error': message, 'quota': quota}, status=status)
+
+
+def _authorize_draft_feature(request, feature_code):
+    return authorize_feature_use(getattr(request, 'supabase_user', None), feature_code)
+
+
+def _finalize_draft_quota(request, feature_code, decision):
+    return consume_feature_use(getattr(request, 'supabase_user', None), feature_code, decision)
 
 
 @api_view(['GET'])
@@ -64,6 +78,9 @@ def initiate_drafting_session(request):
     supa_user  = request.supabase_user
     user_id    = supa_user.get('user_id')
     user_type = supa_user.get('user_type', 'Client')  # Default to 'Client' if not specified
+    decision = _authorize_draft_feature(request, 'ai_draft_generation')
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
 
     # For client users, ensure draft_for is empty or contains only their own user_id
     if user_type == 'Client':
@@ -83,10 +100,15 @@ def initiate_drafting_session(request):
         data.get('language', 'English')
     )
 
+    if not session_id:
+        logger.error('[initiate_drafting_session] session creation failed — insert_one returned empty id')
+        return JsonResponse({'error': 'Failed to create draft session. Please try again.'}, status=500)
+
     # fetch the freshly‑generated sections
     draft_sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
     draft_name = f"Untitled {datetime.datetime.now().strftime('%Y‑%m‑d %H:%M')}"
     saved_draft = obj.auto_save_initial_draft(session_id, draft_name, draft_sections)
+    quota = _finalize_draft_quota(request, 'ai_draft_generation', decision)
 
     return JsonResponse({
         'session_id': str(session_id),
@@ -95,7 +117,8 @@ def initiate_drafting_session(request):
         'draft_saved_at': saved_draft.get('saved_at'),
         'last_updated_on': saved_draft.get('last_updated_on'),
         'draft_for' : draft_for,
-        'draft_sections': draft_sections
+        'draft_sections': draft_sections,
+        'quota': quota,
     })
 
 
@@ -147,6 +170,7 @@ def update_section(request):
     logger.info(f"[update_section] Section {section_id} updated successfully.")
 
     if chk.get('mssg'):
+        cache.delete(f"draft_sections:{session_id}")
         return JsonResponse({'message': 'Section updated'})
     else:
         return JsonResponse({'error': 'Section not found'}, status=404)
@@ -170,6 +194,7 @@ def delete_section(request):
     chk = obj.delete_specific_section_of_the_draft(session_id, section_id)
 
     if chk.get('mssg'):
+        cache.delete(f"draft_sections:{session_id}")
         return JsonResponse({'message': 'Section deleted'})
     else:
         return JsonResponse({'error': 'Section not found or already deleted'}, status=404)
@@ -190,21 +215,68 @@ def suggest_section(request):
     supa_user = request.supabase_user
     user_id = supa_user.get('user_id')
     obj = CreateupdatefetchAIdrafts(user_id)
-    # Retrieve session and section
+    current_count = obj.get_ai_suggested_content_count(session_id)
+    per_draft_limit = 7
+    overage_decision = None
+
+    if current_count >= per_draft_limit:
+        overage_decision = authorize_feature_use(supa_user, 'ai_suggestions')
+        if not overage_decision.get('allowed'):
+            quota = get_feature_quota_payload(
+                supa_user,
+                'ai_suggestions',
+                allowed=False,
+                next_cta=overage_decision['quota'].get('next_cta', ''),
+                message_key=overage_decision['quota'].get('message_key', ''),
+                included_limit_override=per_draft_limit,
+                used_count_override=current_count,
+                remaining_override=0,
+            )
+            return JsonResponse({
+                'error': 'AI suggestion limit reached for this draft.',
+                'quota': quota,
+            }, status=overage_decision.get('status_code', 429))
+
     chk = obj.update_content_using_AI_with_user_input(session_id, section_id, suggestion)
-    ai_update_count = obj.update_ai_suggested_content_count(session_id)
-    
-    # Check if the limit is reached before allowing more suggestions
-    if ai_update_count > 7:
-        return JsonResponse({'error': 'AI suggestion limit reached. Please upgrade to Premium for more suggestions.'}, status=400)
 
     if chk.get('mssg'):
+        _u = chk.get('usage') or {}
+        record_usage_event(request, 'ai_draft', _u.get('model', ''), _u.get('prompt_tokens', 0), _u.get('completion_tokens', 0))
+        ai_update_count = obj.update_ai_suggested_content_count(session_id)
+        wallet_credits_charged = 0
+        message_key = ''
+        if overage_decision:
+            wallet_quota = consume_feature_use(supa_user, 'ai_suggestions', overage_decision)
+            wallet_credits_charged = wallet_quota.get('wallet_credits_charged', 0)
+            message_key = wallet_quota.get('message_key', '')
+        elif ai_update_count >= 5:
+            message_key = 'quota_low_remaining'
+
+        quota = get_feature_quota_payload(
+            supa_user,
+            'ai_suggestions',
+            next_cta='continue',
+            message_key=message_key,
+            wallet_credits_charged=wallet_credits_charged,
+            included_limit_override=per_draft_limit,
+            used_count_override=ai_update_count,
+            remaining_override=max(per_draft_limit - ai_update_count, 0),
+        )
         return JsonResponse({
             'updated_content': chk.get('mssg'),
-            'ai_update_count': ai_update_count
+            'ai_update_count': ai_update_count,
+            'quota': quota,
         })
     else:
-        return JsonResponse({'updated_content': '', 'ai_update_count': ai_update_count}, status=400)
+        quota = get_feature_quota_payload(
+            supa_user,
+            'ai_suggestions',
+            next_cta='continue',
+            included_limit_override=per_draft_limit,
+            used_count_override=current_count,
+            remaining_override=max(per_draft_limit - current_count, 0),
+        )
+        return JsonResponse({'updated_content': '', 'ai_update_count': current_count, 'quota': quota}, status=400)
 
 
 
@@ -228,6 +300,7 @@ def add_section(request):
     obj = CreateupdatefetchAIdrafts(user_id)
     chk = obj.add_new_section_in_existing_draft(session_id, section_name, content)
     if chk.get('mssg'):
+        cache.delete(f"draft_sections:{session_id}")
         return JsonResponse({'message': 'Section added', 'section': chk.get('mssg')})
     else:
         return JsonResponse({'error': 'Failed to add section'}, status=500)
@@ -274,6 +347,7 @@ def update_section_order(request):
     obj = CreateupdatefetchAIdrafts(user_id)
     chk = obj.adjust_section_position_in_draft(session_id,draft_sections)
     if chk.get('mssg'):
+        cache.delete(f"draft_sections:{session_id}")
         return JsonResponse({'message': 'Section order updated'})
     else:
         return JsonResponse({'error': 'Failed to add section'}, status=500)
@@ -633,6 +707,9 @@ def upload_template(request):
     """
     supa_user = request.supabase_user
     user_id = supa_user.get('user_id')
+    decision = _authorize_draft_feature(request, 'ai_draft_generation')
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
     
     # Always require draft_type
     draft_type = request.POST.get('draft_type', '').strip()
@@ -688,9 +765,11 @@ def upload_template(request):
         chk = obj.save_draft_from_template(draft_type, draft_sections, draft_for)
 
         if chk.get("mssg"):
+            quota = _finalize_draft_quota(request, 'ai_draft_generation', decision)
             return JsonResponse({
                 'message': 'Template uploaded/processed successfully.',
-                'session_id': chk["mssg"]
+                'session_id': chk["mssg"],
+                'quota': quota,
             }, status=200)
         else:
             logger.error(f"Exception in upload_template: {traceback.format_exc()}")
@@ -716,6 +795,9 @@ def create_drfatsession_by_casedocument(request):
 
     supa_user = request.supabase_user
     user_id = supa_user.get('user_id')
+    decision = _authorize_draft_feature(request, 'ai_draft_generation')
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
     file = request.FILES.get('file')
     draft_for = json.loads(request.POST.get('draft_for'))
     language  = request.POST.get('language','English')
@@ -746,7 +828,8 @@ def create_drfatsession_by_casedocument(request):
 
     chk = obj.insert_draft_session_for_casedocument(draft_sections, draft_for, language)
     if chk.get("mssg"):
-        return JsonResponse({'message': 'Case document processed successfully.', 'session_id': chk.get("mssg")}, status=200)
+        quota = _finalize_draft_quota(request, 'ai_draft_generation', decision)
+        return JsonResponse({'message': 'Case document processed successfully.', 'session_id': chk.get("mssg"), 'quota': quota}, status=200)
     else:
         logger.error(f"Exception in file_lawsuit: {traceback.format_exc()}")
         return JsonResponse({'error': 'An error occurred while processing the case document.'}, status=500)
@@ -793,10 +876,14 @@ def list_drafts(request):
     page_size = int(request.GET.get('page_size', 20))
     page = int(request.GET.get('page', 1))
     q = request.GET.get('q', '').strip().lower()
+    case_id = request.GET.get('case_id', '').strip()
 
     db = CreateupdatefetchAIdrafts(user_id).get_mongo_client_db()
+    base_query = {"user_id": user_id}
+    if case_id:
+        base_query["draft_for.caseid"] = case_id
     saved = []
-    for sess in db.find({"user_id": user_id},
+    for sess in db.find(base_query,
                         {"saved_drafts": 1, "draft_for": 1, "last_updated_on": 1, "status": 1}):
         sess_for = sess.get("draft_for", {})
         for d in sess.get("saved_drafts", []):
@@ -857,7 +944,8 @@ def refine_section(request):
     section_index = data.get('section_index', 0)
     instruction = data.get('instruction', '')
 
-    user_id = request.supabase_user.get('user_id')
+    supa_user = request.supabase_user
+    user_id = supa_user.get('user_id')
     obj = CreateupdatefetchAIdrafts(user_id)
     sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
     if not sections or section_index >= len(sections):
@@ -865,13 +953,50 @@ def refine_section(request):
     sec = sections[section_index]
     section_id = sec.get('section_id')
 
-    ai_update_count = obj.update_ai_suggested_content_count(session_id)
-    if ai_update_count > 7:
-        return JsonResponse({'error': 'AI suggestion limit reached. Please upgrade to Premium.'}, status=400)
+    current_count = obj.get_ai_suggested_content_count(session_id)
+    per_draft_limit = 7
+    overage_decision = None
+    if current_count >= per_draft_limit:
+        overage_decision = authorize_feature_use(supa_user, 'ai_suggestions')
+        if not overage_decision.get('allowed'):
+            quota = get_feature_quota_payload(
+                supa_user,
+                'ai_suggestions',
+                allowed=False,
+                next_cta=overage_decision['quota'].get('next_cta', ''),
+                message_key=overage_decision['quota'].get('message_key', ''),
+                included_limit_override=per_draft_limit,
+                used_count_override=current_count,
+                remaining_override=0,
+            )
+            return JsonResponse({
+                'error': 'AI suggestion limit reached for this draft.',
+                'quota': quota,
+            }, status=overage_decision.get('status_code', 429))
 
     chk = obj.update_content_using_AI_with_user_input(session_id, section_id, instruction)
     refined = chk.get('mssg', '')
-    return JsonResponse({'refined_content': refined, 'content': refined, 'ai_update_count': ai_update_count})
+    ai_update_count = obj.update_ai_suggested_content_count(session_id)
+    wallet_credits_charged = 0
+    message_key = ''
+    if overage_decision:
+        wallet_quota = consume_feature_use(supa_user, 'ai_suggestions', overage_decision)
+        wallet_credits_charged = wallet_quota.get('wallet_credits_charged', 0)
+        message_key = wallet_quota.get('message_key', '')
+    elif ai_update_count >= 5:
+        message_key = 'quota_low_remaining'
+
+    quota = get_feature_quota_payload(
+        supa_user,
+        'ai_suggestions',
+        next_cta='continue',
+        message_key=message_key,
+        wallet_credits_charged=wallet_credits_charged,
+        included_limit_override=per_draft_limit,
+        used_count_override=ai_update_count,
+        remaining_override=max(per_draft_limit - ai_update_count, 0),
+    )
+    return JsonResponse({'refined_content': refined, 'content': refined, 'ai_update_count': ai_update_count, 'quota': quota})
 
 
 @api_view(['POST'])
@@ -893,3 +1018,224 @@ def export_draft(request):
         response['Content-Disposition'] = f'attachment; filename=legal_draft.{fmt}'
         return response
     return JsonResponse({'error': 'No draft available'}, status=400)
+
+
+# ─── Guided Drafting endpoints ────────────────────────────────────────────────
+
+@api_view(['POST'])
+@supabase_required
+def guide_start(request):
+    """POST aidrafts/guide/start/ — Start a new guided drafting conversation."""
+    import agents.conversational_draft_agent as cda
+    data = json.loads(request.body)
+    user_id = request.supabase_user.get('user_id')
+    result = cda.start(
+        user_id=user_id,
+        case_id=data.get('case_id') or None,
+        document_ids=data.get('document_ids') or None,
+    )
+    if not result.get('ok'):
+        return JsonResponse({'error': result.get('error', 'Failed to start session.')}, status=400)
+    return JsonResponse({'conv_id': result['conv_id'], 'message': result['message']})
+
+
+@api_view(['POST'])
+@supabase_required
+def guide_message(request):
+    """POST aidrafts/guide/message/ — Send a user message in the guided conversation."""
+    import agents.conversational_draft_agent as cda
+    data = json.loads(request.body)
+    user_id = request.supabase_user.get('user_id')
+    conv_id = (data.get('conv_id') or '').strip()
+    user_text = (data.get('message') or '').strip()
+    if not conv_id or not user_text:
+        return JsonResponse({'error': 'conv_id and message are required.'}, status=400)
+    result = cda.message(conv_id=conv_id, user_id=user_id, user_text=user_text)
+    if not result.get('ok'):
+        return JsonResponse({'error': result.get('error', 'Failed to process message.')}, status=400)
+    return JsonResponse({
+        'reply': result['reply'],
+        'ready': result['ready'],
+        'draft_plan': result.get('draft_plan'),
+    })
+
+
+@api_view(['POST'])
+@supabase_required
+def guide_upload_doc(request):
+    """POST aidrafts/guide/upload_doc/ — Process newly uploaded docs mid-conversation."""
+    import agents.conversational_draft_agent as cda
+    data = json.loads(request.body)
+    user_id = request.supabase_user.get('user_id')
+    conv_id = (data.get('conv_id') or '').strip()
+    document_ids = data.get('document_ids') or []
+    if not conv_id or not document_ids:
+        return JsonResponse({'error': 'conv_id and document_ids are required.'}, status=400)
+    result = cda.handle_doc_upload(conv_id=conv_id, user_id=user_id, document_ids=document_ids)
+    if not result.get('ok'):
+        return JsonResponse({'error': result.get('error', 'Document processing failed.')}, status=400)
+    return JsonResponse({'reply': result['reply']})
+
+
+@api_view(['POST'])
+@supabase_required
+def guide_generate(request):
+    """POST aidrafts/guide/generate/ — Generate the draft from the gathered context."""
+    import agents.conversational_draft_agent as cda
+    data = json.loads(request.body)
+    user_id = request.supabase_user.get('user_id')
+    conv_id = (data.get('conv_id') or '').strip()
+    if not conv_id:
+        return JsonResponse({'error': 'conv_id is required.'}, status=400)
+    # quota gate — reuse same feature code as regular draft generation
+    decision = _authorize_draft_feature(request, 'ai_draft_generation')
+    if not decision.get('allowed'):
+        return _quota_error_response(decision['message'], decision['quota'], decision.get('status_code', 429))
+    result = cda.generate(conv_id=conv_id, user_id=user_id)
+    if not result.get('ok'):
+        return JsonResponse({'error': result.get('error', 'Draft generation failed.')}, status=400)
+    _finalize_draft_quota(request, 'ai_draft_generation', decision)
+    return JsonResponse({'session_id': result['session_id']})
+
+
+# ── Draft Email Delivery ────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@supabase_required
+def send_draft_to_client(request):
+    """
+    POST /api/aidrafts/send_draft/
+    Body: {
+      session_id: str,
+      to_emails:  [str],   # max 5
+      cc_emails:  [str],   # optional
+      note:       str,     # optional lawyer note
+      format:     'docx' | 'pdf'   # default 'docx'
+    }
+    Generates draft attachment in the requested format and emails it.
+    """
+    import base64
+    import re
+    from io import BytesIO
+    import resend
+    from django.conf import settings
+    from core.email_templates import EmailTemplates
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+    supa_user = request.supabase_user
+    user_id   = supa_user.get('user_id')
+    user_type = supa_user.get('user_type', 'Client')
+
+    # Only lawyers/paralegals can send drafts to clients
+    if user_type == 'Client':
+        return JsonResponse({'error': 'Only lawyers can send drafts to clients.'}, status=403)
+
+    session_id  = (data.get('session_id') or '').strip()
+    to_emails   = data.get('to_emails', [])
+    cc_emails   = data.get('cc_emails', [])
+    note        = (data.get('note') or '').strip()
+    send_format = (data.get('format') or 'docx').lower()
+
+    if send_format not in ('docx', 'pdf'):
+        return JsonResponse({'error': "format must be 'docx' or 'pdf'."}, status=400)
+    if not session_id:
+        return JsonResponse({'error': 'session_id is required.'}, status=400)
+    if not isinstance(to_emails, list) or not to_emails:
+        return JsonResponse({'error': 'to_emails must be a non-empty list.'}, status=400)
+    if len(to_emails) > 5:
+        return JsonResponse({'error': 'Maximum 5 recipients allowed.'}, status=400)
+
+    # Basic email format validation
+    _email_re = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+    for addr in to_emails + (cc_emails if isinstance(cc_emails, list) else []):
+        if not _email_re.match(addr):
+            return JsonResponse({'error': f'Invalid email address: {addr}'}, status=400)
+
+    obj = CreateupdatefetchAIdrafts(user_id)
+
+    # ── Get draft sections ───────────────────────────────────────────────────
+    sections_result = obj.retrieve_sections_of_draft(session_id)
+    draft_sections  = sections_result.get('mssg') or []
+    if not draft_sections:
+        return JsonResponse({'error': 'Draft not found or has no sections.'}, status=404)
+
+    # ── Build attachment ─────────────────────────────────────────────────────
+    safe_title = re.sub(r'[^\w\s-]', '', session_id)[:30].strip()
+    lawyer_fname = supa_user.get('fname', 'Your Advocate')
+
+    if send_format == 'docx':
+        docx_result = obj.prepare_content_for_download(session_id)
+        if not docx_result.get('mssg'):
+            return JsonResponse({'error': 'Could not generate DOCX.'}, status=500)
+        file_bytes    = docx_result['mssg'].getvalue()
+        file_name     = f'{safe_title}.docx'
+        content_label = 'DOCX'
+    else:
+        # PDF via ReportLab
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+            from reportlab.lib.units import inch
+        except ImportError:
+            return JsonResponse({'error': 'PDF generation is not available on this server. Please choose DOCX.'}, status=503)
+
+        pdf_buffer = BytesIO()
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=A4,
+                                rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+        styles       = getSampleStyleSheet()
+        style_normal = styles['Normal']
+        style_normal.fontName = 'Helvetica'
+        style_heading = styles['Heading1']
+        flowables = []
+        for section in draft_sections:
+            section_name = section.get('section_name', '')
+            content      = section.get('content', '')
+            if section_name:
+                flowables.append(Paragraph(section_name, style_heading))
+                flowables.append(Spacer(1, 0.1 * inch))
+            for line in content.split('\n'):
+                flowables.append(Paragraph(line or '&nbsp;', style_normal))
+                flowables.append(Spacer(1, 0.05 * inch))
+            flowables.append(Spacer(1, 0.25 * inch))
+        doc.build(flowables)
+        pdf_buffer.seek(0)
+        file_bytes    = pdf_buffer.getvalue()
+        file_name     = f'{safe_title}.pdf'
+        content_label = 'PDF'
+
+    # ── Build email ──────────────────────────────────────────────────────────
+    client_fname = to_emails[0].split('@')[0].replace('.', ' ').replace('_', ' ').title()
+    subject, html_body = EmailTemplates.draft_delivery_email(
+        lawyer_fname=lawyer_fname,
+        client_fname=client_fname,
+        draft_title=safe_title or 'Legal Draft',
+        note=note,
+    )
+
+    # ── Send via Resend ──────────────────────────────────────────────────────
+    try:
+        resend.api_key = settings.RESEND_API_KEY
+        params = {
+            'from':    settings.EMAIL_FROM,
+            'to':      to_emails,
+            'subject': subject,
+            'html':    html_body,
+            'attachments': [{
+                'filename': file_name,
+                'content':  base64.b64encode(file_bytes).decode(),
+            }],
+        }
+        if cc_emails:
+            params['cc'] = cc_emails
+        result = resend.Emails.send(params)
+        logger.info(f"[send_draft_to_client] Email sent ({content_label}): {result.get('id')} to {to_emails}")
+        return JsonResponse({'sent': True, 'to': to_emails, 'format': send_format, 'email_id': result.get('id')})
+    except Exception:
+        logger.error(f"[send_draft_to_client] Resend error: {traceback.format_exc()}")
+        return JsonResponse({'error': 'Failed to send email. Please try again.'}, status=500)
+

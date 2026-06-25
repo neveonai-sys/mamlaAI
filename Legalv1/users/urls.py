@@ -4,11 +4,15 @@ from users import views, supabase_views
 urlpatterns = [
     # REST-compatible client endpoints (new frontend)
     path('clients/', supabase_views.list_clients),
-    path('clients/<str:client_id>/', supabase_views.update_client_detail),
+    # PUT clients/<id>/ only used by removed ClientOnboarding edit form — deactivated
+    # path('clients/<str:client_id>/', supabase_views.update_client_detail),
+    path('clients/<str:client_id>/status/', supabase_views.update_client_status),
+    path('clients/<str:client_id>/resend-invite/', supabase_views.resend_client_invite),
     path('invite_client/', supabase_views.invite_client_handler),
 
     path('signup-user/', views.signup_user),
     path('check-auth/', supabase_views.check_auth),
+    path('entitlements/summary/', supabase_views.entitlement_summary),
     path('invalidate-session/', supabase_views.invalidate_session),
     path('get-prefilled-data/', views.get_prefilled_data),
     path('onboard-client/', supabase_views.onboard_new_client),
@@ -21,13 +25,20 @@ urlpatterns = [
     path('verify-barcode/', views.verify_barcode),
     path('verify-email/', views.verify_email),
     path('submit-feedback/', supabase_views.submit_feedback),
+    path('consent-events/', supabase_views.save_consent_event),
     path("auth/check-username", supabase_views.check_username),
     path("onboard/", supabase_views.onboarding_new_user),
     path("get-profile", supabase_views.get_profile),
     path("login-user/", supabase_views.supabase_login),
+    path("resend-confirmation/", supabase_views.resend_confirmation_email),
     path("send-reset-password-link/", supabase_views.send_reset_password_link),
     path("reset-user-password/", supabase_views.reset_password),
     path("sign-out-user/", supabase_views.sign_out_supabase),
     path("signup-onboarded-client/", supabase_views.profile_update_of_client_onboarded_by_lawyer),
     path('add_case_client', supabase_views.add_case_client),
+
+    path('privacy/export-data/', supabase_views.export_user_data),
+    path('privacy/delete-data/', supabase_views.delete_user_data),
+    path('legal-doc-versions/', supabase_views.legal_doc_versions),
+    path('wallet/transactions/', supabase_views.wallet_transactions),
 ]

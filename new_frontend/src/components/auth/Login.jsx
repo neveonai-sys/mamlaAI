@@ -2,98 +2,138 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { setUser, clearUser } from '../../features/userSlice';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import apiClient from '../../services/api';
+import { NATIVE_TOKEN_KEY } from '../../services/api';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
+import AuthShowcase from './AuthShowcase';
+import MamlaLogo from '../common/MamlaLogo';
+import { useIconFont } from '../../hooks/useIconFont';
+import { usePostHog } from '@posthog/react';
 
 export default function Login() {
+  useIconFont();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailUnconfirmed, setEmailUnconfirmed] = useState(false);
+  const [resendStatus, setResendStatus] = useState(''); // '' | 'sending' | 'sent' | 'error'
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setEmailUnconfirmed(false);
+    setResendStatus('');
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Signing you in...' }));
 
     try {
       // Backend handles Supabase auth and sets HttpOnly cookie
-      await apiClient.post('users/login-user/', { email, password });
+      const loginRes = await apiClient.post('users/login-user/', { email, password });
 
-      // Fetch user info via cookie (auto-sent by browser)
-      const res = await apiClient.get('users/check-auth/');
-      if (res.data?.isAuthenticated) {
+      // Temporary native debug: log raw login response for diagnosis
+      if (Capacitor.isNativePlatform()) {
+        console.log('[native-debug] login response:', { status: loginRes.status, data: loginRes.data });
+      }
+
+      // On native (Android/iOS): store token then set user directly from login response
+      // (avoids a second check-auth/ call which can race against Preferences.set).
+      // On web: HttpOnly cookie is set by backend, so we verify via check-auth/ as before.
+      if (Capacitor.isNativePlatform()) {
+        if (!loginRes.data?.access_token) throw new Error('Login failed. Please try again.');
+        await Preferences.set({ key: NATIVE_TOKEN_KEY, value: loginRes.data.access_token });
         dispatch(setUser({
-          firstname: res.data.firstname,
-          lastname: res.data.lastname,
-          email: res.data.email_id,
-          user_type: res.data.user_type,
-          sessions: res.data.sessions,
+          firstname: loginRes.data.firstname,
+          lastname: loginRes.data.lastname,
+          email: loginRes.data.email,
+          user_type: loginRes.data.user_type,
         }));
+        posthog?.identify(email, { email, user_type: loginRes.data.user_type });
+        posthog?.capture('user_logged_in', { user_type: loginRes.data.user_type, platform: 'native' });
         navigate('/dashboard', { replace: true });
       } else {
-        throw new Error('Authentication check failed.');
+        // Web: verify via cookie-based check-auth
+        const res = await apiClient.get('users/check-auth/');
+        if (res.data?.isAuthenticated) {
+          dispatch(setUser({
+            firstname: res.data.firstname,
+            lastname: res.data.lastname,
+            email: res.data.email_id,
+            user_type: res.data.user_type,
+            sessions: res.data.sessions,
+          }));
+          posthog?.identify(res.data.email_id, { email: res.data.email_id, user_type: res.data.user_type });
+          posthog?.capture('user_logged_in', { user_type: res.data.user_type, platform: 'web' });
+          navigate('/dashboard', { replace: true });
+        } else {
+          throw new Error('Authentication check failed.');
+        }
       }
     } catch (err) {
-      const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Login failed.';
-      setError(msg);
+      // Temporary native debug: log error details to device log
+      if (Capacitor.isNativePlatform()) {
+        console.error('[native-debug] login error:', err?.response?.status, err?.response?.data, err?.message);
+      }
+      if (err.response?.status === 403 && err.response?.data?.error === 'email_not_confirmed') {
+        setEmailUnconfirmed(true);
+      } else {
+        const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Login failed.';
+        setError(msg);
+      }
       dispatch(clearUser());
     } finally {
+      dispatch(stopBlocking());
       setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendStatus('sending');
+    try {
+      await apiClient.post('users/resend-confirmation/', { email });
+      setResendStatus('sent');
+    } catch {
+      setResendStatus('error');
     }
   }
 
   return (
     <div className="flex min-h-screen w-full flex-col lg:flex-row bg-background-light">
-      {/* ── Left branding panel ───────────────────────────────── */}
-      <div className="relative hidden w-1/2 lg:flex items-center justify-center bg-primary/10 overflow-hidden">
-        {/* Background image with gradient overlay */}
-        <div className="absolute inset-0">
-          <div
-            className="h-full w-full bg-cover bg-center opacity-90"
-            style={{
-              backgroundImage:
-                "url('https://lh3.googleusercontent.com/aida-public/AB6AXuB-_62wTeIeiQFjJq50s1rwhMLExk37dYJ_zW_BGM7KdJXiQBl-nAwDOfx5L6aC55s6LtKjuKzlQeGcLuUAgE7Cmx3JZqUcFx37tslTXV-f9-FWFFE1Cs5V7Cddi7f-au97RAbKI8-M_8dmF8UK1R34lK68NnBeCFOjhc4v-1QmfwI1uMsVGGQIAI7AbYYhRCpnjjzo97U444_DlfAEWuAWHZ5LmQ3Up4rOYbj6DjuZGo-hYNYnRdcxp3q44wdv8HvksKEDj1bYTw')",
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background-dark/80 via-background-dark/20 to-transparent" />
-        </div>
-
-        <div className="relative z-10 p-12 max-w-xl">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8 text-white">
-            <span className="material-symbols-outlined text-4xl icon-filled">gavel</span>
-            <span className="text-2xl font-bold tracking-tight">Mamla.AI</span>
-          </div>
-
-          <h1 className="text-5xl font-black text-white leading-tight mb-6">
-            Trust and<br />Excellence.
-          </h1>
-          <p className="text-lg text-white/80 leading-relaxed font-light">
-            Empowering legal professionals with AI-driven precision and secure insights.
-            Your expertise, amplified by intelligence.
-          </p>
-        </div>
-
-        <div className="absolute bottom-8 left-12 text-white/50 text-sm">
-          © 2025 Mamla.AI. Secure &amp; Encrypted.
-        </div>
-      </div>
+      <AuthShowcase
+        eyebrow="Sign in"
+        title="Access your Mamla.AI workspace."
+        description="Continue with drafting, document review, court updates, and chamber operations from one place."
+        highlights={[
+          { title: 'Drafting', text: 'Open active drafts, edits, and saved matter work.' },
+          { title: 'Documents', text: 'Continue document analysis and chamber research.' },
+          { title: 'Secure', text: 'Protected access for counsel, clients, and paralegals.' },
+        ]}
+      />
 
       {/* ── Right form panel ──────────────────────────────────── */}
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-24 xl:px-32 bg-background-light">
-        <div className="mx-auto w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-10 text-primary">
-            <span className="material-symbols-outlined text-3xl icon-filled">gavel</span>
-            <span className="text-xl font-bold">Mamla.AI</span>
+      <div className="flex w-full flex-col justify-center px-6 py-6 lg:min-h-screen lg:w-1/2 lg:px-20 lg:py-8 xl:px-28 bg-background-light">
+        <div className="mx-auto w-full max-w-md rounded-[1.75rem] border border-slate-200/80 bg-white p-7 shadow-card lg:p-8">
+          <div className="mb-8 flex items-center justify-between">
+            <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary-dark transition-colors">
+              <span className="material-symbols-outlined text-base">arrow_back</span>
+              Back to Landing Page
+            </Link>
           </div>
 
-          <div className="mb-10">
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center mb-10">
+            <MamlaLogo height={44} />
+          </div>
+
+          <div className="mb-8">
             <h2 className="text-3xl font-bold text-ink tracking-tight">Welcome Back</h2>
-            <p className="mt-2 text-slate-500">
+            <p className="mt-2 font-medium leading-7 text-slate-600">
               Please enter your credentials to access your dashboard.
             </p>
           </div>
@@ -156,7 +196,35 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Error message */}
+            {/* Email not confirmed — amber callout with resend action */}
+            {emailUnconfirmed && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="flex items-start gap-2 mb-2">
+                  <span className="material-symbols-outlined text-base flex-shrink-0 mt-0.5">mark_email_unread</span>
+                  <div>
+                    <p className="font-semibold">Please verify your email before signing in.</p>
+                    <p className="mt-0.5 text-amber-700">Check your inbox and spam folder for a confirmation link from Mamla.AI.</p>
+                  </div>
+                </div>
+                {resendStatus === 'sent' ? (
+                  <p className="mt-2 font-medium text-emerald-700 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">check_circle</span>
+                    Confirmation email resent — check your inbox.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendStatus === 'sending'}
+                    className="mt-2 text-xs font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700 disabled:opacity-50"
+                  >
+                    {resendStatus === 'sending' ? 'Sending…' : resendStatus === 'error' ? 'Failed — try again' : 'Resend confirmation email'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Generic error message */}
             {error && (
               <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 <span className="material-symbols-outlined text-base flex-shrink-0">error</span>

@@ -5,16 +5,19 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#b45e08',
-        'primary-dark': '#8f4a06',
-        'background-light': '#f8f7f5',
-        'background-dark': '#221910',
-        ink: '#1c140d',
-        ivory: '#fcfaf8',
-        'ivory-dark': '#f0ede8',
+        primary: '#16345f',
+        'primary-dark': '#0d2241',
+        'primary-soft': '#d8e3f2',
+        'background-light': '#eef3f9',
+        'background-dark': '#08111f',
+        ink: '#0f1727',
+        graphite: '#334155',
+        ivory: '#ffffff',
+        'ivory-dark': '#e2e8f0',
       },
       fontFamily: {
         display: ['Inter', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
         serif: ['Lora', 'serif'],
       },
       borderRadius: {
@@ -25,9 +28,9 @@ module.exports = {
         full: '9999px',
       },
       boxShadow: {
-        subtle: '0 1px 3px 0 rgba(28,20,13,0.05), 0 1px 2px -1px rgba(28,20,13,0.05)',
-        card: '0 4px 6px -1px rgba(28,20,13,0.07), 0 2px 4px -2px rgba(28,20,13,0.07)',
-        elevated: '0 10px 15px -3px rgba(28,20,13,0.1), 0 4px 6px -4px rgba(28,20,13,0.1)',
+        subtle: '0 1px 3px 0 rgba(8,17,31,0.06), 0 1px 2px -1px rgba(8,17,31,0.06)',
+        card: '0 18px 45px -28px rgba(8,17,31,0.35), 0 10px 20px -18px rgba(8,17,31,0.2)',
+        elevated: '0 28px 55px -30px rgba(8,17,31,0.42), 0 18px 28px -24px rgba(8,17,31,0.3)',
       },
       animation: {
         'ping-slow': 'ping 2s cubic-bezier(0,0,0.2,1) infinite',

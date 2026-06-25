@@ -8,7 +8,7 @@ from datetime import datetime
 from xml.etree import ElementTree as ET
 from bson import ObjectId
 from celery import shared_task
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import vision_complete
 from .search import ensure_index
 from .chunk import split_into_chunks
@@ -20,7 +20,7 @@ CSV_EXTENSIONS = {'.csv'}
 XLSX_EXTENSIONS = {'.xlsx'}
 
 def _mongo():
-    return get_mongo_client()['legaldb']
+    return get_mongo_db()
 
 
 def _extension(filename: str) -> str:
@@ -312,7 +312,7 @@ def ingest_document(self, doc_id: str):
                 _mark_failed(db, doc, 'gridfs', id_err, logger)
                 raise Exception(f"Could not convert file_id to ObjectId: {id_err}")
         from gridfs import GridFS
-        gridfs_api = GridFS(get_mongo_client()["legaldb"], collection="talkdoc_files")
+        gridfs_api = GridFS(get_mongo_db(), collection="talkdoc_files")
         try:
             file_obj = gridfs_api.get(ObjectId(file_id))
             logger.info(f"[INGEST] Successfully fetched file from GridFS for doc_id: {doc_id}")
@@ -388,7 +388,7 @@ def ingest_document(self, doc_id: str):
                     "vector": vecs[i],
                     "created_at": datetime.utcnow()
                 }
-                actions.append({"index": {"_index": os.getenv("RAG_OS_INDEX","rag_chunks_v1")}})
+                actions.append({"index": {"_index": os.getenv("OPENSEARCH_INDEX_PREFIX", "") + os.getenv("RAG_OS_INDEX","rag_chunks_v1")}})
                 actions.append(body)
             if actions:
                 cli.bulk(body=actions, refresh=True)

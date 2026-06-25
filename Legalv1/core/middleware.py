@@ -5,7 +5,7 @@ Only active when DEBUG=True. Use header X-Dev-Bypass-Auth: 1 or query ?dev_auth=
 import logging
 from django.conf import settings
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 DEV_BYPASS_USER = {
     "user_id": "dev-swagger",

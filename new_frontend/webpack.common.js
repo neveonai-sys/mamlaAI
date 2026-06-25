@@ -1,5 +1,9 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
+
+const isProd = process.env.NODE_ENV === 'production';
 
 module.exports = {
   entry: './src/index.js',
@@ -24,7 +28,11 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader', 'postcss-loader'],
+        use: [
+          isProd ? MiniCssExtractPlugin.loader : 'style-loader',
+          'css-loader',
+          'postcss-loader',
+        ],
       },
       {
         test: /\.(png|jpg|jpeg|svg|gif|woff2?|ttf|eot)$/,
@@ -37,6 +45,15 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './public/index.html',
       favicon: false,
+    }),
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: 'public/robots.txt', to: 'robots.txt' },
+        { from: 'public/favicon.svg', to: 'favicon.svg' },
+        { from: 'public/sitemap.xml', to: 'sitemap.xml' },
+        { from: 'public/legal', to: 'legal' },
+        { from: 'public/support', to: 'support' },
+      ],
     }),
   ],
 };

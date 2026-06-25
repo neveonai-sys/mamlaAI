@@ -9,7 +9,7 @@ import logging
 import traceback
 from pydub import AudioSegment
 
-from core.init_clients import get_mongo_client, get_supabase_client
+from core.init_clients import get_mongo_client, get_mongo_db, get_supabase_client
 from whatsapp_module.tasks import process_audio_async
 
 logger = logging.getLogger('django')
@@ -45,7 +45,7 @@ class Whatsappmessageformulation:
         mongo = get_mongo_client()
         if not mongo:
             return None
-        return mongo["legaldb"]
+        return get_mongo_db()
 
     def _fetch_user_details(self) -> Dict[str, Optional[str]]:
         """

@@ -1,0 +1,31 @@
+Section 1
+Title: Specific Relief Act as remedy selector
+The Specific Relief Act is most useful as a remedy-selection framework. The first question is not simply whether a contract exists, but whether the claimant needs enforcement, restraint, rectification, cancellation, declaration, possession-linked relief, or only compensation. Retrieval should therefore identify the remedy objective before surfacing legal principles.
+
+Section 2
+Title: Specific performance suitability cluster
+Specific-performance style reasoning should weigh certainty of contract terms, readiness and willingness, uniqueness or substitute difficulty, plaintiff conduct, and practical enforceability of the decree. A good output should tell the user whether the main obstacle is uncertain terms, plaintiff default, delay, inequitable conduct, or availability of a cleaner damages alternative.
+
+Section 3
+Title: Negative covenant and injunction cluster
+Many commercial disputes are really about preventing breach rather than compelling full performance. The knowledge base should map exclusivity, confidentiality, non-disclosure, non-solicitation, and restraint-type covenants to injunction-oriented reasoning. The output should also warn where the requested restraint is too broad to be practically enforceable.
+
+Section 4
+Title: Cancellation rescission and rectification cluster
+Where the core complaint is that the document itself is defective, vitiated, or inaccurately recorded, retrieval should shift from performance logic to cancellation, rescission, or rectification logic. The key factual indicators are mistake, misrepresentation, fraud, drafting mismatch, later discovery of hidden defect, or continuing prejudice from leaving the instrument outstanding.
+
+Section 5
+Title: Declaratory relief cluster
+Sometimes the user needs legal status clarification more than coercive enforcement. Declaratory relief analysis should identify the threatened denial of right, the cloud on title or status, and whether additional consequential relief is necessary to make the declaration practical. Retrieval should also distinguish abstract advisory requests from live legal controversy.
+
+Section 6
+Title: Readiness willingness and equitable conduct cluster
+Specific-relief outputs should pay close attention to conduct. A claimant seeking equitable enforcement should usually be assessed on timely payment readiness, compliance with reciprocal obligations, responsiveness to notice, and overall fairness of posture. Retrieval should therefore detect unexplained delay, contradictory conduct, or attempts to seek equitable relief while withholding core performance.
+
+Section 7
+Title: Contract remedy overlap with damages cluster
+Specific-relief analysis should not ignore damages. Many files require a dual-track evaluation: whether coercive or declaratory relief is realistically available and what damages case exists if coercive relief is denied. The assistant should help users preserve both theories where procedurally and strategically appropriate.
+
+Section 8
+Title: Property and development agreement application cluster
+Specific relief often becomes especially important in property, share transfer, development, and long-term commercial control disputes. Retrieval should flag title readiness, possession, approvals, reciprocal steps, and third-party rights because these factors usually determine whether equitable relief is workable in practice rather than only attractive in theory.

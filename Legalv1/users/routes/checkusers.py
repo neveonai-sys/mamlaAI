@@ -12,7 +12,7 @@ import bcrypt
 from Legalv1.settings import FRONTEND_URL
 from users.tasks import send_email_celery, request_to_whatsapp_url, send_whatsapp_message_celery
 from utilities.routes.utils import Handutilities
-from core.init_clients import get_mongo_client, get_supabase_client
+from core.init_clients import get_mongo_client, get_mongo_db, get_supabase_client
 from core.email_templates import EmailTemplates
 
 # Get the logger for this module
@@ -26,7 +26,7 @@ class Handleuserdata:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
        
     def check_user_exists(self, chk_data):
@@ -85,7 +85,7 @@ class Handleuserdata:
         return bcrypt.checkpw(plain_password.encode('utf-8'), stored_hashed_password)
 
         
-    def create_new_user(self, phone_number, fname, lname, email, user_type, password, user_status, barcode_id=None, case_ids=[], state='', district='', courts='', whatsappOptIn=False, agreedTnC=False, onboarding_by_flag = False):
+    def create_new_user(self, phone_number, fname, lname, email, user_type, password, user_status, barcode_id=None, case_ids=[], state='', district='', courts='', college_name='', whatsappOptIn=False, agreedTnC=False, onboarding_by_flag = False):
         try:
             dtmstr = datetime.datetime.now(datetime.timezone.utc)
             user_id = self.generate_username(fname.lower(),lname.lower())+'_'+dtmstr.strftime("%Y%m%d%H%M%S")
@@ -122,9 +122,13 @@ class Handleuserdata:
             elif user_type=='Client':
                 data["case_ids"] = case_ids
             elif user_type=='Paralegal':
-                data["state"] = state 
+                data["state"] = state
                 data["district"] = district
                 data["courts"] = courts
+                data["template_draft_count"] = 0
+            elif user_type=='Law Student':
+                data["college_name"] = college_name
+                data["ai_draft_count"] = 0
                 data["template_draft_count"] = 0
             # logger.info(f"creating user data -----> {data} || {user_id}")
             self.get_mongo_client_db()['user_details'].insert_one(data)
@@ -142,20 +146,14 @@ class Handleuserdata:
         https://example.com/verify-email?token=verification_token
         The user must click within 24 hours to verify.
         """
-        frontend_url = FRONTEND_URL  # Define this in settings
+        frontend_url = FRONTEND_URL
         verify_link = f"{frontend_url}/api/users/verify-email/?token={verification_token}"
-        subject = "Email Verification"
-        body = (
-            f"Hello {fname},\n\n"
-            f"Please click the link below to verify your email (valid for 24 hours):\n{verify_link}\n\n"
-            "Regards,\nYour Platform Team"
-        )
-        # send_email_celery.delay(email, subject, body)
+        subject, body = EmailTemplates.email_verification_link(fname, verify_link)
         obj = Handutilities()
         payload = {
-        "to_emails": email,
-        "subject": subject,
-        "body": body
+            "to_emails": email,
+            "subject": subject,
+            "body": body,
         }
         chk = obj.initiate_email(payload)
         logger.info(f"[DEBUG] Sending email to {email} with link {verify_link}")

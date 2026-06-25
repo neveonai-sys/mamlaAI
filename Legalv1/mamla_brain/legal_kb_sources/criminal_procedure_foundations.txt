@@ -1,0 +1,31 @@
+Section 1
+Title: Criminal matter intake and procedural posture
+Criminal reasoning begins with posture. The first question is whether the matter is at complaint stage, FIR stage, investigation stage, cognizance, charge, trial, appeal, or bail. Advice changes dramatically depending on posture. A useful criminal knowledge base should highlight arrest risk, custodial exposure, offence gravity, recoveries claimed, witness dependency, and whether the record contains medical, forensic, digital, or documentary evidence.
+
+Section 2
+Title: FIR, complaint, and initial allegations review
+The initial allegation should be reviewed for essential ingredients, internal consistency, timing, and source of knowledge. Delay in reporting is not automatically fatal, but unexplained delay can affect weight. A good intake summary should record who complained, what specific acts are alleged, when they allegedly occurred, and whether the narrative appears direct, hearsay-based, or inferred from later events.
+
+Section 3
+Title: Arrest, notice, and cooperation considerations
+In many criminal matters, immediate risk management revolves around arrest exposure and cooperation posture. Relevant indicators include the seriousness of the alleged offences, whether the accused has already joined investigation, whether documents were produced on request, whether recoveries are claimed to be pending, and whether there is any allegation of witness intimidation or evasion. Retrieval assistants should prioritize facts tied to flight risk, tampering risk, and custodial necessity claims.
+
+Section 4
+Title: Bail reasoning structure
+Bail assessment generally weighs accusation gravity, role attributed, available material, cooperation history, risk of absconding, witness interference, and likelihood of trial delay. The quality of role attribution matters: broad omnibus allegations and highly individualized overt acts should not be treated as equivalent. A structured criminal assistant should separate allegation strength from procedural rhetoric and should note where documentary or digital evidence does not match the claimed role.
+
+Section 5
+Title: Charge framing and ingredient analysis
+At charge stage, the record should be tested for whether the basic ingredients of the alleged offences are prima facie supported. This is not a final trial determination, but it is also not a purely mechanical step. A high-value criminal knowledge base should classify allegations into intention, knowledge, preparation, overt act, entrustment, deception, conspiracy linkage, recovery, and injury correlation.
+
+Section 6
+Title: Witness reliability and contradiction spotting
+Witness analysis should track whether each witness is a direct witness, circumstantial witness, official witness, hostile witness, or corroborative witness. Contradictions are more probative when they relate to core identity, time, place, sequence, or role attribution than when they concern peripheral detail. Retrieval should detect repeated changes in narrative, unexplained improvements, or inconsistencies with physical or documentary evidence.
+
+Section 7
+Title: Digital and forensic evidence caution
+Criminal cases increasingly rely on call records, device extractions, CCTV, geolocation, banking trails, and social media content. The record should preserve chain-of-custody concerns, authorship issues, metadata gaps, and opportunities for innocent explanation. A reasoning assistant should treat digital evidence as probabilistic support rather than infallible proof and should surface authentication or integrity gaps whenever the record is incomplete.
+
+Section 8
+Title: Sentencing and appellate risk framing
+After conviction or when advising near the end of trial, the practical legal questions shift toward sentencing mitigation, suspended sentence options, compensation, victim impact, and appellate grounds. A criminal knowledge base should therefore support not only acquittal reasoning but also fallback analysis on proportionality, prior record, period undergone, restitution posture, and arguable legal errors in appreciation of evidence.

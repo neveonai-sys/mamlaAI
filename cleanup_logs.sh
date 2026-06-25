@@ -1,54 +1,50 @@
 #!/bin/bash
 
 # Log Cleanup Script
-# Removes log files older than 3 days to prevent disk space issues
-# Run this script via cron: 0 2 * * * /path/to/cleanup_logs.sh
+# Active logs  (*.log)      — never touched.
+# Previous run (*.prev.log) — never touched (one per type, always fresh).
+# Gunicorn access rotations (gunicorn-access.log.YYYY-MM-DD) — deleted after RETENTION_DAYS.
+# Legacy timestamp archives (*.YYYY-MM-DD_HHMM.log, DD-MM-YYYY_*.log) — deleted after RETENTION_DAYS.
+# Run via cron: 0 2 * * * /path/to/cleanup_logs.sh
 
 PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
 LOG_DIR="$PROJECT_ROOT/logs"
 RETENTION_DAYS=3
 
-echo "🧹 Cleaning up old log files..."
-echo "================================================"
-echo "Log directory: $LOG_DIR"
-echo "Retention period: $RETENTION_DAYS days"
-echo ""
+echo "Cleaning up archived log files older than $RETENTION_DAYS days..."
 
-# Check if log directory exists
 if [ ! -d "$LOG_DIR" ]; then
-    echo "❌ Error: Log directory does not exist: $LOG_DIR"
+    echo "Error: log directory not found: $LOG_DIR"
     exit 1
 fi
 
-# Count files before cleanup
-BEFORE_COUNT=$(find "$LOG_DIR" -type f -name "*.log*" | wc -l)
 BEFORE_SIZE=$(du -sh "$LOG_DIR" 2>/dev/null | cut -f1)
 
-echo "📊 Current status:"
-echo "   - Total log files: $BEFORE_COUNT"
-echo "   - Total size: $BEFORE_SIZE"
-echo ""
+# Delete old archives in logs/ and logs/dev/ (maxdepth 2 covers the dev/ subdir)
+DELETED_COUNT=$(
+    find "$LOG_DIR" -maxdepth 2 -type f \( \
+        -name "gunicorn-access.log.????-??-??" \
+        -o -name "*.????-??-??_????.log" \
+        -o -name "??-??-????_*.log" \
+    \) -mtime +$RETENTION_DAYS -print -delete 2>/dev/null | wc -l
+)
 
-# Remove log files older than retention period
-echo "🗑️  Removing files older than $RETENTION_DAYS days..."
+# Delete empty .log files (but not .prev.log)
+EMPTY_DELETED=$(find "$LOG_DIR" -maxdepth 2 -type f -name "*.log" ! -name "*.prev.log" -empty -print -delete 2>/dev/null | wc -l)
 
-# Find and delete old log files
-DELETED_COUNT=$(find "$LOG_DIR" -type f -name "*.log*" -mtime +$RETENTION_DAYS -print -delete 2>/dev/null | wc -l)
-
-# Count files after cleanup
-AFTER_COUNT=$(find "$LOG_DIR" -type f -name "*.log*" | wc -l)
 AFTER_SIZE=$(du -sh "$LOG_DIR" 2>/dev/null | cut -f1)
 
+echo "  Archived logs deleted:  $DELETED_COUNT"
+echo "  Empty logs deleted:     $EMPTY_DELETED"
+echo "  Size before: $BEFORE_SIZE  ->  after: $AFTER_SIZE"
 echo ""
-echo "✅ Cleanup complete:"
-echo "   - Files deleted: $DELETED_COUNT"
-echo "   - Files remaining: $AFTER_COUNT"
-echo "   - Current size: $AFTER_SIZE"
+echo "Active log files:"
+find "$LOG_DIR" -maxdepth 2 -type f -name "*.log" ! -name "*.????-??-??_????.log" \
+    ! -name "gunicorn-access.log.????-??-??" \
+    ! -name "??-??-????_*.log" \
+    | sort | while read -r f; do
+        size=$(du -sh "$f" 2>/dev/null | cut -f1)
+        echo "  $f ($size)"
+    done
 echo ""
-
-# List current log files (for verification)
-echo "📋 Current log files:"
-find "$LOG_DIR" -type f -name "*.log*" -mtime -$RETENTION_DAYS -exec ls -lh {} \; | awk '{print "   - " $9 " (" $5 ")"}'
-
-echo ""
-echo "[$(date)] Log cleanup completed successfully"
+echo "[$(date)] Cleanup complete"

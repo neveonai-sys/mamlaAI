@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import apiClient from '../../services/api';
+import { usePostHog } from '@posthog/react';
 
 const CATEGORIES = ['UI/UX', 'AI Quality', 'Document Drafting', 'Search', 'Performance', 'Bug Report', 'Feature Request', 'Other'];
 const RATINGS = [1, 2, 3, 4, 5];
 
 export default function Feedback() {
+  const posthog = usePostHog();
   const [form, setForm] = useState({
     category: 'General',
     rating: 0,
@@ -29,6 +31,10 @@ export default function Feedback() {
     setError('');
     try {
       await apiClient.post('users/feedback/', form);
+      posthog?.capture('feedback_submitted', {
+        category: form.category,
+        rating: form.rating,
+      });
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to submit feedback. Please try again.');

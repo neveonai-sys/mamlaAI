@@ -1,10 +1,10 @@
-# from core.init_clients import get_mongo_client
+# from core.init_clients import get_mongo_client, get_mongo_db
 
 # def get_user_related_documents():
 #     mongo = get_mongo_client()
 #     if mongo is None:
 #         raise Exception("Mongo client is not initialized.")
-#     db = mongo['legaldb']
+#     db = get_mongo_db()
 
 #     # user_collection = db['users_user']
 #     draft_collection = db['drafts_metadata'] # has required fields

@@ -6,7 +6,7 @@ import pytz
 import os
 from utilities.routes.utils import Handutilities  # Replace with your notification function
 from opensearchpy import OpenSearch, helpers
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 import requests
 import traceback
 import logging
@@ -16,7 +16,7 @@ def get_mongo_client_db(required_collection):
     mongo = get_mongo_client()
     if not mongo:
         return ''
-    db = mongo['legaldb']
+    db = get_mongo_db()
 
     if required_collection == "user_details":    
         return db['user_details']
@@ -251,7 +251,7 @@ def fetch_todays_meetings():
         )
         
         # Index name for today
-        index_name = f"meetings_{today.strftime('%Y%m%d')}"
+        index_name = os.getenv("OPENSEARCH_INDEX_PREFIX", "") + f"meetings_{today.strftime('%Y%m%d')}"
         
         # Delete index if exists
         if opensearch.indices.exists(index=index_name):
@@ -309,7 +309,7 @@ def send_hourly_reminders():
         # Get today's date
         tz = pytz.timezone('UTC')  # Change to your timezone
         today = datetime.now(tz).date()
-        index_name = f"meetings_{today.strftime('%Y%m%d')}"
+        index_name = os.getenv("OPENSEARCH_INDEX_PREFIX", "") + f"meetings_{today.strftime('%Y%m%d')}"
         
         # Define time window: next hour
         now = datetime.now(tz)
@@ -380,7 +380,7 @@ def send_quarterly_reminders():
         # Get today's date
         tz = pytz.timezone('UTC')  # Change to your timezone
         today = datetime.now(tz).date()
-        index_name = f"meetings_{today.strftime('%Y%m%d')}"
+        index_name = os.getenv("OPENSEARCH_INDEX_PREFIX", "") + f"meetings_{today.strftime('%Y%m%d')}"
         
         # Define time window: next 15 minutes
         now = datetime.now(tz)
@@ -442,7 +442,7 @@ def cleanup_previous_day_index():
     try:
         tz = pytz.timezone('UTC')  # Change to your timezone
         yesterday = datetime.now(tz).date() - timedelta(days=1)
-        index_name = f"meetings_{yesterday.strftime('%Y%m%d')}"
+        index_name = os.getenv("OPENSEARCH_INDEX_PREFIX", "") + f"meetings_{yesterday.strftime('%Y%m%d')}"
         
         opensearch = OpenSearch(
             hosts=[{'host': 'localhost', 'port': 9200}],

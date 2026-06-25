@@ -18,12 +18,15 @@ from django.contrib import admin
 from django.urls import path, include
 
 from core.views import health, schema_view, swagger_ui_view, dashboard_home
+from core.admin_views import admin_wallet_top_up
 
 urlpatterns = [
     path('api/health/', health),
+    path('api/admin/wallet/top-up/', admin_wallet_top_up),
     path('api/dashboard/home/', dashboard_home),
     path('api/schema/', schema_view, name='schema'),
     path('api/schema/swagger-ui/', swagger_ui_view, name='swagger-ui'),
+    path('api/analytics/', include('analytics.urls')),
     path('api/users/', include('users.urls')),
     path('', include('calendersetup.urls')),
     path('api/drafts/', include('create_drafts.urls')),
@@ -35,8 +38,15 @@ urlpatterns = [
     path('api/webhook/', include('whatsapp_module.urls')),
     path('api/todaysupdates/', include('todaysupdates.urls')),
     path('api/talkdoc/', include('talkdoc.urls')),
-    # Scraper disabled (CAPTCHA issues); using direct eCourts partner API instead.
-    # To revert: uncomment the scraper line and comment out ecourts_api.
+    path('api/brain/', include('mamla_brain.urls')),
+    # Cases — internal case registry
+    path('api/cases/', include('cases.urls')),
+    # Mamla agents — AI lifecycle agents
+    path('api/agents/', include('agents.urls')),
+    # Live eCourts runtime is now scraper-first and uses local CAPTCHA solving.
     # path('api/ecourts/', include('ecourts_scraper.urls')),
-    path('api/ecourts/', include('ecourts_api.urls')),
+    # New eCourts integration: FastAPI scraper proxy with MongoDB caching.
+    path('api/ecourts/v2/', include('ecourt_scrapped.urls')),
+    # Deprecated reference only: third-party partner API path retired from runtime.
+    # path('api/ecourts/', include('ecourts_api.urls')),
 ]

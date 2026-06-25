@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import apiClient from '../../services/api';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
+import AuthShowcase from './AuthShowcase';
+import { useIconFont } from '../../hooks/useIconFont';
 
 export default function ResetPassword() {
+  useIconFont();
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
 
   const [phase, setPhase] = useState('request'); // 'request' | 'set-new' | 'done'
   const [email, setEmail] = useState('');
@@ -26,6 +32,7 @@ export default function ResetPassword() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Sending reset link...' }));
     try {
       await apiClient.post('users/send-reset-password-link/', { email_id: email });
       setMessage('Password reset email sent! Please check your inbox.');
@@ -33,6 +40,7 @@ export default function ResetPassword() {
       const msg = err.response?.data?.message || err.message || 'Failed to send reset email.';
       setError(msg);
     } finally {
+      dispatch(stopBlocking());
       setLoading(false);
     }
   }
@@ -49,6 +57,7 @@ export default function ResetPassword() {
     }
     setError('');
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Updating your password...' }));
     try {
       // Extract recovery token from URL hash (Supabase email link format)
       const hashParams = new URLSearchParams(location.hash.replace('#', '?'));
@@ -63,25 +72,45 @@ export default function ResetPassword() {
       const msg = err.response?.data?.message || err.message || 'Failed to update password.';
       setError(msg);
     } finally {
+      dispatch(stopBlocking());
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-background-light flex items-center justify-center px-6">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex items-center gap-2 mb-10 justify-center">
-          <span className="material-symbols-outlined text-primary text-3xl icon-filled">gavel</span>
-          <span className="text-xl font-black tracking-tight text-ink">Mamla.AI</span>
-        </div>
+    <div className="flex min-h-screen w-full flex-col bg-background-light lg:flex-row">
+      <AuthShowcase
+        eyebrow="Password reset"
+        title="Recover access without leaving the chamber flow."
+        description="Reset your password and return to the same drafting, document, and operations workspace without a separate auth experience."
+        highlights={[
+          { title: 'Recover', text: 'Request a reset link and continue with minimal friction.' },
+          { title: 'Secure', text: 'Recovery links stay scoped to verified account access.' },
+          { title: 'Return', text: 'Go straight back into the active Mamla.AI workspace.' },
+        ]}
+      />
 
-        <div className="bg-ivory border border-primary/10 rounded-2xl p-8 shadow-sm">
+      <div className="flex w-full flex-col justify-center bg-background-light px-6 py-6 lg:min-h-screen lg:w-1/2 lg:px-20 lg:py-8 xl:px-28">
+        <div className="mx-auto w-full max-w-md rounded-[1.75rem] border border-slate-200/80 bg-white p-7 shadow-card lg:p-8">
+          <div className="mb-8 flex items-center justify-between">
+            <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-primary-dark">
+              <span className="material-symbols-outlined text-base">arrow_back</span>
+              Back to Landing Page
+            </Link>
+          </div>
+
+          <div className="mb-8 lg:hidden">
+            <div className="flex items-center gap-2 text-primary">
+              <span className="material-symbols-outlined text-3xl icon-filled">gavel</span>
+              <span className="text-xl font-semibold tracking-tight text-ink">Mamla.AI</span>
+            </div>
+          </div>
+
           {phase === 'request' && (
             <>
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-ink mb-2">Reset your password</h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm font-medium leading-7 text-slate-600">
                   Enter your email address and we&apos;ll send you a link to reset your password.
                 </p>
               </div>
@@ -133,7 +162,7 @@ export default function ResetPassword() {
             <>
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-ink mb-2">Set new password</h2>
-                <p className="text-sm text-slate-500">Choose a strong new password for your account.</p>
+                <p className="text-sm font-medium leading-7 text-slate-600">Choose a strong new password for your account.</p>
               </div>
               <form onSubmit={handleSetNew} className="space-y-5">
                 <div>
@@ -199,7 +228,7 @@ export default function ResetPassword() {
             <div className="flex flex-col items-center gap-4 py-8 text-center">
               <span className="material-symbols-outlined text-primary text-6xl icon-filled">check_circle</span>
               <h3 className="text-xl font-bold text-ink">Password Updated!</h3>
-              <p className="text-sm text-slate-500">Your password has been successfully changed.</p>
+              <p className="text-sm font-medium text-slate-600">Your password has been successfully changed.</p>
               <button className="btn-primary mt-2" onClick={() => navigate('/login')}>
                 Sign In with New Password
               </button>

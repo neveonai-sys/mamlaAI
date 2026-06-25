@@ -8,13 +8,14 @@ import random
 import jwt
 import uuid
 import logging
+from supabase_auth.errors import AuthApiError
 import string
 import requests
 # from django.conf import settings
 from Legalv1.settings import FRONTEND_URL
 from users.tasks import send_email_celery, update_onboarded_user_details, request_to_whatsapp_url, insert_new_user_details, create_userdetails_in_supabase_public_table
 # from utilities.routes.utils import Handutilities
-from core.init_clients import get_mongo_client, get_supabase_client
+from core.init_clients import get_mongo_client, get_mongo_db, get_supabase_client
 from core.email_templates import EmailTemplates
 
 # Get the logger for this module
@@ -28,7 +29,7 @@ class Handleusermetadata:
         mongo = get_mongo_client()
         if not mongo:
             return ''
-        db = mongo['legaldb']
+        db = get_mongo_db()
         return db
 
     def check_user_exists(self, key, val):
@@ -71,10 +72,16 @@ class Handleusermetadata:
                 return res
             else:
                 return False
+        except AuthApiError as err:
+            if "Email not confirmed" in str(err):
+                logging.error(traceback.format_exc())
+                return {"error": "email_not_confirmed"}
+            logging.error(traceback.format_exc())
+            return False
         except Exception as err:
             logging.error(traceback.format_exc())
             return False
-        
+
     def sign_out_supabase(self, scope):
         """
         Sign out a user from Supabase. 
@@ -134,8 +141,8 @@ class Handleusermetadata:
         try:
             payload = jwt.decode(
                 token,
-                os.getenv('SUPABASE_JWT_TOKEN'),
-                algorithms=["HS256"],  # or a list if you have more
+                os.getenv('SUPABASE_JWT_SECRET'),
+                algorithms=["HS256","RS256"],  # or a list if you have more
                 options={"verify_aud": False}  # or True if you want to check "aud"
             )
             return payload
@@ -168,7 +175,7 @@ class Handleusermetadata:
         return resp["user"]
     
 
-    def create_newuser_and_insert_metadata(self, phone_number, fname, lname, email, password, user_type, whatsappOptIn, agreedTnC, user_status, barcode_id=None, case_ids=[], state=None, district=None, courts=[], user_id=None, prefilled=False):
+    def create_newuser_and_insert_metadata(self, phone_number, fname, lname, email, password, user_type, whatsappOptIn, agreedTnC, user_status, barcode_id=None, case_ids=[], state=None, district=None, courts=[], user_id=None, prefilled=False, organization=None):
         try:
             dtmstr = datetime.datetime.now(datetime.timezone.utc)
             user_id = user_id or self.generate_username(fname.lower(),lname.lower())+'_'+dtmstr.strftime("%Y%m%d%H%M%S")
@@ -204,6 +211,7 @@ class Handleusermetadata:
                             "agreedTnC": agreedTnC,
                             "user_status": user_status,
                             "barcode_id": barcode_id,
+                            "organization": organization,
                             "case_ids": case_ids,
                             "state": state,
                             "district": district,
@@ -381,7 +389,21 @@ class Handleusermetadata:
             # Extract and convert lists to sets for efficient operations
             case_ids = set(user_doc.get('case_ids', []))
             client_ids = set(user_doc.get('client_ids', []))
-            
+
+            # Also include cases created directly in the cases collection
+            # (create_case writes to `cases` with lawyer_id but does NOT update user_details.case_ids)
+            for cdoc in self.get_mongo_client_db()['cases'].find({'lawyer_id': user_id}, {'_id': 1}):
+                case_ids.add(str(cdoc['_id']))
+
+            # Batch-fetch case titles for all known case IDs (single query)
+            case_title_map = {}
+            case_ids_list = list(case_ids)
+            if case_ids_list:
+                for cdoc in self.get_mongo_client_db()['cases'].find(
+                    {'_id': {'$in': case_ids_list}}, {'_id': 1, 'title': 1}
+                ):
+                    case_title_map[str(cdoc['_id'])] = cdoc.get('title', '')
+
             lawyer_case_client_map = user_doc.get('lawyer_case_client_map', [])
             
             # Initialize sets and dictionary for mappings
@@ -396,7 +418,11 @@ class Handleusermetadata:
                     case_client_map[case_id] = client_id
             
             # Compute cases without clients and clients without cases
-            cases_without_client = list(case_ids - mapped_case_ids)
+            cases_without_client = [
+                {'case_id': cid, 'case_title': case_title_map.get(cid, '')}
+                for cid in (case_ids - mapped_case_ids)
+                if cid
+            ]
             clients_without_case_ids = list(client_ids - mapped_client_ids)
             
             # Fetch client details for clients_without_case_ids and mapped_client_ids
@@ -436,10 +462,13 @@ class Handleusermetadata:
             #     for case_id, client_id in case_client_map.items()
             # }
 
-            case_client_map_with_details = {
-                case_id: clients.get(client_id, {'Fname':'','Lname':'','phone_number':''})
-                for case_id, client_id in case_client_map.items()
-            }
+            # Build case_client_map_with_details, copying dicts to avoid shared-reference mutation bugs
+            # and including case_title from the batch fetch above.
+            case_client_map_with_details = {}
+            for case_id, client_id in case_client_map.items():
+                base = dict(clients.get(client_id, {'Fname': '', 'Lname': '', 'phone_number': ''}))
+                base['case_title'] = case_title_map.get(case_id, '')
+                case_client_map_with_details[case_id] = base
 
             # To avoid N+1, batch-fetch metadata for all client_ids in case_client_map
             # client_ids = list(case_client_map.keys())

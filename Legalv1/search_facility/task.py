@@ -1,5 +1,6 @@
 from celery import shared_task, group
 # import requests
+import os
 import traceback
 # from io import BytesIO
 # import base64
@@ -12,7 +13,7 @@ from nltk.corpus import stopwords
 from collections import Counter
 import re
 from utilities.routes.utils import Handutilities
-from core.init_clients import get_mongo_client
+from core.init_clients import get_mongo_client, get_mongo_db
 
 nltk.download('stopwords')
 STOPWORDS = set(stopwords.words('english'))
@@ -30,7 +31,7 @@ def get_mongo_client_db():
     mongo = get_mongo_client()
     if not mongo:
         return ''
-    db = mongo['legaldb']
+    db = get_mongo_db()
     return db
 
 @shared_task
@@ -93,7 +94,7 @@ def index_documents(doc):
                 }
                 # Index document in OpenSearch
         opensearch_client.index(
-            index="documents",  # The name of the OpenSearch index
+            index=os.getenv("OPENSEARCH_INDEX_PREFIX", "") + "documents",  # The name of the OpenSearch index
             body=document_data,
                 id=doc.get('_id') # Use MongoDB's _id as the document ID
         )

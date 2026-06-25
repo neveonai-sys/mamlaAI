@@ -7,7 +7,7 @@ import datetime
 from .routes.session_manager import SessionManager
 import os
 from django.conf import settings
-from core.init_clients import get_mongo_client, get_supabase_client
+from core.init_clients import get_mongo_client, get_mongo_db, get_supabase_client
 # from whatsapp_module.routes.handlewhatsappmessage import Whatsappmessageformulation
 import logging
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ def get_mongo_client_db():
     mongo = get_mongo_client()
     if not mongo:
         return ''
-    db = mongo['legaldb']
+    db = get_mongo_db()
     return db
 
 @shared_task
@@ -61,9 +61,13 @@ def insert_new_user_details(user_details):
             elif user_details.get('user_type')=='Client':
                 data["case_ids"] = user_details.get('case_ids')
             elif user_details.get('user_type')=='Paralegal':
-                data["state"] = user_details.get('state') 
-                data["district"] = user_details.get('district') 
+                data["state"] = user_details.get('state')
+                data["district"] = user_details.get('district')
                 data["courts"] = user_details.get('courts')
+                data["template_draft_count"] = 0
+            elif user_details.get('user_type')=='Law Student':
+                data["college_name"] = user_details.get('college_name', '')
+                data["ai_draft_count"] = 0
                 data["template_draft_count"] = 0
             
             # Upsert in local DB

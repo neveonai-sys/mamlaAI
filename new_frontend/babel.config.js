@@ -7,4 +7,9 @@ module.exports = {
     '@babel/plugin-proposal-class-properties',
     '@babel/plugin-transform-runtime',
   ],
+  env: {
+    development: {
+      plugins: ['react-refresh/babel'],
+    },
+  },
 };

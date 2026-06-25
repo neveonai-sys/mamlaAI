@@ -8,7 +8,7 @@ import pypandoc
 from multiprocessing import Pool
 
 # MongoDB setup
-uri = "mongodb+srv://ajmrlegaly:password05092024@userdata.cshoz.mongodb.net/?retryWrites=true&w=majority&appName=Userdata"
+uri = ""
 client = pymongo.MongoClient(uri)
 db = client['legaldb']
 draft_db_collection = db['draft_content_data']

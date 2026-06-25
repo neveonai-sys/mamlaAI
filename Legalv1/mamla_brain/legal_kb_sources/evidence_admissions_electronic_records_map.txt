@@ -1,0 +1,31 @@
+Section 1
+Title: Evidence Act usage model
+The Indian Evidence Act should be used as a proof-discipline guide. A case file should not merely identify legal issues; it should specify how each issue will be proved and what admissibility or weight objections are likely. Retrieval should therefore connect legal questions to admissions, documentary proof, oral testimony, expert support, and electronic records practice.
+
+Section 2
+Title: Admission and estoppel style reasoning cluster
+Evidence questions often turn on whether a party has already admitted a fact in correspondence, pleadings, account statements, notices, or prior proceedings. The knowledge base should treat admissions as issue-specific tools rather than global concessions. It should also detect where later denials clash with earlier conduct strongly enough to create a credibility or estoppel-style problem in practical litigation terms.
+
+Section 3
+Title: Documentary proof and best-evidence cluster
+The assistant should distinguish original proof strength, secondary-source explanation, and authenticity contest. If a contract, ledger, invoice, board resolution, or public record is central, the retrieval output should ask whether the best available documentary source is on record and whether execution, custody, completeness, or contemporaneity is disputed.
+
+Section 4
+Title: Electronic records and certificate caution cluster
+Electronic-record disputes require focused handling because screenshots and forwarded extracts often create false confidence. The knowledge base should encourage checking who generated the record, where it was stored, whether device or server provenance is available, and whether the record is complete rather than selectively clipped. Practical advice should also flag when a certificate or system-level explanation may be needed.
+
+Section 5
+Title: Oral evidence contradiction and impeachment cluster
+Witness contradictions matter most when they affect identity, sequence, role attribution, authority, payment, or opportunity to observe. Retrieval should separate minor inconsistency from material contradiction and should encourage comparison across complaint, notice reply, affidavit, deposition, and contemporaneous document trail.
+
+Section 6
+Title: Presumption and burden clusters
+Evidence reasoning is often driven by presumptions tied to signatures, possession, ordinary course of business, official acts, negotiable instruments, or unexplained post-event conduct. The assistant should surface which side bears the practical burden at the present stage and what evidence is needed to rebut an initial adverse inference.
+
+Section 7
+Title: Cross-examination planning cluster
+The Evidence Act is most useful in practice when converted into targeted cross-examination objectives. Retrieval should help users frame lines of attack around authorship, perception, bias, omission, exaggeration, inconsistency, and contradiction with objective records. The best output should identify not just that a witness may be weak, but exactly how that weakness can be exposed.
+
+Section 8
+Title: Proof matrix output discipline
+Every evidence-heavy answer should ideally end in a proof matrix mindset: issue, fact to prove, current support, likely objection, and strengthening step. This format is more operationally useful than a generic legal essay and should be favored in retrieval-augmented outputs.

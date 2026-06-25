@@ -1,0 +1,31 @@
+Section 1
+Title: CPC orientation for civil workflow
+The Code of Civil Procedure is best used as a litigation workflow map rather than a memorized list of provisions. For Mamla Brain retrieval, the CPC should be treated as a set of recurring problem clusters: forum and jurisdiction, plaint scrutiny, service, written statements, interim protection, evidence stage management, decree drafting, and execution follow-through.
+
+Section 2
+Title: Jurisdiction and institution cluster
+When a user asks where a civil suit should be filed, the retrieval system should surface CPC concepts tied to place of suing, cause-of-action connection, location of immovable property, and pecuniary competence. Practical outputs should distinguish commercial inconvenience from true jurisdictional defect and should warn when multiple plausible forums exist but one has materially stronger factual linkage.
+
+Section 3
+Title: Pleadings amendment and rejection cluster
+CPC-based pleadings analysis should group together plaint drafting sufficiency, rejection risk, amendment strategy, and consequences of vague or incomplete pleadings. A strong retrieval answer should tell the user whether the present problem is one of no cause of action, deficient particulars, inconsistent pleadings, or a curable drafting omission. Amendment requests should be evaluated for diligence, prejudice, and whether the new plea changes the basic structure of the case.
+
+Section 4
+Title: Interim injunction cluster under Order XXXIX style reasoning
+For injunction issues, the practical CPC map should focus on temporary restraint, status preservation, waste or alienation risk, and disobedience consequences. Retrieval should identify facts relevant to prima facie case, balance of convenience, and irreparable harm, while also flagging delay, acquiescence, and overbroad prayer drafting. If the requested order is effectively mandatory, the system should escalate the caution level of the analysis.
+
+Section 5
+Title: Receiver, attachment, and preservation cluster
+Some civil files require a preservation remedy stronger than a standard injunction. The knowledge base should therefore recognize CPC patterns tied to appointment of a receiver, attachment before judgment logic, or court-supervised custody of disputed assets. The output should emphasize evidentiary support for asset dissipation, concealment, or imminent change in possession.
+
+Section 6
+Title: Written statement and admission cluster
+CPC-style defence analysis should monitor whether the defendant has filed within the expected procedural window, whether specific denials exist, and whether any material fact stands effectively admitted by evasive pleading. Retrieval answers should flag consequences of failure to specifically traverse material allegations and should distinguish tactical silence from a document-supported rebuttal.
+
+Section 7
+Title: Issue framing evidence and trial management cluster
+The CPC map should help convert a pleading-heavy file into a trial-ready structure. That means aligning each issue with the burden-bearing party, likely documents, likely witnesses, and foreseeable cross-examination themes. A useful answer should say whether the real bottleneck is issue framing, document proof, witness availability, or sequencing of evidence.
+
+Section 8
+Title: Decree and execution cluster
+Execution-oriented CPC retrieval should surface attachment targets, garnishee-style recovery possibilities, property identification, and resistance risks after decree. The system should remind users that a vague or under-specified decree can create enforcement friction later and should encourage preservation of asset intelligence during the merits stage itself.

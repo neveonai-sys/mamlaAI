@@ -1,0 +1,27 @@
+Section 1
+Title: Property and title precedent overview
+Property litigation in India often turns less on abstract ownership theory and more on the practical relationship between title documents, possession history, revenue or municipal records, and the relief actually claimed. Mamla Brain should use these notes to distinguish title suits, possession suits, injunction actions, partition disputes, and document-cancellation challenges instead of flattening all land disputes into one category.
+
+Section 2
+Title: Anathula Sudhakar style title-versus-injunction note
+The classic lesson from this line of precedent is that not every property dispute can be resolved through a bare injunction suit. Where title is seriously clouded or directly disputed, a pure possession-based injunction theory may be insufficient and a fuller declaration-style remedy may be needed. Retrieval should therefore ask whether the plaintiff's title is admitted, whether the dispute is only about interference, and whether the cloud on title is substantial enough to require broader relief.
+
+Section 3
+Title: Possession as an independent litigation fact note
+Property cases frequently reveal that possession and title do not travel together in a clean way. Courts often treat settled possession, dispossession allegations, and recent interference as distinct practical questions even where final title remains contested. Mamla Brain should surface electricity records, tax receipts, cultivation history, mutation entries, tenant conduct, and local complaints as possession indicators without overstating their value as conclusive title proof.
+
+Section 4
+Title: Revenue and mutation record caution note
+Mutation, revenue entries, and municipal records can support a narrative, but they rarely replace core title analysis by themselves. The practical lesson for retrieval is that these records should be presented as corroborative or possession-adjacent material unless the larger documentary chain is also clear. If the file relies only on recent entries without explaining source title, the assistant should flag the gap.
+
+Section 5
+Title: Partition and family property pattern note
+Family property disputes often require the assistant to distinguish self-acquired property, joint family claims, succession-derived shares, prior oral arrangements, and conduct showing separation or exclusive control. The output should usually identify the source of the claimant's asserted share, the documents that support or weaken the family-property narrative, and whether partition, injunction, declaration, or accounting relief is the real center of the dispute.
+
+Section 6
+Title: Document cancellation and fraud note
+When a property file includes sale deeds, powers of attorney, release deeds, or agreements alleged to be forged, void, sham, or procured by fraud, the reasoning should shift from possession alone to instrument validity. Mamla Brain should surface execution circumstances, witness availability, registration context, consideration trail, and suspicious chronology. It should also distinguish impersonation-style fraud from later disputes over authority or consideration.
+
+Section 7
+Title: Property case synthesis for outputs
+For property/title answers, the assistant should usually organize its response around four questions: what is the claimed source of title, who appears to be in possession, what immediate relief is needed, and which documents most likely decide the real controversy. That structure is more useful than a broad essay on property law detached from the actual file.

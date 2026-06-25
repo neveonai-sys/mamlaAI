@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { beginBlocking, stopBlocking } from '../../features/uiSlice';
 import apiClient from '../../services/api';
 
 const USER_TYPE_LABELS = { Client: 'Client', Paralegal: 'Paralegal', Lawyer: 'Lawyer' };
@@ -218,6 +221,8 @@ function EmptyState({ onAdd, onLink }) {
 }
 
 export default function ClientOnboarding() {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [clients, setClients] = useState([]);
   const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -231,6 +236,7 @@ export default function ClientOnboarding() {
 
   async function loadClients(preferredId = null) {
     setLoading(true);
+    dispatch(beginBlocking({ message: 'Loading clients...' }));
     try {
       const response = await apiClient.get('users/clients/');
       const nextClients = (response.data?.results ?? response.data ?? []).map(normalizeClient);
@@ -247,6 +253,7 @@ export default function ClientOnboarding() {
       setError(err.response?.data?.error || 'Failed to load clients.');
     } finally {
       setLoading(false);
+      dispatch(stopBlocking());
     }
   }
 
@@ -365,7 +372,7 @@ export default function ClientOnboarding() {
               <ClientCard
                 key={c.id}
                 client={c}
-                onClick={() => { setSelected(c); setShowForm(false); setError(''); setMessage(''); }}
+                onClick={() => { navigate(`/clients/${c.id}`); setSelected(c); setShowForm(false); setError(''); setMessage(''); }}
                 isSelected={selected?.id === c.id}
               />
             ))
@@ -474,6 +481,20 @@ export default function ClientOnboarding() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-6">
+              <button
+                className="btn-primary flex items-center gap-2 text-sm"
+                onClick={() => navigate('/cases', { state: {
+                  openCreate: true,
+                  prefillClientId: selected.id,
+                  prefillClientName: `${selected.firstname} ${selected.lastname}`.trim(),
+                } })}
+              >
+                <span className="material-symbols-outlined text-base">add_circle</span>
+                Create Case for this Client
+              </button>
             </div>
           </div>
         ) : (

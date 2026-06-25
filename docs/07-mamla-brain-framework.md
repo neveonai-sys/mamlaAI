@@ -1,21 +1,45 @@
 # 07 — Mamla Brain Framework: Architecture & TODO
 
 > **Self-contained planning doc. Read this before touching any Brain-related code.**
-> Status: PLANNED — nothing implemented yet.
-> Last updated: 2026-03-07
+> Status: IN PROGRESS — core framework app implemented, starter legal KB documents added, full primary-law corpus and frontend integration still pending.
+> Last updated: 2026-03-14
 
 ---
 
 ## TL;DR
 
-Mamla Brain is a standalone, API-first legal reasoning framework built on top of the existing
-TalkDoc RAG infrastructure. It adds: (1) a tiered LLM routing layer via OpenRouter, (2) a Legal
-Knowledge Base (IPC/CPC/CrPC sections + case law), (3) a Case Companion reasoning mode,
+Mamla Brain is a standalone, API-first reasoning framework built on top of the existing
+TalkDoc RAG infrastructure. The first domain is legal, but the framework can also run against
+other domain profiles such as banking or market analysis when different knowledge sources are
+plugged in. It adds: (1) a tiered LLM routing layer via OpenRouter or OpenAI-compatible APIs,
+(2) a domain knowledge-base layer, (3) a Case Companion-style structured reasoning mode,
 (4) external API key authentication so third-party apps can call it without Supabase, and
 (5) token-efficient prompting to control costs.
 
 The existing `talkdoc/` app stays as-is for internal users. `mamla_brain/` is the new external-
 facing, enhanced layer that wraps and extends it.
+
+## Implementation Snapshot
+
+Implemented now in `Legalv1/mamla_brain/`:
+
+- Django app scaffold, URL registration, and settings wiring
+- Dual auth via Supabase or `X-Brain-API-Key`
+- Tiered LLM router for `t1`, `t2`, and `t3`
+- Reusable domain profiles in `prompts.py` for `legal`, `banking`, and `markets`
+- Brain session/message persistence in `brain_sessions` and `brain_messages`
+- Brain document upload/listing that reuses `rag_documents` and TalkDoc ingestion
+- Document Q&A endpoint with query rewrite plus merged doc/KB context assembly
+- Case Companion start and advise endpoints with structured JSON output
+- Knowledge-base retrieval helpers and ingestion commands
+- Starter legal knowledge-base seed files in `legal_kb_sources/`
+
+Still pending:
+
+- Population of a production-grade legal corpus and non-legal domain source files
+- Frontend integration
+- richer cost telemetry / analytics beyond stored `tokens_used`
+- production admin policy around Brain API-key issuance
 
 ---
 
@@ -47,16 +71,16 @@ File: `Legalv1/talkdoc/views.py`
 | Session management (create/list/delete/rename) | ✅ Done |
 | Chat with documents (RAG mode) | ✅ Done (`send_message`, `has_docs=True`) |
 | General legal Q&A (no docs) | ✅ Done (`has_docs=False`) |
-| Conversation history (last 20 msgs) | ✅ Done |
+| Conversation history (last 6 msgs) | ✅ Done |
 | Citations (doc name + page + snippet) | ✅ Done |
 | Rate limiting (20/min per user) | ✅ Done |
 | Auth | Supabase only (`@supabase_required`) |
-| LLM | OpenAI (`gpt-4o` hardcoded via `RAG_CHAT_MODEL` env) |
-| Legal KB / precedent retrieval | ❌ Not done |
-| Case Companion mode | ❌ Not done |
-| External API key auth | ❌ Not done |
-| Tiered LLM routing | ❌ Not done |
-| Token efficiency / prompt compression | ❌ Not done |
+| LLM | Centralised via `core/llm_client.py`; TalkDoc can run through OpenAI or OpenRouter depending on env |
+| Domain KB / precedent retrieval helpers | ✅ Framework done, source corpora pending |
+| Case Companion mode | ✅ Core API done |
+| External API key auth | ✅ Done |
+| Tiered LLM routing | ✅ Done |
+| Token efficiency / prompt compression | ✅ Core rules implemented |
 
 MongoDB collections used by TalkDoc:
 - `rag_documents` — uploaded files metadata
@@ -123,6 +147,8 @@ mamla_brain/
 └── tasks.py              # Celery: KB ingestion, async jobs
 ```
 
+Current status: created. Additional package init files were also added for `management/` and `management/commands/` so Django command discovery stays explicit.
+
 ### 2. OpenRouter LLM Migration
 
 **Why OpenRouter:** Single API key, access to all models, pay-per-token, no per-model contracts.
@@ -158,23 +184,72 @@ Token limits per tier:
 
 ### 3. Legal Knowledge Base
 
-**What to index:**
-- IPC (Indian Penal Code) — all sections with text
-- CrPC (Code of Criminal Procedure) — all sections
-- CPC (Code of Civil Procedure) — all sections
-- Evidence Act — all sections
-- Selected SC/HC judgments (starting with landmark cases)
+### Storage Model: MongoDB vs OpenSearch
+
+Mamla Brain should follow the same storage split already used by TalkDoc:
+
+- **MongoDB is the system of record.**
+  Use it for API keys, sessions, messages, uploaded-document metadata, ownership, quotas, and any workflow state that must survive reindexing.
+- **OpenSearch is the retrieval index.**
+  Use it for vector search, lexical search, ranking, and fast retrieval over document chunks and knowledge-base chunks.
+
+This means the Brain app is **not** OpenSearch-only.
+
+Current implementation:
+- `brain_api_keys`, `brain_sessions`, and `brain_messages` are stored in MongoDB.
+- Uploaded source documents reuse TalkDoc's MongoDB/GridFS-backed storage and metadata model.
+- `legal_kb`, `banking_kb`, and `markets_kb` are OpenSearch indexes used for retrieval, not as the canonical source of business state.
+
+Operational guidance:
+- Treat OpenSearch indexes as derived and rebuildable, but still back them up because re-embedding and reindexing can be expensive.
+- For production, prefer a persistent or managed OpenSearch deployment over an ad hoc local-only node.
+- Do not store canonical workflow state only in OpenSearch.
+
+Implementation note: the retrieval/injection layer is now generic. `prompts.py` defines domain profiles for `legal`, `banking`, and `markets`, and `retrieval.py` resolves a per-domain OpenSearch index (`legal_kb`, `banking_kb`, `markets_kb`). The current repo now includes original starter legal seed files for ingestion and retrieval validation, but a production-grade corpus still needs curated primary-law and case-law material.
+
+**Current legal seed corpus included in repo:**
+- `civil_procedure_foundations.txt`
+- `criminal_procedure_foundations.txt`
+- `evidence_foundations.txt`
+- `contract_and_obligation_disputes.txt`
+- `limitation_and_interim_relief.txt`
+- `cpc_jurisdiction_injunction_execution_map.txt`
+- `crpc_bail_investigation_trial_map.txt`
+- `evidence_admissions_electronic_records_map.txt`
+- `ipc_offence_analysis_map.txt`
+- `negotiable_instruments_cheque_dishonour_map.txt`
+- `specific_relief_contract_remedies_map.txt`
+- `bail_and_personal_liberty_precedents.txt`
+- `criminal_vs_civil_wrong_precedents.txt`
+- `electronic_evidence_precedents.txt`
+- `injunction_and_specific_relief_precedents.txt`
+- `cheque_dishonour_presumption_precedents.txt`
+- `property_title_and_possession_precedents.txt`
+- `matrimonial_custody_and_maintenance_precedents.txt`
+- `company_director_and_vicarious_liability_precedents.txt`
+
+These are original Mamla Brain seed documents intended for framework testing and early retrieval quality. They now include general litigation foundations, statute-oriented section maps, and precedent-oriented case notes across several major dispute families, but they are still not authoritative bare-act replacements or a complete research corpus.
+
+**Next production corpus to add:**
+- Curated primary-law text for key statutes
+- Broader verified precedent coverage or licensed case-law material
+- Domain corpora for `banking` and `markets`
 
 **Index name in OpenSearch:** `legal_kb`
 **Chunk size:** 512 tokens, 64 token overlap (smaller than doc chunks — legal sections are dense)
 **Metadata per chunk:** `{ act, section_number, section_title, subsection, source_url, jurisdiction }`
 
 **Ingestion pipeline (`mamla_brain/tasks.py`):**
-1. Load raw text of each act (store source files in `Legalv1/mamla_brain/legal_kb_sources/`, plain text, one file per act)
+1. Load raw text of each source file (store source files in `Legalv1/mamla_brain/legal_kb_sources/`, plain text, one file per source body)
 2. Chunk by section boundary (not fixed token count — respect section structure)
 3. Embed with same encoder used by TalkDoc (`embed_texts` from `talkdoc/tasks.py`)
 4. Upsert into OpenSearch `legal_kb` index
 5. Run once via management command: `python manage.py ingest_legal_kb`
+
+Starter seed status:
+- `legal_kb_sources/` is no longer empty.
+- The current seed corpus is enough to validate ingestion, retrieval, and prompt assembly flows.
+- Replace or augment these starter files with higher-authority sources before claiming legal-research completeness.
 
 ### 4. API Key Authentication
 
@@ -294,7 +369,7 @@ or account statements:
 | `BRAIN_T3_MODEL` | Tier 3 model ID (default: `anthropic/claude-sonnet-4-5`) |
 | `BRAIN_MONTHLY_FREE_QUOTA` | Default monthly quota for free tier (default: `100`) |
 
-Add to: `Legalv1/.env` and document in `docs/02-backend-legalv1.md` env section.
+Add to: `Legalv1/legalenv` and document in `docs/02-backend-legalv1.md` env section.
 
 ---
 
@@ -307,34 +382,34 @@ Add to: `Legalv1/.env` and document in `docs/02-backend-legalv1.md` env section.
   `chat_complete(messages, app_scenario='talkdoc:rag'/'talkdoc:general')`. Switch to OpenRouter
   by setting `LLM_DEFAULT_PROVIDER=openrouter` in `legalenv`.
 
-- [ ] **P0-2** — Reduce conversation history in `talkdoc/views.py` from last 20 to last 6 messages
-  (line: `.limit(20)` → `.limit(6)`). Token savings, no quality loss for legal Q&A.
+- [x] **P0-2** — Reduce conversation history in `talkdoc/views.py` from last 20 to last 6 messages.
+  This is already present in both TalkDoc message endpoints.
 
 - [x] **P0-3** — ~~Add `OPENROUTER_API_KEY` to `.env`~~  Already in `legalenv`. `RAG_CHAT_MODEL` kept
   as a per-app override env var (see `docs/02-backend-legalv1.md` LLM Settings table).
 
 ### Phase 1: Core Brain App
 
-- [ ] **P1-1** — Create `Legalv1/mamla_brain/` Django app (all files listed in Component 1 above).
+- [x] **P1-1** — Create `Legalv1/mamla_brain/` Django app (all files listed in Component 1 above).
   Register in `INSTALLED_APPS` in `settings.py`. Add `path('api/brain/', include('mamla_brain.urls'))`
   to `Legalv1/Legalv1/urls.py`.
 
-- [ ] **P1-2** — Build `mamla_brain/llm_router.py`: single `call_llm(messages, tier)` function
+- [x] **P1-2** — Build `mamla_brain/llm_router.py`: single `call_llm(messages, tier)` function
   that picks model + `max_tokens` based on tier (T1/T2/T3). All Brain LLM calls go through this.
   Never call `openai` directly from views.
 
-- [ ] **P1-3** — Build `mamla_brain/prompts.py`: store all system prompts as named constants
+- [x] **P1-3** — Build `mamla_brain/prompts.py`: store all system prompts as named constants
   (`DOC_QA_SYSTEM`, `GENERAL_LEGAL_SYSTEM`, `CASE_COMPANION_SYSTEM`, `QUERY_REWRITE_SYSTEM`).
   Nothing hardcoded in views.py.
 
-- [ ] **P1-4** — Build `mamla_brain/auth.py`: `@brain_api_key_required` decorator that accepts
+- [x] **P1-4** — Build `mamla_brain/auth.py`: `@brain_api_key_required` decorator that accepts
   either `X-Brain-API-Key` header (external) or Supabase token (internal). Quota check on every
   request. `generate_api_key()` helper to create + store key hash.
 
-- [ ] **P1-5** — Build brain session + message endpoints in `mamla_brain/views.py` using
+- [x] **P1-5** — Build brain session + message endpoints in `mamla_brain/views.py` using
   `brain_sessions` / `brain_messages` collections. Mirror TalkDoc session API surface.
 
-- [ ] **P1-6** — Build `POST /api/brain/v1/sessions/<id>/message/` — same RAG flow as TalkDoc
+- [x] **P1-6** — Build `POST /api/brain/v1/sessions/<id>/message/` — same RAG flow as TalkDoc
   `send_message` but uses `llm_router.py` (T2), `prompts.py`, and stores `tier_used`+`tokens_used`.
 
 ### Phase 2: Legal Knowledge Base
@@ -342,44 +417,44 @@ Add to: `Legalv1/.env` and document in `docs/02-backend-legalv1.md` env section.
 - [ ] **P2-1** — Collect and save raw text of IPC, CrPC, CPC, Evidence Act as plain `.txt` files
   in `Legalv1/mamla_brain/legal_kb_sources/`. Source: IndiaCode.nic.in (public domain).
 
-- [ ] **P2-2** — Write `mamla_brain/tasks.py`: `ingest_legal_kb()` — section-boundary chunking
+- [x] **P2-2** — Write `mamla_brain/tasks.py`: `ingest_knowledge_base(domain_key=...)` — section-boundary chunking
   → embed via `talkdoc.tasks.embed_texts` → upsert to OpenSearch `legal_kb` index with metadata
   (`act`, `section_number`, `section_title`).
 
-- [ ] **P2-3** — Write Django management command `mamla_brain/management/commands/ingest_legal_kb.py`
+- [x] **P2-3** — Write Django management command `mamla_brain/management/commands/ingest_legal_kb.py`
   to trigger ingestion: `python manage.py ingest_legal_kb`.
 
-- [ ] **P2-4** — Build `mamla_brain/retrieval.py`:
-  - `search_legal_kb(query, k=8)` — query OpenSearch `legal_kb` index
+- [x] **P2-4** — Build `mamla_brain/retrieval.py`:
+  - `search_knowledge_base(query, domain_key='legal', k=8)` — query the domain KB index
   - `search_user_docs(query, user_id, doc_ids, k=5)` — calls `talkdoc.search.knn_search`
   - `merge_context(kb_hits, doc_hits)` — deduplicate + rank combined results
 
 ### Phase 3: Case Companion
 
-- [ ] **P3-1** — Build `POST /api/brain/v1/case-companion/start/` — create session with
+- [x] **P3-1** — Build `POST /api/brain/v1/case-companion/start/` — create session with
   `mode="case_companion"`, store `case_type`, `party_role`, `doc_ids` in `brain_sessions`.
 
-- [ ] **P3-2** — Build `POST /api/brain/v1/case-companion/<id>/advise/` — full 3-step pipeline:
+- [x] **P3-2** — Build `POST /api/brain/v1/case-companion/<id>/advise/` — full 3-step pipeline:
   T1 classify → KB retrieval → T3 reason → return structured JSON response schema (see above).
 
-- [ ] **P3-3** — Write `CASE_COMPANION_SYSTEM` prompt in `prompts.py`. Must instruct model to
+- [x] **P3-3** — Write `CASE_COMPANION_SYSTEM` prompt in `prompts.py`. Must instruct model to
   output strict JSON matching the schema. Include few-shot example in prompt.
 
-- [ ] **P3-4** — Add `tokens_used` and `tier_used` fields to every `brain_messages` insert
+- [x] **P3-4** — Add `tokens_used` and `tier_used` fields to every `brain_messages` insert
   for cost tracking. Read `usage.total_tokens` from OpenRouter response.
 
 ### Phase 4: External API Polish
 
-- [ ] **P4-1** — Build `POST /api/brain/v1/admin/keys/` — Supabase-admin-only endpoint to
+- [x] **P4-1** — Build `POST /api/brain/v1/admin/keys/` — Supabase-admin-only endpoint to
   generate API keys. Returns raw key exactly once; only hash stored in DB.
 
-- [ ] **P4-2** — Add quota enforcement in `@brain_api_key_required`: atomic `$inc quota_used`
+- [x] **P4-2** — Add quota enforcement in `@brain_api_key_required`: atomic `$inc quota_used`
   after each successful request. Return HTTP 429 with `{"error": "quota_exceeded"}` if over limit.
 
-- [ ] **P4-3** — Build `GET /api/brain/v1/health/` — returns model tiers in use, KB index doc
+- [x] **P4-3** — Build `GET /api/brain/v1/health/` — returns model tiers in use, KB index doc
   count, no auth required.
 
-- [ ] **P4-4** — Log `X-App-Name` request header to `brain_messages.app_name` — tracks which
+- [x] **P4-4** — Log `X-App-Name` request header to `brain_messages.app_name` — tracks which
   external app called what for analytics.
 
 ### Phase 5: Financial Parser (defer — only when banking clients onboard)

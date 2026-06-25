@@ -1,0 +1,31 @@
+Section 1
+Title: Evidence law as proof architecture
+Evidence law is best understood as a framework for deciding what can be proved, by whom, and with what degree of reliability. For litigation support, the key task is to connect every claimed fact to a proof path: document, admission, witness, expert, electronic record, or presumption. If a fact has no proof path, it should not be central to the strategy narrative.
+
+Section 2
+Title: Relevance versus weight
+Not every relevant fact carries the same persuasive force. Some material is admissible but weak, while some material is both admissible and highly probative. A reasoning engine should distinguish between direct evidence, corroborative evidence, impeachment material, background context, and motive narrative. This distinction helps avoid overvaluing colorful but legally thin material.
+
+Section 3
+Title: Admissions, denials, and silence patterns
+Admissions can drastically shorten a case, but their scope must be read carefully. An admission of a relationship, transaction, signature, delivery, or meeting does not always amount to admission of liability. Denials should also be categorized as specific, evasive, inconsistent, or implied. Retrieval should surface patterns where a party shifts position across notice replies, pleadings, affidavits, and oral statements.
+
+Section 4
+Title: Documentary proof and authenticity checks
+Document-heavy disputes should separate authenticity, execution, custody, completeness, and interpretation. The strongest documents are usually those generated contemporaneously in the ordinary course of dealing and corroborated by surrounding conduct. The knowledge base should prioritize original transaction records, system-generated logs, registered instruments, bank confirmations, and correspondence that anchors disputed events to a reliable timeline.
+
+Section 5
+Title: Electronic records and metadata discipline
+Electronic records require special caution because screenshots and forwarded files often omit context. For practical reasoning, a system should ask: who created the record, where was it stored, whether metadata or source extraction exists, and whether the record is complete. Email headers, server logs, device details, and account ownership markers can materially affect weight.
+
+Section 6
+Title: Witness examination planning
+Witness preparation and cross-examination planning should focus on contested propositions rather than broad life-history questioning. High-value lines of questioning generally target perception, memory, opportunity to observe, bias, inconsistency, and contradiction with documents. Retrieval tools should surface not only what a witness says but what surrounding records suggest the witness could or could not have known.
+
+Section 7
+Title: Presumptions and burden shifts
+Certain fact patterns create presumptions or shift evidentiary burdens in practical terms even if the ultimate burden remains fixed. A legal assistant should therefore flag situations involving acknowledged signatures, possession, regular business records, official acts, or suspicious conduct after notice. These patterns often shape courtroom persuasion more than abstract legal recitations.
+
+Section 8
+Title: Building a proof matrix for hearings and trial
+A proof matrix is a compact table that maps each issue to the fact to be proved, the proof source, the opposing challenge, and the response. This is especially helpful at injunction hearings, charge arguments, final arguments, and appellate review. Seed knowledge documents should encourage this issue-to-proof discipline because it improves both retrieval quality and lawyer-facing outputs.

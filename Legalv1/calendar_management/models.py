@@ -1,8 +1,8 @@
 # # from mongo_connection import db
-# from core.init_clients import get_mongo_client
+# from core.init_clients import get_mongo_client, get_mongo_db
 
 # mongo = get_mongo_client()
-# db = mongo['legaldb']
+# db = get_mongo_db()
 # user_collection = db['user_details']
 
 # existing_indexes = user_collection.index_information()

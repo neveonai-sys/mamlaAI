@@ -12,16 +12,15 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 import os
-from datetime import datetime
-from logging.handlers import TimedRotatingFileHandler
 from celery.schedules import crontab
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load env file from project root reliably
-load_dotenv(BASE_DIR / 'legalenv')
+# Load env file — pick legalenv.dev when DJANGO_MODE=dev, otherwise legalenv (prod)
+_env_file = 'legalenv.dev' if os.environ.get('DJANGO_MODE') == 'dev' else 'legalenv'
+load_dotenv(BASE_DIR / _env_file)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -50,6 +49,10 @@ CORS_ALLOWED_ORIGINS = [
     'http://mamla.ai',
     'http://www.mamla.ai',
     'http://localhost:3000',
+    'http://localhost:3001',  # dev frontend
+    'capacitor://localhost',  # Capacitor native Android/iOS
+    'http://localhost',       # Capacitor Android fallback
+    'https://localhost',
 ]
 
 # REST Framework and OpenAPI (Swagger) - schema only when DEBUG=True (see core.views)
@@ -101,9 +104,13 @@ INSTALLED_APPS = [
     'todaysupdates',
     'core',
     'talkdoc',
-    'ecourts_scraper',
-    'ecourts_api',
+    'mamla_brain',
+    # 'ecourts_scraper',
+    'ecourt_scrapped',
     'corsheaders',
+    'cases',
+    'agents',
+    'analytics',
 ]
 
 MIDDLEWARE = [
@@ -114,6 +121,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'core.middleware.DevAuthBypassMiddleware',
+    'core.telemetry_middleware.TelemetryMiddleware',
     'ai_draft.middleware.BypassAuthForTestEndpoints',  
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -144,6 +152,8 @@ OPENSEARCH_HOST = os.getenv('OPENSEARCH_HOST', 'localhost')
 OPENSEARCH_PORT = int(os.getenv('OPENSEARCH_PORT', '9200'))
 OPENSEARCH_USE_SSL = os.getenv('OPENSEARCH_USE_SSL', '0') == '1'
 OPENSEARCH_VERIFY_CERTS = os.getenv('OPENSEARCH_VERIFY_CERTS', '0') == '1'
+# Index name prefix: empty for prod, 'dev_' for dev (set via OPENSEARCH_INDEX_PREFIX in env file)
+OPENSEARCH_INDEX_PREFIX = os.getenv('OPENSEARCH_INDEX_PREFIX', '')
 
 # ---------------------------------------------------------------------------
 # LLM configuration (core.llm_client reads these)
@@ -154,7 +164,7 @@ OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 
 # Default provider: 'openai' | 'openrouter'
 # Override per-deployment without touching code.
-LLM_DEFAULT_PROVIDER = os.getenv('LLM_DEFAULT_PROVIDER', 'openai')
+LLM_DEFAULT_PROVIDER = os.getenv('LLM_DEFAULT_PROVIDER')
 
 # TalkDoc flag (kept for backwards compatibility)
 TALKDOC_ENABLE_LLM = os.getenv('TALKDOC_ENABLE_LLM', '1').strip() not in ('0', 'false', 'False')
@@ -176,6 +186,7 @@ OPENROUTER_CREATE_DRAFTS_MODEL    = os.getenv('OPENROUTER_CREATE_DRAFTS_MODEL', 
 BRAIN_T1_MODEL = os.getenv('BRAIN_T1_MODEL', 'meta-llama/llama-3.1-8b-instruct')
 BRAIN_T2_MODEL = os.getenv('BRAIN_T2_MODEL', 'anthropic/claude-3-haiku')
 BRAIN_T3_MODEL = os.getenv('BRAIN_T3_MODEL', 'anthropic/claude-sonnet-4-5')
+BRAIN_MONTHLY_FREE_QUOTA = int(os.getenv('BRAIN_MONTHLY_FREE_QUOTA', '100'))
 
 ROOT_URLCONF = 'Legalv1.urls'
 
@@ -197,30 +208,41 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'Legalv1.wsgi.application'
 
-# settings.py
-now_date_str = datetime.strftime(datetime.now().date(),'%d-%m-%Y')
+# ── Logging ───────────────────────────────────────────────────────────────
+# Absolute log path so logging works regardless of cwd (gunicorn, runserver, etc.)
+_is_dev = os.environ.get('DJANGO_MODE') == 'dev'
+_log_dir = BASE_DIR.parent / 'logs' / ('dev' if _is_dev else '')
+os.makedirs(_log_dir, exist_ok=True)
+
 DJANGO_LOG_LEVEL = os.getenv('DJANGO_LOG_LEVEL', 'INFO' if DEBUG else 'WARNING')
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'request_context': {
+            '()': 'core.log_filters.RequestContextFilter',
+        },
+    },
     'formatters': {
         'verbose': {
-            'format': '[{levelname} -- {asctime} -- {process} -- {funcName} -- {module} -- {lineno} -- {name}] || {message}',
+            'format': '[{levelname} -- {asctime} -- rid={request_id} -- uid={user_id} -- {process} -- {funcName} -- {module} -- {lineno} -- {name}] || {message}',
             'style': '{',
         },
     },
     'handlers': {
         'file': {
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': f'../logs/{now_date_str}_django.log',
+            'filename': str(_log_dir / 'django.log'),
             'when': 'midnight',
             'interval': 1,
-            'backupCount': 3,
+            'backupCount': 90,
             'formatter': 'verbose',
+            'filters': ['request_context'],
         },
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
+            'filters': ['request_context'],
         },
     },
     'loggers': {
@@ -231,12 +253,12 @@ LOGGING = {
         },
         'django.request': {
             'handlers': ['file', 'console'] if DEBUG else ['file'],
-            'level': 'ERROR',  # Only log request errors (4xx, 5xx)
+            'level': 'ERROR',
             'propagate': False,
         },
         'django.server': {
             'handlers': ['file', 'console'] if DEBUG else ['file'],
-            'level': 'ERROR',  # Only log server errors
+            'level': 'ERROR',
             'propagate': False,
         },
         'celery': {
@@ -244,16 +266,43 @@ LOGGING = {
             'level': DJANGO_LOG_LEVEL,
             'propagate': False,
         },
+        # All scoped module loggers (getLogger(__name__)) in Legalv1/* route here
+        'Legalv1': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
+        # Scraper loggers (FastAPI services)
+        'scraper': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
+        'hc_court': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
+        'dc_court': {
+            'handlers': ['file', 'console'] if DEBUG else ['file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
     },
-    
 }
 
 #frontend url
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://mamla.ai')
 
+# Admin emails — comma-separated; always resolve to 'internal' plan (unlimited quotas, no blocks).
+# Set in legalenv/legalenv.dev — never hardcode here.
+# Example: BRAIN_ADMIN_EMAILS=mems650@gmail.com,robin.mondal@gmail.com,neveon.ai@gmail.com
+BRAIN_ADMIN_EMAILS = os.getenv('BRAIN_ADMIN_EMAILS', '')
+
 #supabse details
-SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+SUPABASE_URL = (os.getenv('SUPABASE_URL') or '').strip()
+SUPABASE_SECRET_KEY = (os.getenv('SUPABASE_SECRET_KEY') or '').strip()
+ENCRYPTION_KEY = (os.getenv('ENCRYPTION_KEY') or '').strip()
 
 # Twilio credentials (optional if using Twilio)
 TWILIO_ACCOUNT_SID = 'your_account_sid'
@@ -278,25 +327,35 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# setting up mail
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS')
-EMAIL_PORT = os.getenv('EMAIL_PORT')
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+# Email (Resend SDK)
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+EMAIL_FROM = os.getenv('EMAIL_FROM', 'mamla@noreply.mamla.ai')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # MONGODB
-url = f"""mongodb+srv://{os.getenv('MONGO_HOSTNAME')}:{os.getenv('MONGO_PWD')}@userdata.cshoz.mongodb.net/?retryWrites=true&w=majority&appName={os.getenv('MONGO_APPNAME')}"""
-MONGO_URI = os.getenv("MONGO_URI",url)
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
+mongo_uri_env = (os.getenv('MONGO_URI') or '').strip()
+mongo_hostname = (os.getenv('MONGO_HOSTNAME') or '').strip()
+mongo_password = (os.getenv('MONGO_PWD') or '').strip()
+mongo_appname = (os.getenv('MONGO_APPNAME') or '').strip()
+
+if mongo_uri_env:
+    MONGO_URI = mongo_uri_env
+elif all([mongo_hostname, mongo_password, mongo_appname]):
+    MONGO_URI = (
+        f"mongodb+srv://{mongo_hostname}:{mongo_password}"
+        f"@userdata.cshoz.mongodb.net/?retryWrites=true&w=majority&appName={mongo_appname}"
+    )
+else:
+    MONGO_URI = ''
 
 
 # Celery Configuration
 # Redis as the broker for Celery
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# DB 0 = prod (default), DB 1 = dev — controlled by CELERY_BROKER_URL in env file
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json', 'pickle']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -354,20 +413,9 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'whatsapp_module.tasks.notify_clients_end_of_day',
         'schedule': crontab(hour=18, minute=0),
     },
-    # Pre-populate default results for eCourts landing pages
-    'ecourts-populate-case-defaults-daily': {
-        'task': 'ecourts_api.tasks.populate_case_defaults',
-        'schedule': crontab(hour=6, minute=30),  # Daily 06:30 UTC
-        'options': {'queue': 'ecourts_background'},
-    },
-    'ecourts-populate-litigant-defaults-daily': {
-        'task': 'ecourts_api.tasks.populate_litigant_defaults',
-        'schedule': crontab(hour=6, minute=35),  # Daily 06:35 UTC
-        'options': {'queue': 'ecourts_background'},
-    },
-    'ecourts-populate-lawyer-defaults-weekly': {
-        'task': 'ecourts_api.tasks.populate_lawyer_defaults',
-        'schedule': crontab(day_of_week='monday', hour=6, minute=40),  # Weekly Monday 06:40 UTC
+    'ecourts-seed-reference-data': {
+        'task': 'ecourts_scraper.tasks.seed_reference_data',
+        'schedule': crontab(hour=1, minute=15),
         'options': {'queue': 'ecourts_background'},
     },
     'ecourts-cleanup-expired-cache': {

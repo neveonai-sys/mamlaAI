@@ -1,12 +1,14 @@
 from cryptography.fernet import Fernet
-import os
-import base64
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 # Load encryption key from environment variable
-ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
+ENCRYPTION_KEY = (getattr(settings, 'ENCRYPTION_KEY', '') or '').strip()
 
 if not ENCRYPTION_KEY:
-    raise ValueError("ENCRYPTION_KEY is not set in environment variables.")
+    raise ImproperlyConfigured(
+        "ENCRYPTION_KEY is not configured. Set it in Legalv1/legalenv before starting Django or Celery."
+    )
 
 fernet = Fernet(ENCRYPTION_KEY.encode())
 
