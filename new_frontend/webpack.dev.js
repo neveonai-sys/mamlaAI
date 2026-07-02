@@ -25,10 +25,10 @@ module.exports = merge(common, {
 
   devServer: {
     port: parseInt(process.env.DEV_PORT || '3001', 10),
-    host: 'localhost',
+    host: '0.0.0.0',
     hot: true,
     historyApiFallback: true,
-    allowedHosts: 'auto',
+    allowedHosts: 'all',
     headers: {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
     },

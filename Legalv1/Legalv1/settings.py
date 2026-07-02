@@ -18,9 +18,9 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load env file — pick legalenv.dev when DJANGO_MODE=dev, otherwise legalenv (prod)
-_env_file = 'legalenv.dev' if os.environ.get('DJANGO_MODE') == 'dev' else 'legalenv'
-load_dotenv(BASE_DIR / _env_file)
+# Both dev and prod load the same env file — dev/prod-specific values
+# (Redis DB, OpenSearch index prefix, etc.) are set directly in legalenv.
+load_dotenv(BASE_DIR / 'legalenv')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/

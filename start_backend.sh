@@ -10,7 +10,7 @@
 #          NO Celery beat in dev (avoids double emails/scheduled triggers)
 
 # Get the project root directory
-PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Parse command line arguments
 MODE="prod"  # Default to production
@@ -30,8 +30,8 @@ if [ "$MODE" = "dev" ]; then
     BACKEND_PORT=8100
     CELERY_WORKER_NAME="dev_worker"
     CELERY_ECOURTS_NAME="dev_ecourts"
-    CELERY_GEVENT_CONCURRENCY=10
-    CELERY_PREFORK_CONCURRENCY=2
+    CELERY_GEVENT_CONCURRENCY=4
+    CELERY_PREFORK_CONCURRENCY=1
     CELERY_LOGLEVEL="info"
     LOG_DIR="$PROJECT_ROOT/logs/dev"
     RUN_BEAT=false
@@ -39,8 +39,8 @@ else
     BACKEND_PORT=8000
     CELERY_WORKER_NAME="prod_worker"
     CELERY_ECOURTS_NAME="prod_ecourts"
-    CELERY_GEVENT_CONCURRENCY=100
-    CELERY_PREFORK_CONCURRENCY=4
+    CELERY_GEVENT_CONCURRENCY=40
+    CELERY_PREFORK_CONCURRENCY=2
     CELERY_LOGLEVEL="warning"
     LOG_DIR="$PROJECT_ROOT/logs"
     RUN_BEAT=true
@@ -100,10 +100,6 @@ if missing:
 PY
 }
 
-if [ "$MODE" = "dev" ]; then
-    LEGALENV_PATH="$PROJECT_ROOT/Legalv1/legalenv.dev"
-fi
-
 if [ ! -f "$LEGALENV_PATH" ]; then
     echo "Error: missing env file at $LEGALENV_PATH"
     exit 1
@@ -129,6 +125,11 @@ sleep 2
 # ── Export DJANGO_MODE so settings.py picks the right env file ──────────────
 export DJANGO_MODE="$MODE"
 export BACKEND_PORT="$BACKEND_PORT"
+if [ "$MODE" = "dev" ]; then
+    # legalenv (shared with prod) has no FRONTEND_URL override; force localhost
+    # here so dev-mode emails/redirects don't point at the production domain.
+    export FRONTEND_URL="http://localhost:3001"
+fi
 
 cd "$PROJECT_ROOT/Legalv1"
 

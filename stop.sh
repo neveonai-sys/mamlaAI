@@ -14,12 +14,18 @@
 #   ./stop_scrapper.sh
 #   ./stop_frontend.sh
 
-PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-MODE="${1:-both}"
+if [ -f "$PROJECT_ROOT/.deploy-mode" ]; then
+    DEFAULT_MODE="$(cat "$PROJECT_ROOT/.deploy-mode")"
+else
+    DEFAULT_MODE="both"
+fi
+
+MODE="${1:-$DEFAULT_MODE}"
 
 if [[ "$MODE" != "dev" && "$MODE" != "prod" && "$MODE" != "both" ]]; then
-    echo "Usage: $0 [dev|prod|both]"
+    echo "Usage: $0 [dev|prod|both]  or set .deploy-mode file"
     echo "  dev   — stop only dev services"
     echo "  prod  — stop only prod services"
     echo "  both  — stop all services (default)"
@@ -36,12 +42,10 @@ echo "── Frontend ───────────────────�
 "$PROJECT_ROOT/stop_frontend.sh"
 echo ""
 
-# eCourts scraper — stop only when prod or both (scraper serves prod on port 8001)
-if [[ "$MODE" == "prod" || "$MODE" == "both" ]]; then
-    echo "── eCourts FastAPI Scraper ─────────────────────"
-    "$PROJECT_ROOT/stop_scrapper.sh"
-    echo ""
-fi
+# eCourts scraper — stop based on mode (prod: 8002, dev: 8003)
+echo "── eCourts FastAPI Scraper ─────────────────────"
+"$PROJECT_ROOT/stop_scrapper.sh" "$MODE"
+echo ""
 
 echo "── Backend (Django + Celery) ───────────────────"
 "$PROJECT_ROOT/stop_backend.sh" "$MODE"
