@@ -1,5 +1,6 @@
 from bson import ObjectId
 from core.llm_client import chat_complete
+from talkdoc.tasks import _extract_image_text
 
 import os
 import math
@@ -350,27 +351,44 @@ Example:
                 if other_sections_context else ''
             )
 
-            # Construct prompt for LLM
-            prompt = f"""You are refining one section of a legal draft.{context_block}
+            system_prompt = f"""You are refining one section of a legal draft.{context_block}
 The section to update is titled "{section['section_name']}":
 
 {section['content']}
 
-The user's instruction for this section:
-
-{suggestion}
-
-Update ONLY this section, incorporating the user's instruction. Ensure the content aligns with the rest of the draft and complies with Indian legal standards.
+Update ONLY this section, incorporating the user's instructions. Ensure the content aligns with the rest of the draft and complies with Indian legal standards.
 
 Return ONLY the updated section content. Do not include any headings, labels, preamble, or extra commentary."""
 
+            # Short-term working memory: last 3 exchanges of AI conversation for this section,
+            # so follow-up instructions ("make it shorter") are aware of what was asked before.
+            conversation_history = session.get('conversation_history', [])
+            prior_turns = [
+                {'role': entry.get('role', 'user'), 'content': entry.get('content', '')}
+                for entry in conversation_history
+                if entry.get('section_id') == section_id
+            ][-6:]
+
+            messages = [{'role': 'system', 'content': system_prompt}, *prior_turns, {'role': 'user', 'content': suggestion}]
+
             updated_content, _usage = chat_complete(
-                messages=[{'role': 'user', 'content': prompt}],
+                messages=messages,
                 app_scenario='ai_draft:update_section',
                 temperature=0.4,
                 max_tokens=2000,
                 return_usage=True,
             )
+
+            # Long-term audit log: persist this exchange on the session document.
+            time_now = datetime.datetime.now(datetime.timezone.utc)
+            self.get_mongo_client_db().update_one(
+                {'_id': ObjectId(session_id)},
+                {'$push': {'conversation_history': {'$each': [
+                    {'role': 'user', 'content': suggestion, 'section_id': section_id, 'timestamp': time_now},
+                    {'role': 'assistant', 'content': updated_content, 'section_id': section_id, 'timestamp': time_now},
+                ]}}},
+            )
+
             return {'mssg': updated_content, 'usage': _usage}
         except Exception as e:
             logger.error(f"[update_content_using_AI_with_user_input]  ============>>>>>>: {traceback.format_exc()}")
@@ -494,16 +512,18 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
             draft_sections = session.get('draft_sections', [])
             final_count = session.get('ai_suggested_update_count', 0)
             status = session.get('status', 'completed')
-            
+            conversation_history = session.get('conversation_history', [])
+
             logger.info(f"[get_draft_sections] Retrieved {len(draft_sections)} sections for session {session_id}. Status: {status}")
             return {
-                'mssg': draft_sections, 
+                'mssg': draft_sections,
                 'ai_suggested_update_count': final_count,
-                'status': status
+                'status': status,
+                'conversation_history': conversation_history,
             }
         except Exception as e:
             logger.error(f"[retrieve_sections_of_draft]  ============>>>>>>: {traceback.format_exc()}")
-            return {'mssg': False, 'ai_suggested_update_count': 0, 'status': 'error'}
+            return {'mssg': False, 'ai_suggested_update_count': 0, 'status': 'error', 'conversation_history': []}
 
     def retrieve_single_section_from_session(self, session_id, section_id):
         try:
@@ -850,7 +870,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
             sections.append(current_section)
         return sections
 
-    def insert_draft_session_for_casedocument(self, draft_sections, draft_for, language='English'):
+    def insert_draft_session_for_casedocument(self, draft_sections, draft_for, language='English', user_description=None):
         try:
             # Validate 'draft_for'
             if not isinstance(draft_for, dict):
@@ -871,7 +891,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
             # Create a new session
             session = {
                 'user_id': self.user_id,
-                'user_query': 'case_document',
+                'user_query': user_description or 'case_document',
                 'draft_for': draft_for_filtered,
                 'language': language,
                 'location': {},  # No state and district needed
@@ -909,6 +929,10 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 # For text files
                 text = file_stream.read().decode('utf-8')
                 return text
+            elif file_name.endswith(('.png', '.jpg', '.jpeg')):
+                # OCR via the shared vision-LLM extractor used by TalkDoc
+                mimetype = 'image/png' if file_name.endswith('.png') else 'image/jpeg'
+                return _extract_image_text(file_stream.getvalue(), file_name, mimetype)
             elif file_name.endswith('.doc'):
                 # For .doc files, we need to use external tools or convert to DOCX
                 logger.error("Unsupported file format: .doc")
@@ -970,15 +994,22 @@ Example:
             logger.error(f"Exception in generate_draft_sections_from_template: {traceback.format_exc()}")
             return None
 
-    def generate_draft_sections_with_gpt(self,file_text, language='English'):
+    def generate_draft_sections_with_gpt(self, file_text, language='English', user_description=None):
         """
         Use OpenAI to generate draft sections from the case document text.
         """
+        description_block = f"""
+The user also provided the following instructions/context for this draft:
+
+{user_description}
+""" if user_description else ""
+
         # Create the prompt
         prompt = f"""
 You are a legal expert specializing in drafting legal documents as per Indian legal standards and the Indian constitution.
 
 Analyze the following case document and generate a legal draft accordingly **in {language}**.
+{description_block}
 
 **Formatting Instructions:**
 

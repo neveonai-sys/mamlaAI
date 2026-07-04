@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -47,47 +47,80 @@ function buildQuotaNotice(quota, fallbackMessage = '') {
   return null;
 }
 
+// Conversation entries from the backend have no stable id — assign one from their
+// index (entries are only ever appended, never reordered/removed, so this is stable).
+function withConversationIds(entries) {
+  return (entries ?? []).map((entry, index) => ({ ...entry, id: index }));
+}
+
 function quotaNoticeClassName(tone) {
   if (tone === 'error') return 'border-red-200 bg-red-50 text-red-700';
   if (tone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-800';
   return 'border-sky-200 bg-sky-50 text-sky-700';
 }
 
-// ─── Inline formatting toolbar ───────────────────────────────────────────────
+// ─── Inline formatting toolbar — compact, lives inside the sections-meta row ──
 function EditorToolbar() {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setMoreOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [moreOpen]);
+
   function exec(cmd, value) {
     document.execCommand(cmd, false, value);
   }
+
+  const moreOptions = [
+    { cmd: 'underline', icon: 'format_underlined', label: 'Underline' },
+    { cmd: 'insertUnorderedList', icon: 'format_list_bulleted', label: 'Bulleted list' },
+    { cmd: 'justifyLeft', icon: 'format_align_left', label: 'Align left' },
+    { cmd: 'justifyCenter', icon: 'format_align_center', label: 'Align center' },
+  ];
+
   return (
-    <div className="flex items-center justify-center p-2 border-b border-primary/5 bg-ivory/50">
-      <div className="flex items-center gap-1 bg-white border border-primary/10 rounded-lg p-1 shadow-sm">
-        {[
-          { cmd: 'bold', icon: 'format_bold' },
-          { cmd: 'italic', icon: 'format_italic' },
-          { cmd: 'underline', icon: 'format_underlined' },
-        ].map((b) => (
-          <button
-            key={b.cmd}
-            onMouseDown={(e) => { e.preventDefault(); exec(b.cmd); }}
-            className="p-1.5 hover:bg-primary/5 rounded text-slate-600 hover:text-primary transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">{b.icon}</span>
-          </button>
-        ))}
-        <div className="w-px h-4 bg-primary/10 mx-1" />
-        {[
-          { cmd: 'insertUnorderedList', icon: 'format_list_bulleted' },
-          { cmd: 'justifyLeft', icon: 'format_align_left' },
-          { cmd: 'justifyCenter', icon: 'format_align_center' },
-        ].map((b) => (
-          <button
-            key={b.cmd}
-            onMouseDown={(e) => { e.preventDefault(); exec(b.cmd); }}
-            className="p-1.5 hover:bg-primary/5 rounded text-slate-600 hover:text-primary transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">{b.icon}</span>
-          </button>
-        ))}
+    <div className="flex items-center gap-1 bg-white border border-primary/10 rounded-lg p-1 shadow-sm flex-shrink-0">
+      {[
+        { cmd: 'bold', icon: 'format_bold' },
+        { cmd: 'italic', icon: 'format_italic' },
+      ].map((b) => (
+        <button
+          key={b.cmd}
+          onMouseDown={(e) => { e.preventDefault(); exec(b.cmd); }}
+          className="p-1.5 hover:bg-primary/5 rounded text-slate-600 hover:text-primary transition-colors"
+        >
+          <span className="material-symbols-outlined text-lg">{b.icon}</span>
+        </button>
+      ))}
+      <div className="w-px h-4 bg-primary/10 mx-1" />
+      <div ref={ref} className="relative">
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setMoreOpen((current) => !current)}
+          className={`p-1.5 rounded transition-colors flex items-center gap-0.5 ${moreOpen ? 'bg-primary/5 text-primary' : 'text-slate-600 hover:bg-primary/5 hover:text-primary'}`}
+        >
+          <span className="material-symbols-outlined text-lg">more_horiz</span>
+        </button>
+        {moreOpen && (
+          <div className="app-fade-in absolute left-0 top-[calc(100%+6px)] z-20 flex items-center gap-1 rounded-lg border border-primary/10 bg-white p-1 shadow-lg">
+            {moreOptions.map((b) => (
+              <button
+                key={b.cmd}
+                title={b.label}
+                onMouseDown={(e) => { e.preventDefault(); exec(b.cmd); }}
+                className="p-1.5 hover:bg-primary/5 rounded text-slate-600 hover:text-primary transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">{b.icon}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -124,7 +157,7 @@ function DraftSidebar({ sections, activeSectionIdx, onSelectSection }) {
 }
 
 // ─── AI assistant right panel ─────────────────────────────────────────────────
-function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled, sections, activeSectionIdx, onSectionChange }) {
+function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled, sections, activeSectionIdx, onSectionChange, onClose, width, onWidthChange, appliedSuggestionIds, onApplySuggestion }) {
   const [input, setInput] = useState('');
   const bottomRef = useRef(null);
 
@@ -136,6 +169,23 @@ function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled, sec
     if (!input.trim() || loading || promptDisabled) return;
     onPrompt(input.trim());
     setInput('');
+  }
+
+  function handleResizeStart(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = width;
+    function onMouseMove(moveEvent) {
+      const delta = startX - moveEvent.clientX;
+      const next = Math.min(640, Math.max(320, startWidth + delta));
+      onWidthChange(next);
+    }
+    function onMouseUp() {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   }
 
   const SUGGESTIONS = [
@@ -150,12 +200,24 @@ function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled, sec
     || (sections?.length > 0 ? `Section ${activeSectionIdx + 1}` : null);
 
   return (
-    <aside className="flex w-[340px] flex-col border-l border-primary/10 bg-ivory flex-shrink-0 xl:w-[360px]">
+    <aside className="relative flex flex-col border-l border-primary/10 bg-ivory flex-shrink-0" style={{ width }}>
+      <div
+        onMouseDown={handleResizeStart}
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors z-10"
+        title="Drag to resize"
+      />
       <div className="p-4 border-b border-primary/10 flex items-center justify-between flex-shrink-0">
         <h3 className="font-bold text-sm flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-xl">auto_awesome</span>
           AI Assistant
         </h3>
+        <button
+          onClick={onClose}
+          className="p-1 rounded-lg text-slate-400 hover:bg-primary/5 hover:text-primary transition-colors"
+          title="Close AI Assistant"
+        >
+          <span className="material-symbols-outlined text-lg">close</span>
+        </button>
       </div>
 
       {/* Section target selector */}
@@ -214,19 +276,38 @@ function AIPanel({ onPrompt, loading, messages, quotaNotice, promptDisabled, sec
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-primary text-ivory rounded-br-sm'
-                  : 'bg-white border border-primary/10 text-ink rounded-bl-sm'
-              }`}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+        {messages.map((msg, i) => {
+          const isApplied = msg.role === 'assistant' && appliedSuggestionIds?.has(msg.id);
+          return (
+            <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-primary text-ivory rounded-br-sm'
+                    : 'bg-white border border-primary/10 text-ink rounded-bl-sm'
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
+              {msg.role === 'assistant' && msg.id != null && !msg.isError && (
+                isApplied ? (
+                  <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                    <span className="material-symbols-outlined text-sm">check_circle</span>
+                    Applied to draft
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onApplySuggestion(msg)}
+                    className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">check</span>
+                    Apply to draft
+                  </button>
+                )
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {loading && (
           <div className="flex justify-start">
@@ -417,7 +498,9 @@ export default function DraftingWorkspace() {
   // Pre-fill context from DraftContextAgent (passed via router state)
   const [caseContext, setCaseContext] = useState(null);
   const [filterData, setFilterData] = useState(null);
-  const [aiMessages, setAiMessages] = useState([]);
+  // Full AI conversation log for this draft (all sections), persisted server-side
+  // in `conversation_history` — restored on load so users can see past AI-assisted changes.
+  const [conversationHistory, setConversationHistory] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [draftTitle, setDraftTitle] = useState(() => buildTimestampedDraftName());
   const [saveStatus, setSaveStatus] = useState(''); // 'saving' | 'saved' | 'error'
@@ -433,16 +516,32 @@ export default function DraftingWorkspace() {
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [showOutlinePanel] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiPanelWidth, setAiPanelWidth] = useState(340);
+  const [appliedSuggestionIds, setAppliedSuggestionIds] = useState(() => new Set());
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const lastScrollTopRef = useRef(0);
+
+  function handleEditorScroll(e) {
+    const top = e.currentTarget.scrollTop;
+    const last = lastScrollTopRef.current;
+    if (top <= 8) {
+      setHeaderHidden(false);
+    } else if (top > last + 4) {
+      setHeaderHidden(true);
+    } else if (top < last - 4) {
+      setHeaderHidden(false);
+    }
+    lastScrollTopRef.current = top;
+  }
 
   // Init form state
   const [query, setQuery] = useState('');
-  const [inputMethod, setInputMethod] = useState('write');
   const [sourceFile, setSourceFile] = useState(null);
   const [selectedDocType, setSelectedDocType] = useState('');
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Init tabs: 0 = New Draft, 1 = Load Draft, 2 = Load Template
+  // Init tabs: 0 = New Draft, 1 = Load Draft (Load Template tab retired, kept dormant below)
   const [initTab, setInitTab] = useState(0);
   const [draftSearch, setDraftSearch] = useState('');
 
@@ -480,6 +579,17 @@ export default function DraftingWorkspace() {
   const draftingQuota = features?.brain_drafting_actions;
   const suggestionQuotaNotice = buildQuotaNotice(suggestionQuota, error);
   const suggestionPromptDisabled = suggestionQuota?.allowed === false;
+
+  // AI Assistant conversation scoped to the section currently being refined —
+  // derived from the persisted conversation_history so switching sections shows that
+  // section's own history, and re-opening a draft restores prior AI-assisted turns.
+  const activeSectionAiId = sections[activeSectionIdx]?.section_id;
+  const aiMessages = useMemo(
+    () => conversationHistory
+      .filter((entry) => entry.section_id === activeSectionAiId)
+      .map((entry) => ({ id: entry.id, role: entry.role, content: entry.content, section_id: entry.section_id, isError: entry.isError })),
+    [conversationHistory, activeSectionAiId],
+  );
 
   // Send-to-client modal state
   const [showSendModal, setShowSendModal] = useState(false);
@@ -563,7 +673,8 @@ export default function DraftingWorkspace() {
     setCurrentSavedDraftId(null);
     setLastSavedAt('');
     setHasUnsavedChanges(false);
-    setAiMessages([]);
+    setConversationHistory([]);
+    setAppliedSuggestionIds(new Set());
     setDraftForData([]);
     setDraftTitle(buildTimestampedDraftName());
     setLeaveDialogOpen(false);
@@ -648,6 +759,8 @@ export default function DraftingWorkspace() {
     const nextSections = response.data?.draft_sections ?? [];
     setSections(nextSections);
     setAiSuggestionCount(response.data?.ai_suggested_update_count ?? 0);
+    setConversationHistory(withConversationIds(response.data?.conversation_history));
+    setAppliedSuggestionIds(new Set());
     setSuggestionQuota(null);
     return nextSections;
   }
@@ -805,7 +918,12 @@ export default function DraftingWorkspace() {
       apiClient.get('aidrafts/get_draft_sections', { params: { session_id: id } }).then((r) => {
         setSections(r.data?.draft_sections ?? []);
         setAiSuggestionCount(r.data?.ai_suggested_update_count ?? 0);
-        setDraftTitle(resolveDraftTitle(r.data?.title));
+        setConversationHistory(withConversationIds(r.data?.conversation_history));
+        setAppliedSuggestionIds(new Set());
+        // NOTE: get_draft_sections never returns a `title` field — the real display
+        // name only comes from the get_user_saved_drafts_v2 lookup below. Setting it
+        // here from an always-undefined field used to stomp the correct title with a
+        // fresh timestamp placeholder in a race against that lookup.
         setSessionId(id);
         setPhase('editing');
         setHasUnsavedChanges(false);
@@ -841,12 +959,8 @@ export default function DraftingWorkspace() {
   // ── Create new draft ──
   async function handleCreateDraft(e) {
     e.preventDefault();
-    if (inputMethod === 'write' && !query.trim()) {
-      setError('Please describe what you need drafted.');
-      return;
-    }
-    if (inputMethod === 'upload' && !sourceFile) {
-      setError('Please upload a source document.');
+    if (!query.trim() && !sourceFile) {
+      setError('Please upload a document or add a description (or both).');
       return;
     }
     setInitLoading(true);
@@ -879,11 +993,14 @@ export default function DraftingWorkspace() {
       }
 
       let res;
-      if (inputMethod === 'upload') {
+      if (sourceFile) {
         const formData = new FormData();
         formData.append('file', sourceFile);
         formData.append('draft_for', JSON.stringify(payload.draft_for || []));
         formData.append('language', payload.language);
+        if (query.trim()) {
+          formData.append('user_query', query.trim());
+        }
         if (payload.location) {
           formData.append('location', JSON.stringify(payload.location));
         }
@@ -903,12 +1020,17 @@ export default function DraftingWorkspace() {
       const sectRes = await apiClient.get('aidrafts/get_draft_sections', { params: { session_id: newSessionId } });
       setSections(sectRes.data?.draft_sections ?? []);
       setAiSuggestionCount(sectRes.data?.ai_suggested_update_count ?? 0);
+      setConversationHistory(withConversationIds(sectRes.data?.conversation_history));
+      setAppliedSuggestionIds(new Set());
       setSessionId(newSessionId);
       setDraftTitle(resolveDraftTitle(res.data?.draft_name, res.data?.title));
       setDraftForData(payload.draft_for || []);
       syncCurrentSavedDraftMeta(res.data?.draft_id, res.data?.last_updated_on || res.data?.draft_saved_at);
       setHasUnsavedChanges(false);
-      posthog?.capture('draft_created', { input_method: inputMethod, document_type: payload.document_type });
+      posthog?.capture('draft_created', {
+        input_method: sourceFile && query.trim() ? 'upload_and_write' : sourceFile ? 'upload' : 'write',
+        document_type: payload.document_type,
+      });
       setPhase('editing');
       navigate(`/drafting/${newSessionId}`, { replace: true });
       setQuery('');
@@ -935,9 +1057,13 @@ export default function DraftingWorkspace() {
       setSessionId(sId);
       setDraftTitle(resolveDraftTitle(draft.draft_name, draft.title));
       setAiSuggestionCount(0);
+      setConversationHistory([]);
       syncCurrentSavedDraftMeta(dId, draft.last_updated_on || draft.created_on);
       setHasUnsavedChanges(false);
       fetchDraftFor(sId);
+      // load_saved_draft returns a content snapshot only — pull the live session's
+      // AI-suggestion count and conversation log separately so both stay accurate.
+      refreshDraftSections(sId).catch(() => {});
       setPhase('editing');
       navigate(`/drafting/${sId}`, { replace: true });
     } catch {
@@ -986,6 +1112,8 @@ export default function DraftingWorkspace() {
       const sectRes = await apiClient.get('aidrafts/get_draft_sections', { params: { session_id: newSId } });
       setSections(sectRes.data?.draft_sections ?? []);
       setAiSuggestionCount(sectRes.data?.ai_suggested_update_count ?? 0);
+      setConversationHistory(withConversationIds(sectRes.data?.conversation_history));
+      setAppliedSuggestionIds(new Set());
       setSessionId(newSId);
       setDraftTitle(resolveDraftTitle(selectedTemplateName, selectedTemplateType));
       setDraftForData(selectedDraftFor.length > 0 ? selectedDraftFor : (!isPersonal && selectedCaseId ? [{
@@ -1065,14 +1193,18 @@ export default function DraftingWorkspace() {
   }
 
   // ── AI prompt ──
+  // NOTE: suggestions are never applied to the draft automatically — the assistant's
+  // reply is only added to the conversation log here. Section content only changes
+  // when the user explicitly clicks "Apply to draft" (see handleApplySuggestion).
   async function handleAIPrompt(prompt) {
     if (!sessionId || suggestionPromptDisabled) return;
     posthog?.capture('ai_suggestion_requested', { session_id: sessionId });
-    setAiMessages((m) => [...m, { role: 'user', content: prompt }]);
+    const activeSection = sections[activeSectionIdx];
+    const sectionId = activeSection?.section_id;
+    setConversationHistory((h) => [...h, { id: h.length, role: 'user', content: prompt, section_id: sectionId }]);
     setAiLoading(true);
     setError('');
     try {
-      const activeSection = sections[activeSectionIdx];
       const res = await apiClient.post('aidrafts/refine_section/', {
         session_id: sessionId,
         section_index: activeSectionIdx,
@@ -1085,17 +1217,7 @@ export default function DraftingWorkspace() {
       if (res.data?.quota) {
         refreshEntitlements(dispatch);
       }
-      setAiMessages((m) => [...m, { role: 'assistant', content: refined }]);
-
-      // Update the section in state
-      if (refined) {
-        setSections((secs) =>
-          secs.map((s, i) =>
-            i === activeSectionIdx ? { ...s, section_content: refined, content: refined } : s,
-          ),
-        );
-        setHasUnsavedChanges(true);
-      }
+      setConversationHistory((h) => [...h, { id: h.length, role: 'assistant', content: refined, section_id: sectionId }]);
     } catch (err) {
       const nextQuota = err.response?.data?.quota || null;
       setSuggestionQuota(nextQuota);
@@ -1105,13 +1227,25 @@ export default function DraftingWorkspace() {
       if (nextQuota) {
         setError(buildQuotaNotice(nextQuota, err.response?.data?.error)?.message || err.response?.data?.error || 'AI suggestions are unavailable right now.');
       }
-      setAiMessages((m) => [
-        ...m,
-        { role: 'assistant', content: err.response?.data?.error || 'Sorry, I could not process that request.' },
+      setConversationHistory((h) => [
+        ...h,
+        { id: h.length, role: 'assistant', content: err.response?.data?.error || 'Sorry, I could not process that request.', section_id: sectionId, isError: true },
       ]);
     } finally {
       setAiLoading(false);
     }
+  }
+
+  // ── Apply an AI suggestion to the draft (only happens on explicit user action) ──
+  function handleApplySuggestion(entry) {
+    if (!entry?.content || entry.section_id == null) return;
+    setSections((secs) =>
+      secs.map((s) => (
+        s.section_id === entry.section_id ? { ...s, section_content: entry.content, content: entry.content } : s
+      )),
+    );
+    setHasUnsavedChanges(true);
+    setAppliedSuggestionIds((current) => new Set(current).add(entry.id));
   }
 
   // ── Export draft ──
@@ -1163,7 +1297,6 @@ export default function DraftingWorkspace() {
     try {
       await apiClient.post('aidrafts/revert_to_original', { session_id: sessionId });
       await refreshDraftSections(sessionId);
-      setAiMessages([]);
       setSaveStatus('saved');
     } catch {
       setError('Failed to revert draft.');
@@ -1306,18 +1439,8 @@ export default function DraftingWorkspace() {
               </div>
               <h1 className="text-2xl font-black text-ink mb-2">Legal Document Workshop</h1>
               <p className="text-slate-500 text-sm">
-                Create from scratch, load a saved draft, or start from an existing template.
+                Create from scratch, load a saved draft, or let AI guide you step by step.
               </p>
-              {/* Guided Draft entry */}
-              <button
-                type="button"
-                onClick={() => navigate('/drafting/guided')}
-                className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition"
-              >
-                <span className="material-symbols-outlined text-lg">chat</span>
-                Guided Draft (Recommended)
-                <span className="ml-1 px-2 py-0.5 rounded-full bg-primary text-ivory text-[10px] font-bold">NEW</span>
-              </button>
             </div>
 
             {/* Tab bar */}
@@ -1325,20 +1448,27 @@ export default function DraftingWorkspace() {
               {[
                 { label: 'New Draft', icon: 'auto_awesome' },
                 { label: 'Load Draft', icon: 'folder_open' },
-                { label: 'Load Template', icon: 'upload_file' },
+                { label: 'Guided AI', icon: 'chat', premium: true, onClick: () => navigate('/drafting/guided') },
               ].map((tab, i) => (
                 <button
                   key={tab.label}
                   type="button"
-                  onClick={() => { setInitTab(i); setError(''); }}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded transition-all ${
-                    initTab === i
-                      ? 'bg-primary text-ivory shadow-sm'
-                      : 'text-slate-600 hover:text-primary'
+                  onClick={() => { if (tab.onClick) { tab.onClick(); } else { setInitTab(i); setError(''); } }}
+                  className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded transition-all ${
+                    tab.premium
+                      ? 'bg-gradient-to-r from-primary to-amber-500 text-ivory shadow-md shadow-primary/30 hover:shadow-lg hover:shadow-primary/40'
+                      : initTab === i
+                        ? 'bg-primary text-ivory shadow-sm'
+                        : 'text-slate-600 hover:text-primary'
                   }`}
                 >
                   <span className="material-symbols-outlined text-sm">{tab.icon}</span>
                   {tab.label}
+                  {tab.premium && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-white/25 text-ivory text-[9px] font-bold tracking-wide">
+                      PREMIUM
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1400,36 +1530,6 @@ export default function DraftingWorkspace() {
                     </div>
                   </div>
                 )}
-
-                <div>
-                  <label className="block text-sm font-semibold mb-3 text-slate-700">Start From</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => { setInputMethod('write'); setSourceFile(null); }}
-                      className={`rounded-xl border p-4 text-left transition-all ${
-                        inputMethod === 'write'
-                          ? 'border-primary bg-primary/5'
-                          : 'border-slate-200 bg-white hover:border-primary/40'
-                      }`}
-                    >
-                      <p className="text-sm font-semibold text-ink">Write Description</p>
-                      <p className="mt-1 text-xs text-slate-500">Describe the legal document you want and let AI generate it.</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setInputMethod('upload'); setQuery(''); }}
-                      className={`rounded-xl border p-4 text-left transition-all ${
-                        inputMethod === 'upload'
-                          ? 'border-primary bg-primary/5'
-                          : 'border-slate-200 bg-white hover:border-primary/40'
-                      }`}
-                    >
-                      <p className="text-sm font-semibold text-ink">Upload Source File</p>
-                      <p className="mt-1 text-xs text-slate-500">Upload a related PDF, DOC, DOCX, or TXT and build the draft from that source.</p>
-                    </button>
-                  </div>
-                </div>
 
                 {/* Personal vs Case toggle */}
                 {!isClientUser && <div>
@@ -1542,38 +1642,45 @@ export default function DraftingWorkspace() {
                   </div>
                 )}
 
-                {/* Main prompt / upload source */}
-                {inputMethod === 'write' ? (
-                  <div>
-                    <label className="block text-sm font-semibold mb-2 text-slate-700">
-                      Describe Your Document
-                    </label>
-                    <textarea
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="E.g., Draft an employment agreement for a senior software engineer in Delhi with a 6-month probation period and non-compete clause…"
-                      rows={6}
-                      className="input-base resize-none"
+                {/* Source: upload document (optional) and/or description (optional) — at least one required */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-slate-700">
+                    Upload Source Document <span className="text-slate-400 font-normal text-xs">(optional)</span>
+                  </label>
+                  <div className="rounded-xl border border-dashed border-primary/25 bg-ivory/40 p-5">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                      onChange={(e) => setSourceFile(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                     />
-                    <p className="text-xs text-slate-400 mt-1.5">
-                      Be specific about parties, jurisdiction, and key terms for the best results.
-                    </p>
+                    <p className="text-xs text-slate-400 mt-3">Supported formats: PDF, DOC, DOCX, TXT, PNG, JPG. Scanned images are read via OCR.</p>
+                    {sourceFile && (
+                      <p className="text-xs text-primary mt-2 flex items-center gap-2">
+                        Selected: {sourceFile.name}
+                        <button type="button" onClick={() => setSourceFile(null)} className="text-slate-400 hover:text-red-500">
+                          <span className="material-symbols-outlined text-sm align-middle">close</span>
+                        </button>
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-semibold mb-2 text-slate-700">Upload Source Document</label>
-                    <div className="rounded-xl border border-dashed border-primary/25 bg-ivory/40 p-5">
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.txt"
-                        onChange={(e) => setSourceFile(e.target.files?.[0] || null)}
-                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
-                      />
-                      <p className="text-xs text-slate-400 mt-3">Supported formats: PDF, DOC, DOCX, TXT. The uploaded file is used to generate the draft session.</p>
-                      {sourceFile && <p className="text-xs text-primary mt-2">Selected: {sourceFile.name}</p>}
-                    </div>
-                  </div>
-                )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-slate-700">
+                    Describe Your Document <span className="text-slate-400 font-normal text-xs">(optional)</span>
+                  </label>
+                  <textarea
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="E.g., Draft an employment agreement for a senior software engineer in Delhi with a 6-month probation period and non-compete clause…"
+                    rows={6}
+                    className="input-base resize-none"
+                  />
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    Be specific about parties, jurisdiction, and key terms for the best results. If you've uploaded a document, this description is used as extra context alongside it.
+                  </p>
+                </div>
 
                 {error && (
                   <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -1822,11 +1929,18 @@ export default function DraftingWorkspace() {
   // EDITING PHASE — 3-pane layout matching Stitch
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden relative">
       <HistoryDialog open={historyOpen} items={sectionHistory} onClose={() => setHistoryOpen(false)} />
       <ConfirmLeaveDialog open={leaveDialogOpen} onConfirm={resetToDraftSelection} onCancel={() => setLeaveDialogOpen(false)} />
-      {/* Workspace header */}
-      <header className="flex items-center justify-between border-b border-primary/10 bg-ivory px-6 py-2.5 z-10 flex-shrink-0">
+
+      {/* Hover strip: lets users recall the auto-hidden header without scrolling up */}
+      <div className="absolute top-0 left-0 right-0 h-2 z-30" onMouseEnter={() => setHeaderHidden(false)} />
+
+      {/* Workspace header — single row, auto-hides on scroll-down for more editor/AI-panel space.
+          overflow stays visible while shown so the info popover / formatting dropdown aren't clipped;
+          only clipped (via max-h-0 + overflow-hidden) while collapsing out of view. */}
+      <div className={`flex-shrink-0 transition-[max-height,opacity] duration-200 ease-in-out ${headerHidden ? 'max-h-0 overflow-hidden opacity-0' : 'max-h-16 overflow-visible opacity-100'}`}>
+      <header className="flex items-center justify-between border-b border-primary/10 bg-ivory px-6 py-2.5 z-10">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <button className="hover:text-primary transition-colors" onClick={requestBackToSelection}>
@@ -1843,7 +1957,7 @@ export default function DraftingWorkspace() {
             />
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {saveStatus === 'saving' && (
             <span className="text-xs text-slate-400 flex items-center gap-1">
               <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
@@ -1856,53 +1970,82 @@ export default function DraftingWorkspace() {
               Saved
             </span>
           )}
-          {lastSavedAt && (
-            <span className="text-xs text-slate-500 hidden md:flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">schedule</span>
-              Last saved {formatSavedAt(lastSavedAt)}
-            </span>
-          )}
-          <span className="text-xs text-slate-500 hidden lg:flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">auto_awesome</span>
-            {remainingSuggestionCount} AI suggestions left on this draft
-          </span>
-          {typeof draftingQuota?.remaining_included === 'number' && (
-            <span className="text-xs text-primary hidden xl:flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1">
-              <span className="material-symbols-outlined text-sm">workspace_premium</span>
-              {draftingQuota.remaining_included} Brain drafting actions left
-            </span>
-          )}
+
+          <EditorToolbar />
+
+          <div className="h-5 w-px bg-primary/10 mx-0.5" />
+
+          {/* Compact status cluster: last saved / suggestions left / quota / sections / location — merged into one hover popover to stop header clipping */}
+          <div className="group relative flex items-center gap-1 rounded-full px-2 py-1 text-slate-400 hover:bg-primary/5 hover:text-primary transition-colors cursor-default">
+            <span className="material-symbols-outlined text-base">info</span>
+            <span className="hidden 2xl:inline text-xs">{remainingSuggestionCount} suggestions left</span>
+            <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute right-0 top-[calc(100%+8px)] z-20 w-64 rounded-xl border border-primary/10 bg-white p-3 shadow-lg space-y-2">
+              {lastSavedAt && (
+                <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <span className="material-symbols-outlined text-sm">schedule</span>
+                  Last saved {formatSavedAt(lastSavedAt)}
+                </p>
+              )}
+              <p className="flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                {remainingSuggestionCount} AI suggestions left on this draft
+              </p>
+              {typeof draftingQuota?.remaining_included === 'number' && (
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                  <span className="material-symbols-outlined text-sm">workspace_premium</span>
+                  {draftingQuota.remaining_included} Brain drafting actions left
+                </p>
+              )}
+              <p className="flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="material-symbols-outlined text-sm">article</span>
+                {sections.length} sections
+              </p>
+              <p className="flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="material-symbols-outlined text-sm">place</span>
+                Location locked from draft setup
+              </p>
+              {draftForData.length > 0 && (
+                <p className="flex items-center gap-1.5 text-xs text-primary">
+                  <span className="material-symbols-outlined text-sm">group</span>
+                  {draftForData.map((item) => item.client_name || item.clientid || item.client_id || item.case_id).filter(Boolean).join(', ')}
+                </p>
+              )}
+            </div>
+          </div>
 
           <button
-            className={`btn-ghost flex items-center gap-1.5 text-xs ${showAiPanel ? 'bg-primary/8 text-primary' : ''}`}
+            className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm transition-all ${
+              showAiPanel
+                ? 'bg-primary/10 text-primary'
+                : 'bg-gradient-to-r from-primary to-amber-500 text-ivory shadow-primary/30 hover:shadow-lg hover:shadow-primary/40'
+            }`}
             onClick={() => setShowAiPanel((current) => !current)}
           >
-            <span className="material-symbols-outlined text-base">right_panel_open</span>
-            {showAiPanel ? 'Hide AI' : 'Show AI'}
+            <span className="material-symbols-outlined text-base">auto_awesome</span>
+            {showAiPanel ? 'Hide Assistant' : 'AI Assistant'}
+            {!showAiPanel && remainingSuggestionCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-ivory px-1 text-[9px] font-bold text-primary shadow">
+                {remainingSuggestionCount}
+              </span>
+            )}
           </button>
+
+          <div className="h-5 w-px bg-primary/10 mx-0.5" />
+
           <button
             className="btn-ghost flex items-center gap-1.5 text-xs"
             onClick={handleSaveDraft}
             disabled={savingDraft}
           >
             <span className="material-symbols-outlined text-base">save</span>
-            {savingDraft ? 'Saving…' : 'Save Draft'}
+            <span className="hidden lg:inline">{savingDraft ? 'Saving…' : 'Save Draft'}</span>
           </button>
           <button
             className="btn-ghost flex items-center gap-1.5 text-xs"
             onClick={handleRevertDraft}
           >
             <span className="material-symbols-outlined text-base">history</span>
-            Revert
-          </button>
-          <button
-            className="btn-ghost flex items-center gap-1.5 text-xs"
-            onClick={() => {
-              requestBackToSelection();
-            }}
-          >
-            <span className="material-symbols-outlined text-base">add</span>
-            New Draft
+            <span className="hidden lg:inline">Revert</span>
           </button>
           <div className="h-5 w-px bg-primary/10 mx-1" />
           <button
@@ -1910,7 +2053,7 @@ export default function DraftingWorkspace() {
             onClick={() => handleExport('docx')}
           >
             <span className="material-symbols-outlined text-base">download</span>
-            Export
+            <span className="hidden lg:inline">Export</span>
           </button>
           {!isClientUser && sessionId && (
             <button
@@ -1918,11 +2061,12 @@ export default function DraftingWorkspace() {
               onClick={() => { setSendResult(null); setShowSendModal(true); }}
             >
               <span className="material-symbols-outlined text-base">forward_to_inbox</span>
-              Send to Client
+              <span className="hidden lg:inline">Send to Client</span>
             </button>
           )}
         </div>
       </header>
+      </div>
 
       {suggestionQuotaNotice && (
         <div className={`border-b px-6 py-3 text-sm ${quotaNoticeClassName(suggestionQuotaNotice.tone)}`}>
@@ -1941,32 +2085,18 @@ export default function DraftingWorkspace() {
               {remainingSuggestionCount <= 2 ? `This draft is nearing its 7-suggestion limit. ${remainingSuggestionCount} suggestion${remainingSuggestionCount === 1 ? '' : 's'} left before credits or upgrade are needed.` : `Brain drafting usage is running low. ${draftingQuota.remaining_included} premium action${draftingQuota.remaining_included === 1 ? '' : 's'} left${wallet?.balance ? ` and ${wallet.balance} credits available` : ''}.`}
             </div>
           )}
-          <EditorToolbar />
-          <div className="border-b border-primary/10 bg-white px-6 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              {draftForData.length > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/5 px-3 py-1 text-primary">
-                  <span className="material-symbols-outlined text-sm">group</span>
-                  {draftForData.map((item) => item.client_name || item.clientid || item.client_id || item.case_id).filter(Boolean).join(', ')}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-600">
-                <span className="material-symbols-outlined text-sm">article</span>
-                {sections.length} sections
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-600">
-                <span className="material-symbols-outlined text-sm">place</span>
-                Location locked from draft setup
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button className="btn-ghost text-xs" onClick={handleAddSection}>
-                Add Section
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar">
+          <div
+            className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar"
+            onScroll={handleEditorScroll}
+          >
             <div className="mx-auto max-w-[1040px] rounded-[1.25rem] border border-primary/5 bg-white p-8 shadow-xl editor-container min-h-[1100px] md:p-12 xl:p-14">
+              <button
+                onClick={handleAddSection}
+                className="mb-6 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/20 py-3 text-sm font-semibold text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">post_add</span>
+                Add New Section
+              </button>
               {sections.length > 0 ? (
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="draft-sections">
@@ -2062,6 +2192,11 @@ export default function DraftingWorkspace() {
             sections={sections}
             activeSectionIdx={activeSectionIdx}
             onSectionChange={setActiveSectionIdx}
+            onClose={() => setShowAiPanel(false)}
+            width={aiPanelWidth}
+            onWidthChange={setAiPanelWidth}
+            appliedSuggestionIds={appliedSuggestionIds}
+            onApplySuggestion={handleApplySuggestion}
           />
         )}
       </div>
