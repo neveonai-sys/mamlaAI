@@ -342,6 +342,12 @@ export default function Dashboard() {
               desc="Search cases, lawyers, and cause lists"
               to="/ecourts/case-search"
             />
+            <QuickActionCard
+              icon="gavel"
+              title="Citation Search"
+              desc="Verify Supreme Court citations against e-SCR"
+              to="/citations"
+            />
           </div>
         </div>
 

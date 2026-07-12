@@ -47,6 +47,7 @@ const CaveatTerminal     = lazy(() => import('./components/ecourt_scrapper/Cavea
 const CaseDetail         = lazy(() => import('./components/ecourts/CaseDetail'));
 const LawyerSearch       = lazy(() => import('./components/ecourts/LawyerSearch'));
 const LitigantSearch     = lazy(() => import('./components/ecourts/LitigantSearch'));
+const CitationSearch     = lazy(() => import('./components/citations/CitationSearch'));
 
 // High Court eCourts sub-routes
 const HCTerminal            = lazy(() => import('./components/ecourt_scrapper/HCTerminal'));
@@ -224,6 +225,9 @@ export default function AppContent() {
             <Route path="/ecourts/hc/court-orders"   element={<HCCourtOrdersTerminal />} />
             <Route path="/ecourts/hc/cause-list"     element={<HCCauseListTerminal />} />
             <Route path="/ecourts/hc/case/:cino"     element={<HCCaseDetailPage />} />
+
+            {/* Citation Search — Supreme Court e-SCR lookup */}
+            <Route path="/citations"            element={<CitationSearch />} />
 
             {/* Case Registry */}
             <Route path="/cases"                                        element={<CaseRegistry />} />

@@ -564,6 +564,15 @@ export default function CalendarPage() {
   const [conflictReport, setConflictReport] = useState(null);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
 
+  const [visibleRange, setVisibleRange] = useState({
+    start: format(startOfWeek(startOfMonth(new Date())), 'yyyy-MM-dd'),
+    end: format(endOfWeek(endOfMonth(new Date())), 'yyyy-MM-dd'),
+  });
+  const [holidays, setHolidays] = useState([]);
+  const [holidayState, setHolidayState] = useState(() => localStorage.getItem('calendarHolidayState') || '');
+  const [stateOptions, setStateOptions] = useState([]);
+  const [showHolidays, setShowHolidays] = useState(true);
+
   const isEditingSeries = editorMode === 'edit' && Boolean(eventForm.isSeries || eventForm.recurring || eventForm.seriesLength > 1);
 
   const monthlyDays = useMemo(() => buildMiniCalendarDays(miniCalendarDate), [miniCalendarDate]);
@@ -584,6 +593,53 @@ export default function CalendarPage() {
       return visible && haystack.includes(searchTerm.toLowerCase());
     });
   }, [events, searchTerm, visibleTypes]);
+
+  const weekendHolidays = useMemo(() => {
+    const entries = [];
+    eachDayOfInterval({ start: parseISO(visibleRange.start), end: parseISO(visibleRange.end) }).forEach((day) => {
+      const dow = day.getDay();
+      if (dow === 0) {
+        entries.push({ date: format(day, 'yyyy-MM-dd'), name: 'Sunday', source: 'weekend' });
+      } else if (dow === 6) {
+        const occurrence = Math.ceil(day.getDate() / 7);
+        if (occurrence === 2 || occurrence === 4) {
+          entries.push({ date: format(day, 'yyyy-MM-dd'), name: `${occurrence === 2 ? '2nd' : '4th'} Saturday`, source: 'weekend' });
+        }
+      }
+    });
+    return entries;
+  }, [visibleRange]);
+
+  const allHolidayEntries = useMemo(() => [...holidays, ...weekendHolidays], [holidays, weekendHolidays]);
+
+  const holidayDateMap = useMemo(() => {
+    const map = new Map();
+    allHolidayEntries.forEach((holiday) => {
+      const existing = map.get(holiday.date);
+      if (existing) {
+        existing.names.push(holiday.name);
+        if (holiday.source !== 'weekend') existing.hasFestival = true;
+      } else {
+        map.set(holiday.date, { names: [holiday.name], hasFestival: holiday.source !== 'weekend' });
+      }
+    });
+    return map;
+  }, [allHolidayEntries]);
+
+  const holidayFcEvents = useMemo(() => {
+    if (!showHolidays) return [];
+    return allHolidayEntries.map((holiday, index) => ({
+      id: `holiday-${holiday.date}-${index}`,
+      title: holiday.name,
+      start: holiday.date,
+      allDay: true,
+      display: 'background',
+      backgroundColor: holiday.source === 'weekend' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(16, 122, 87, 0.28)',
+      extendedProps: { isHoliday: true, holidaySource: holiday.source },
+    }));
+  }, [allHolidayEntries, showHolidays]);
+
+  const calendarEvents = useMemo(() => [...filteredEvents, ...holidayFcEvents], [filteredEvents, holidayFcEvents]);
 
   const conflictEventIds = useMemo(() => deriveConflictEventIds(filteredEvents), [filteredEvents]);
 
@@ -674,10 +730,42 @@ export default function CalendarPage() {
     }
   }
 
+  async function fetchHolidays(state = holidayState) {
+    try {
+      const query = state ? `?state=${encodeURIComponent(state)}` : '';
+      const response = await apiClient.get(`calendar/holidays/${query}`);
+      const results = Array.isArray(response.data?.results) ? response.data.results : [];
+      setHolidays(results);
+      if (!state && response.data?.state) {
+        setHolidayState(response.data.state);
+      }
+    } catch {
+      setHolidays([]);
+    }
+  }
+
+  async function fetchStateOptions() {
+    try {
+      const response = await apiClient.get('users/get-states/');
+      const options = Array.isArray(response.data) ? response.data.map((item) => item.name).filter(Boolean) : [];
+      setStateOptions(options);
+    } catch {
+      setStateOptions([]);
+    }
+  }
+
+  function handleHolidayStateChange(nextState) {
+    setHolidayState(nextState);
+    localStorage.setItem('calendarHolidayState', nextState);
+    fetchHolidays(nextState);
+  }
+
   useEffect(() => {
     fetchEvents(currentRange.start, currentRange.end, { blockUi: true });
     fetchCaseClientData();
-  }, []);
+    fetchStateOptions();
+    fetchHolidays(holidayState);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── If opened via ?case_id= URL param, pre-open editor for a new hearing ──
   useEffect(() => {
@@ -710,6 +798,10 @@ export default function CalendarPage() {
       : format(info.view.currentStart, 'MMMM yyyy');
 
     setCurrentRange({ start: startDate, end: endDate, label });
+    setVisibleRange({
+      start: format(info.start, 'yyyy-MM-dd'),
+      end: format(addDays(info.end, -1), 'yyyy-MM-dd'),
+    });
     setMiniCalendarDate(info.view.currentStart);
     fetchEvents(startDate, endDate);
   }
@@ -760,6 +852,7 @@ export default function CalendarPage() {
   }
 
   function handleEventClick(info) {
+    if (info.event.extendedProps.isHoliday) return;
     openEditDialog({ id: info.event.id, title: info.event.title, ...info.event.extendedProps });
   }
 
@@ -985,7 +1078,28 @@ export default function CalendarPage() {
     );
   }
 
+  function renderDayCellContent(arg) {
+    const info = showHolidays ? holidayDateMap.get(format(arg.date, 'yyyy-MM-dd')) : null;
+    return (
+      <div className="flex h-full flex-col items-start gap-0.5">
+        <span>{arg.dayNumberText}</span>
+        {info ? (
+          <span
+            title={info.names.join(', ')}
+            className={cx(
+              'truncate text-[9px] font-bold',
+              info.hasFestival ? 'text-emerald-700' : 'text-slate-500'
+            )}
+          >
+            {info.names[0]}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
   function eventDidMount(info) {
+    if (info.event.extendedProps.isHoliday) return;
     const meta = getEventTypeMeta(info.event.extendedProps.eventType);
     info.el.style.background = meta.fcBg;
     info.el.style.border = `1px solid ${meta.fcBorder}`;
@@ -1104,6 +1218,33 @@ export default function CalendarPage() {
                   );
                 })}
               </div>
+            </section>
+
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">Court Holidays</p>
+              </div>
+              <label className="mb-2 flex items-center gap-3 rounded-2xl border border-primary/10 bg-white px-3 py-2 text-sm text-ink shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={showHolidays}
+                  onChange={(event) => setShowHolidays(event.target.checked)}
+                />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                <span className="font-semibold">Show holidays</span>
+              </label>
+              <select
+                value={holidayState}
+                onChange={(event) => handleHolidayStateChange(event.target.value)}
+                className="w-full rounded-2xl border border-primary/10 bg-white px-3 py-2 text-sm font-semibold text-ink shadow-sm outline-none"
+              >
+                {!holidayState ? <option value="">Select a state…</option> : null}
+                {stateOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </section>
 
             <section className="rounded-[24px] border border-ink/10 bg-ink px-4 py-5 text-ivory shadow-[0_18px_30px_rgba(28,20,13,0.20)]">
@@ -1245,7 +1386,7 @@ export default function CalendarPage() {
                   ref={calendarRef}
                   plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                   initialView={activeView}
-                  events={filteredEvents}
+                  events={calendarEvents}
                   selectable={!readOnly}
                   editable={!readOnly}
                   eventStartEditable={!readOnly}
@@ -1258,6 +1399,7 @@ export default function CalendarPage() {
                   eventDrop={handleEventMove}
                   eventResize={handleEventMove}
                   eventContent={renderEventContent}
+                  dayCellContent={renderDayCellContent}
                   eventDidMount={eventDidMount}
                   headerToolbar={false}
                   height="auto"

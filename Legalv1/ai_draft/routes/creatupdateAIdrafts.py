@@ -1,6 +1,7 @@
 from bson import ObjectId
 from core.llm_client import chat_complete
 from talkdoc.tasks import _extract_image_text
+from ai_draft.citation_grounding import build_grounding_block
 
 import os
 import math
@@ -351,6 +352,12 @@ Example:
                 if other_sections_context else ''
             )
 
+            # Fetch-then-inject citation grounding: if the instruction asks for a
+            # citation, resolve it against the live e-SCR portal *before* the LLM
+            # writes anything, and hand it verified data (or an explicit
+            # "could not verify" instruction) rather than let it invent one.
+            citation_block = build_grounding_block(suggestion) or ''
+
             system_prompt = f"""You are refining one section of a legal draft.{context_block}
 The section to update is titled "{section['section_name']}":
 
@@ -358,7 +365,7 @@ The section to update is titled "{section['section_name']}":
 
 Update ONLY this section, incorporating the user's instructions. Ensure the content aligns with the rest of the draft and complies with Indian legal standards.
 
-Return ONLY the updated section content. Do not include any headings, labels, preamble, or extra commentary."""
+Return ONLY the updated section content. Do not include any headings, labels, preamble, or extra commentary.{citation_block}"""
 
             # Short-term working memory: last 3 exchanges of AI conversation for this section,
             # so follow-up instructions ("make it shorter") are aware of what was asked before.

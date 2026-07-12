@@ -107,6 +107,7 @@ from ecourts_fastapi_scrapper_cnr_and_causelist_casestatus_and_courtstatus impor
     app as dc_app,
 )
 from hcecourt_fastapi_complete_scrapper import app as hc_app
+from sc_citation_scraper import app as sc_app
 
 # ─────────────────────────────────────────────────────────────────
 #  ROOT APPLICATION
@@ -119,11 +120,12 @@ app = FastAPI(
         "| Prefix | Scraper | Docs |\n"
         "|--------|---------|------|\n"
         "| `/dc`  | District Court (ecourts.gov.in) | [/dc/docs](/dc/docs) |\n"
-        "| `/hc`  | High Courts (hcservices.ecourts.gov.in) | [/hc/docs](/hc/docs) |\n\n"
+        "| `/hc`  | High Courts (hcservices.ecourts.gov.in) | [/hc/docs](/hc/docs) |\n"
+        "| `/sc`  | Supreme Court citation lookup (scr.sci.gov.in) | [/sc/docs](/sc/docs) |\n\n"
         "All sub-app endpoints, response formats, and request/response contracts are "
         "unchanged — only the URL base prefix is added. "
-        "Django service clients point to `http://localhost:8001/dc` and "
-        "`http://localhost:8001/hc` respectively."
+        "Django service clients point to `http://localhost:8001/dc`, "
+        "`http://localhost:8001/hc`, and `http://localhost:8001/sc` respectively."
     ),
     version="1.0.0",
     docs_url="/docs",
@@ -145,6 +147,7 @@ app.add_middleware(
 
 app.mount("/dc", dc_app)
 app.mount("/hc", hc_app)
+app.mount("/sc", sc_app)
 
 # ─────────────────────────────────────────────────────────────────
 #  ROOT ENDPOINTS
@@ -167,6 +170,12 @@ def index():
                 "docs": "/hc/docs",
                 "health": "/hc/health",
             },
+            "sc": {
+                "label": "Supreme Court citation lookup",
+                "base": "/sc",
+                "docs": "/sc/docs",
+                "health": "/sc/health",
+            },
         },
     }
 
@@ -188,12 +197,17 @@ async def health():
         except Exception as exc:
             return {"status": "unreachable", "error": str(exc)}
 
-    dc_result, hc_result = await asyncio.gather(
+    dc_result, hc_result, sc_result = await asyncio.gather(
         _check("dc", "/dc/health"),
         _check("hc", "/hc/health"),
+        _check("sc", "/sc/health"),
     )
 
-    overall = "ok" if dc_result["status"] == "ok" and hc_result["status"] == "ok" else "degraded"
+    overall = (
+        "ok"
+        if dc_result["status"] == "ok" and hc_result["status"] == "ok" and sc_result["status"] == "ok"
+        else "degraded"
+    )
 
     return JSONResponse(
         status_code=200,
@@ -202,6 +216,7 @@ async def health():
             "scrapers": {
                 "dc": dc_result,
                 "hc": hc_result,
+                "sc": sc_result,
             },
         },
     )

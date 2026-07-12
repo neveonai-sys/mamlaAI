@@ -18,6 +18,7 @@ const LAWYER_NAV = [
   { label: 'Calendar & Events',  path: '/calendar',       icon: 'calendar_month' },
   // { label: 'Court Updates',      path: '/court-updates',  icon: 'account_balance' },
   { label: 'eCourts',            path: '/ecourts',        icon: 'search' },
+  { label: 'Citation Search',    path: '/citations',      icon: 'gavel' },
   // Clients nav removed — onboarding now inline in Case creation
   // { label: 'Clients',            path: '/clients',        icon: 'people' },
   // { label: 'Sessions',           path: '/sessions',       icon: 'forum' },
