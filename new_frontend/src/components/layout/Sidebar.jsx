@@ -12,6 +12,7 @@ import clsx from 'clsx';
 // ─── Navigation items ────────────────────────────────────────────────────────
 const LAWYER_NAV = [
   { label: 'Dashboard',          path: '/dashboard',      icon: 'dashboard' },
+  { label: 'MamlaAI Chat',        path: '/chat',           icon: 'forum' },
   { label: 'Cases',              path: '/cases',          icon: 'folder_open' },
   { label: 'AI Drafting',        path: '/drafting',       icon: 'edit_note' },
   { label: 'Document Intel',     path: '/documents',      icon: 'description' },

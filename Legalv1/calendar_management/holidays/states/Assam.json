@@ -1,0 +1,471 @@
+[
+  {
+    "date": "2026-01-01",
+    "name": "New Year Holiday",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-02",
+    "name": "New Year Holiday",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-12",
+    "name": "Magh Bihu & Tusu Puja",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-13",
+    "name": "Magh Bihu & Tusu Puja",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-14",
+    "name": "Magh Bihu & Tusu Puja",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-15",
+    "name": "Magh Bihu & Tusu Puja",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-16",
+    "name": "Magh Bihu & Tusu Puja",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-23",
+    "name": "Sri Panchami",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-26",
+    "name": "Republic Day",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-01-31",
+    "name": "Medam-Me-Phi",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-02-15",
+    "name": "Siva Ratri",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-03-03",
+    "name": "Dol Jatra / Holi",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-03-04",
+    "name": "Dol Jatra / Holi",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-03-21",
+    "name": "Id-ul-Fitre",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-04-03",
+    "name": "Good Friday",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-04-13",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-04-14",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-04-15",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-04-16",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-04-17",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-04-18",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-05-01",
+    "name": "Buddha Purnima",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-05-27",
+    "name": "Id-Uz-Zuha",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-05-29",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-05-30",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-01",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-02",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-03",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-04",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-05",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-06",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-07",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-08",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-09",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-07-10",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-08-15",
+    "name": "Independence Day",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-09-01",
+    "name": "Tithi of Sri Sri Madhab Dev",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-09-04",
+    "name": "Janmastami",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-09-12",
+    "name": "Tithi of Srimanta Sankar Dev",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-09-21",
+    "name": "Janmotsava of Srimanta Sankar Dev",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-02",
+    "name": "Birth day of Mahatma Gandhi",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-17",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-18",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-19",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-20",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-21",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-22",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-23",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-24",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-25",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-26",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-27",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-28",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-29",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-30",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-10-31",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-11-08",
+    "name": "Kali Puja / Diwali",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-11-09",
+    "name": "Kali Puja / Diwali",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-11-24",
+    "name": "Guru Nanak's Birthday",
+    "holiday_type": "Holiday",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-12-24",
+    "name": "Winter Vacation Christmas Holidays",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-12-25",
+    "name": "Winter Vacation Christmas Holidays",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-12-26",
+    "name": "Winter Vacation Christmas Holidays",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-12-27",
+    "name": "Winter Vacation Christmas Holidays",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-12-28",
+    "name": "Winter Vacation Christmas Holidays",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-12-29",
+    "name": "Winter Vacation Christmas Holidays",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-12-30",
+    "name": "Winter Vacation Christmas Holidays",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  },
+  {
+    "date": "2026-12-31",
+    "name": "Winter Vacation Christmas Holidays",
+    "holiday_type": "Vacation",
+    "bench": "Principal Seat",
+    "source_url": "https://ghconline.gov.in/Document/1PSCal2026.pdf"
+  }
+]

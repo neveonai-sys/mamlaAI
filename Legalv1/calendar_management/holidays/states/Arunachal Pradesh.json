@@ -1,0 +1,471 @@
+[
+  {
+    "date": "2026-01-01",
+    "name": "New Year Holiday",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-01-02",
+    "name": "New Year Holiday",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-01-06",
+    "name": "Si-Donyi",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-01-12",
+    "name": "Magh Bihu / Makar Sankranti",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-01-13",
+    "name": "Magh Bihu / Makar Sankranti",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-01-14",
+    "name": "Magh Bihu / Makar Sankranti",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-01-15",
+    "name": "Magh Bihu / Makar Sankranti",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-01-16",
+    "name": "Magh Bihu / Makar Sankranti",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-01-26",
+    "name": "Republic Day",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-02-15",
+    "name": "Tam Ladu",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-02-20",
+    "name": "Statehood Day",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-02-26",
+    "name": "Nyokum",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-03-04",
+    "name": "Holi",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-03-21",
+    "name": "Id-ul-Fitre",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-04-03",
+    "name": "Good Friday",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-04-05",
+    "name": "Mopin",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-04-13",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-04-14",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-04-15",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-04-16",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-04-17",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-04-18",
+    "name": "Bihu Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-05-01",
+    "name": "Buddha Purnima",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-05-27",
+    "name": "Id-Uz-Zuha (Bakrid)",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-05",
+    "name": "Dree",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-06",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-07",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-08",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-09",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-10",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-11",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-12",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-13",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-14",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-15",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-16",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-07-17",
+    "name": "Summer Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-08-15",
+    "name": "Independence Day",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-09-01",
+    "name": "Solung",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-09-04",
+    "name": "Janmastami",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-02",
+    "name": "Mahatma Gandhi Birthday",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-17",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-18",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-19",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-20",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-21",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-22",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-23",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-24",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-25",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-26",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-27",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-28",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-29",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-30",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-10-31",
+    "name": "Long Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-11-08",
+    "name": "Diwali",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-11-24",
+    "name": "Guru Nanak's Birthday",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-11-25",
+    "name": "Chalo-Loku",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-12-01",
+    "name": "Indigenous Faith day",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-12-25",
+    "name": "Christmas Day",
+    "holiday_type": "Holiday",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-12-26",
+    "name": "Winter Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-12-27",
+    "name": "Winter Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-12-28",
+    "name": "Winter Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-12-29",
+    "name": "Winter Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-12-30",
+    "name": "Winter Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  },
+  {
+    "date": "2026-12-31",
+    "name": "Winter Vacation",
+    "holiday_type": "Vacation",
+    "bench": "Itanagar Bench",
+    "source_url": "https://ghconline.gov.in/Document/3ITABenchCal2026.pdf"
+  }
+]

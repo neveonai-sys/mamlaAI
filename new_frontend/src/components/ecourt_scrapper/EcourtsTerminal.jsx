@@ -146,6 +146,20 @@ export default function EcourtsTerminal() {
         >
           High Court →
         </button>
+        <button
+          type="button"
+          onClick={() => navigate('/ecourts/sci')}
+          className="rounded-2xl border border-primary/15 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          Supreme Court →
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/ecourts/cat')}
+          className="rounded-2xl border border-primary/15 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          CAT →
+        </button>
       </div>
 
       <div className="rounded-[28px] border border-primary/10 bg-white p-8 shadow-sm">

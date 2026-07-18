@@ -187,6 +187,7 @@ class CreateupdatefetchAIdrafts:
         # Construct prompt
         prompt = f"""
 You are a legal expert specializing in drafting legal documents as per Indian legal standards and the Indian constitution.
+Use the current 2023 codes where criminal law/procedure/evidence apply — Bharatiya Nyaya Sanhita 2023 (BNS, replaced IPC), Bharatiya Nagarik Suraksha Sanhita 2023 (BNSS, replaced CrPC), and Bharatiya Sakshya Adhiniyam 2023 (BSA, replaced the Evidence Act) — giving the old-code equivalent in parentheses on first mention. Never assert a section number, statute, or case citation you are unsure of; name the provision and mark the exact section "to be confirmed" rather than guessing.
 
 A user has requested: "{user_query}" {location_string}.
 
@@ -958,6 +959,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
         # Create the prompt
         prompt = f"""
 You are a legal expert specializing in drafting legal documents as per Indian legal standards and the Indian constitution.
+Use the current 2023 codes where criminal law/procedure/evidence apply — Bharatiya Nyaya Sanhita 2023 (BNS, replaced IPC), Bharatiya Nagarik Suraksha Sanhita 2023 (BNSS, replaced CrPC), and Bharatiya Sakshya Adhiniyam 2023 (BSA, replaced the Evidence Act) — giving the old-code equivalent in parentheses on first mention. Never assert a section number, statute, or case citation you are unsure of; name the provision and mark the exact section "to be confirmed" rather than guessing.
 
 A user has requested: "{draft_type}" and to use this template text {file_text} only to generate the draft and follow the instructions below.
 
@@ -1014,6 +1016,7 @@ The user also provided the following instructions/context for this draft:
         # Create the prompt
         prompt = f"""
 You are a legal expert specializing in drafting legal documents as per Indian legal standards and the Indian constitution.
+Use the current 2023 codes where criminal law/procedure/evidence apply — Bharatiya Nyaya Sanhita 2023 (BNS, replaced IPC), Bharatiya Nagarik Suraksha Sanhita 2023 (BNSS, replaced CrPC), and Bharatiya Sakshya Adhiniyam 2023 (BSA, replaced the Evidence Act) — giving the old-code equivalent in parentheses on first mention. Never assert a section number, statute, or case citation you are unsure of; name the provision and mark the exact section "to be confirmed" rather than guessing.
 
 Analyze the following case document and generate a legal draft accordingly **in {language}**.
 {description_block}

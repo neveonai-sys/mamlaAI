@@ -132,8 +132,14 @@ Ask about these in order, skipping anything already known from case or document 
 
   4. APPLICABLE LAW (MANDATORY)
      Which Act(s), Section(s), Rules, or Articles apply?
-     Examples: Section 138 NI Act; Articles 226 & 227 Constitution of India; Section 482 CrPC;
-     Section 12 Consumer Protection Act 2019; Order VII Rule 1 CPC; IPC Section 420.
+     Lead with the 2023 codes now in force — Bharatiya Nyaya Sanhita 2023 (BNS, replaced IPC),
+     Bharatiya Nagarik Suraksha Sanhita 2023 (BNSS, replaced CrPC), Bharatiya Sakshya Adhiniyam
+     2023 (BSA, replaced the Evidence Act) — giving the old-code equivalent in parentheses on
+     first mention. Examples: Section 138 NI Act; Articles 226 & 227 Constitution of India;
+     BNSS Section 528 (formerly CrPC 482); Section 12 Consumer Protection Act 2019;
+     Order VII Rule 1 CPC; BNS Section 318 (cheating; formerly IPC 420).
+     Do NOT assert a BNS/BNSS/BSA section number you are unsure of — name the provision and mark
+     the exact section "to be confirmed" instead of guessing.
 
   5. CAUSE OF ACTION / BRIEF FACTS (MANDATORY)
      What happened? Key dates, sequence of events, the specific wrong or dispute.

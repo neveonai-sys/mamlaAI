@@ -80,18 +80,18 @@ APP_OPENROUTER_MODELS: dict = {
     "ai_draft:update_section":      os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "openai/gpt-4o-mini"),
     "ai_draft:generate_from_case":  os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "openai/gpt-4o-mini"),
     "ai_draft:generate_from_tpl":   os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "openai/gpt-4o-mini"),
-    "talkdoc:rag":                  os.getenv("OPENROUTER_TALKDOC_RAG_MODEL",         "anthropic/claude-3-haiku"),
-    "talkdoc:general":              os.getenv("OPENROUTER_TALKDOC_GENERAL_MODEL",     "anthropic/claude-3-haiku"),
+    "talkdoc:rag":                  os.getenv("OPENROUTER_TALKDOC_RAG_MODEL",         "anthropic/claude-haiku-4.5"),
+    "talkdoc:general":              os.getenv("OPENROUTER_TALKDOC_GENERAL_MODEL",     "anthropic/claude-haiku-4.5"),
     "utilities:describe_draft":     os.getenv("OPENROUTER_UTILS_MODEL",               "openai/gpt-4o-mini"),
     # create_drafts app
     "create_drafts:extract_fields": os.getenv("OPENROUTER_CREATE_DRAFTS_MODEL",       "openai/gpt-4o"),
     "create_drafts:fill_draft":     os.getenv("OPENROUTER_CREATE_DRAFTS_MODEL",       "openai/gpt-4o"),
     "create_drafts:update_draft":   os.getenv("OPENROUTER_CREATE_DRAFTS_MODEL",       "openai/gpt-4o"),
     # Mamla-Brain tiers (pre-wired; activated when mamla_brain app is deployed)
-    "brain:t0":                     os.getenv("BRAIN_T0_MODEL",               "meta-llama/llama-3.2-1b-instruct:free"),  # free intent gate
+    "brain:t0":                     os.getenv("BRAIN_T0_MODEL",               "meta-llama/llama-3.2-1b-instruct"),  # cheap intent gate
     "brain:t1":                     os.getenv("BRAIN_T1_MODEL",                       "meta-llama/llama-3.1-8b-instruct"),
-    "brain:t2":                     os.getenv("BRAIN_T2_MODEL",                       "anthropic/claude-3-haiku"),
-    "brain:t3":                     os.getenv("BRAIN_T3_MODEL",                       "anthropic/claude-sonnet-4-5"),
+    "brain:t2":                     os.getenv("BRAIN_T2_MODEL",                       "anthropic/claude-haiku-4.5"),
+    "brain:t3":                     os.getenv("BRAIN_T3_MODEL",                       "anthropic/claude-sonnet-5"),
 }
 
 _DEFAULT_MODEL_OPENAI     = os.getenv("OPENAI_DEFAULT_MODEL",     "gpt-4o-mini")

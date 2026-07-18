@@ -52,17 +52,27 @@ def _resolve_default_holiday_state(user_id):
 
 
 def _load_holidays(state):
-    national = _load_holiday_file(os.path.join(HOLIDAYS_DIR, 'national.json'))
-    holidays = [dict(entry, source='national') for entry in national]
-
     state_name = _clean_text(state)
+    state_holidays = []
     if state_name:
         # basename() strips any path components so a crafted state query
         # string can't escape the holidays/states directory.
         safe_name = os.path.basename(state_name)
         state_path = os.path.join(HOLIDAYS_DIR, 'states', f'{safe_name}.json')
         state_holidays = _load_holiday_file(state_path)
-        holidays.extend(dict(entry, source='state') for entry in state_holidays)
+
+    holidays = [dict(entry, source='state') for entry in state_holidays]
+
+    # A state's official court calendar already includes that court's own
+    # observance of national holidays (e.g. its own "Republic Day" entry),
+    # so national.json is only a gap-filler for dates the state file
+    # doesn't already cover — not an unconditional merge, which would
+    # otherwise double-list the same date under two different labels.
+    covered_dates = {entry['date'] for entry in state_holidays}
+    national = _load_holiday_file(os.path.join(HOLIDAYS_DIR, 'national.json'))
+    holidays.extend(
+        dict(entry, source='national') for entry in national if entry['date'] not in covered_dates
+    )
 
     holidays.sort(key=lambda entry: entry['date'])
     return holidays
