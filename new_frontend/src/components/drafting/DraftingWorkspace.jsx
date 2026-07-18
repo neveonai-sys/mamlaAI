@@ -1448,7 +1448,6 @@ export default function DraftingWorkspace() {
               {[
                 { label: 'New Draft', icon: 'auto_awesome' },
                 { label: 'Load Draft', icon: 'folder_open' },
-                { label: 'Guided AI', icon: 'chat', premium: true, onClick: () => navigate('/drafting/guided') },
               ].map((tab, i) => (
                 <button
                   key={tab.label}

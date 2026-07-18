@@ -85,7 +85,6 @@ const CaseRegistry       = lazy(() => import('./components/cases/CaseRegistry'))
 const CaseHub            = lazy(() => import('./components/cases/CaseHub'));
 const HearingWorkspace   = lazy(() => import('./components/cases/HearingWorkspace'));
 const ClientCasePage     = lazy(() => import('./components/cases/ClientCasePage'));
-const GuidedDraftingPage = lazy(() => import('./components/drafting/GuidedDraftingPage'));
 
 // ─── Public routes that skip auth check ─────────────────────────────────────
 const PUBLIC_ROUTES = [
@@ -214,9 +213,9 @@ export default function AppContent() {
             <Route path="/chat"            element={<ChatWorkspace />} />
             <Route path="/command-center"  element={<Navigate to="/dashboard" replace />} />
             <Route path="/drafting"            element={<DraftingWorkspace />} />
-            <Route path="/drafting/guided"     element={<GuidedDraftingPage />} />
+            <Route path="/drafting/guided"     element={<Navigate to="/chat" replace />} />
             <Route path="/drafting/:id"        element={<DraftingWorkspace />} />
-            <Route path="/documents"       element={<DocumentWorkspace />} />
+            <Route path="/documents"       element={<Navigate to="/chat" replace />} />
             <Route path="/documents/:id"   element={<DocumentWorkspace />} />
             <Route path="/calendar"        element={<CalendarPage />} />
             {/* <Route path="/court-updates"   element={<CourtUpdates />} /> */}

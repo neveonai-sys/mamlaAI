@@ -237,7 +237,7 @@ def store_user_message(session, text, app_name=''):
 
 
 def store_assistant_message(session, text, llm_response=None, citations=None, tool_trace=None,
-                            artifacts=None, capability='', premium=False):
+                            artifacts=None, capability='', premium=False, credits_charged=0):
     llm_response = llm_response or {}
     usage = llm_response.get('usage', {}) or {}
     _db()[MESSAGES].insert_one({
@@ -257,6 +257,7 @@ def store_assistant_message(session, text, llm_response=None, citations=None, to
         'prompt_tokens': usage.get('prompt_tokens', 0),
         'completion_tokens': usage.get('completion_tokens', 0),
         'latency_ms': llm_response.get('latency_ms', 0),
+        'credits_charged': int(credits_charged or 0),
         'created_at': _now(),
     })
     touch_session(session['_id'])
@@ -291,5 +292,6 @@ def serialize_message(message):
         'model': message.get('model', ''),
         'tier_used': message.get('tier_used', ''),
         'tokens_used': message.get('tokens_used', 0),
+        'credits_charged': message.get('credits_charged', 0),
         'created_at': str(message.get('created_at', '')),
     }

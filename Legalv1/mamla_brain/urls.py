@@ -21,6 +21,7 @@ urlpatterns = [
     # --- MamlaAI Chat (v2): unified multi-agent chat surface ---
     path('v2/sessions/', views_v2.create_session),
     path('v2/sessions/list/', views_v2.list_sessions),
+    path('v2/usage-summary/', views_v2.usage_summary),
     path('v2/sessions/<str:session_id>/messages/', views_v2.get_messages),
     path('v2/sessions/<str:session_id>/upload/', views_v2.upload_doc),
     path('v2/sessions/<str:session_id>/chat/', views_v2.chat),

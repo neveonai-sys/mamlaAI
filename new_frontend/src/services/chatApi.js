@@ -41,6 +41,11 @@ export function deleteSession(sessionId) {
   return apiClient.delete(`${BASE}/sessions/${sessionId}/`);
 }
 
+/** Per-tier token/credit usage breakdown for the Wallet page. */
+export function getUsageSummary() {
+  return apiClient.get(`${BASE}/usage-summary/`);
+}
+
 /** Live sections for a chat-created draft (re-sync the in-chat canvas). */
 export function getDraftSections(draftSessionId) {
   return apiClient.get(`${BASE}/drafts/${draftSessionId}/sections/`);

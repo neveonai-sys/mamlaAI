@@ -93,12 +93,12 @@ function CasePanel({ c }) {
             </div>
           </div>
           <button
-            onClick={() => navigate(`/documents?case=${c._id}`)}
-            title="View case documents"
+            onClick={() => navigate('/chat')}
+            title="Discuss case documents"
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/30 text-primary text-xs font-semibold hover:bg-primary/5 transition"
           >
-            <span className="material-symbols-outlined text-sm">description</span>
-            Documents
+            <span className="material-symbols-outlined text-sm">forum</span>
+            Chat
           </button>
         </div>
         {c.next_hearing && (

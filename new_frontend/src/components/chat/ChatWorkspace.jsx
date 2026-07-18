@@ -18,9 +18,9 @@ const SUGGESTIONS = [
 
 // ─── Model selection (Low/Med/High + metered Premium) ────────────────────────
 const MODEL_LEVELS = [
-  { value: 'low',    label: 'Low',    hint: 'Fastest, lightest' },
+  { value: 'low',    label: 'Low',    hint: 'Fastest, lightest · cheapest' },
   { value: 'medium', label: 'Medium', hint: 'Balanced (default)' },
-  { value: 'high',   label: 'High',   hint: 'Strongest reasoning' },
+  { value: 'high',   label: 'High',   hint: 'Strongest reasoning · more credits' },
 ];
 
 const CAPABILITY_LABEL = {

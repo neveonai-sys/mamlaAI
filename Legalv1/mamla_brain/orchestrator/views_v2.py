@@ -46,6 +46,13 @@ def _feature_code_for(selection):
     return 'case_companion' if selection.get('premium') else 'general_legal_chat'
 
 
+# Wallet overage cost by model tier, reflecting real per-token OpenRouter cost
+# differences (t1 llama ~free, t2 haiku-4.5, t3 sonnet-5, premium opus-4.8).
+# Only overrides the WALLET charge once included-quota is exhausted — included
+# quota itself still counts 1 message per turn regardless of tier.
+CHAT_TIER_OVERAGE_CREDIT_COST = {'t1': 1, 't2': 2, 't3': 3, 'premium': 6}
+
+
 def _owner_id(request):
     return getattr(request, 'brain_client', {}).get('owner_id')
 
@@ -106,6 +113,47 @@ def session_detail(request, session_id):
     if not session:
         return error_response('session not found', status=404)
     return JsonResponse(store.serialize_session(session))
+
+
+# ---------------------------------------------------------------------------
+# Usage summary — per-tier token/credit breakdown for the Wallet page.
+# ---------------------------------------------------------------------------
+@api_view(['GET'])
+@brain_api_key_required(scopes=['doc_qa'])
+def usage_summary(request):
+    if getattr(request, 'brain_client', {}).get('auth_type') != 'supabase':
+        return error_response('not available for this client', status=403)
+
+    from core.init_clients import get_mongo_db
+
+    owner_id = _owner_id(request)
+    pipeline = [
+        {'$match': {'owner_id': owner_id, 'role': 'assistant'}},
+        {'$group': {
+            '_id': {'tier': '$tier_used', 'premium': '$premium', 'model': '$model'},
+            'messages': {'$sum': 1},
+            'tokens': {'$sum': '$tokens_used'},
+            'credits_charged': {'$sum': '$credits_charged'},
+        }},
+    ]
+    rows = list(get_mongo_db()[store.MESSAGES].aggregate(pipeline))
+    by_tier = [
+        {
+            'tier': row['_id'].get('tier', ''),
+            'premium': bool(row['_id'].get('premium')),
+            'model': row['_id'].get('model', ''),
+            'messages': row['messages'],
+            'tokens': row['tokens'],
+            'credits_charged': row['credits_charged'],
+        }
+        for row in rows
+    ]
+    totals = {
+        'messages': sum(r['messages'] for r in by_tier),
+        'tokens': sum(r['tokens'] for r in by_tier),
+        'credits_charged': sum(r['credits_charged'] for r in by_tier),
+    }
+    return JsonResponse({'by_tier': by_tier, 'totals': totals})
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +310,10 @@ def _prelude(request, session_id):
     # Entitlement gate (supabase users only; api-key callers metered separately)
     feature_code = _feature_code_for(selection)
     decision = _authorize_internal_feature(request, feature_code)
+    if decision and decision.get('charge_source') == 'wallet':
+        decision['wallet_credits_charged'] = CHAT_TIER_OVERAGE_CREDIT_COST.get(
+            selection['tier'], decision['wallet_credits_charged'],
+        )
     if decision and not decision.get('allowed'):
         return _Prelude(error=JsonResponse(
             {'error': decision['message'], 'quota': decision['quota']},
@@ -308,6 +360,7 @@ def _persist_done(prelude, done):
         artifacts=done.get('artifacts', []),
         capability=done.get('capability', ''),
         premium=bool(done.get('premium', prelude.selection.get('premium'))),
+        credits_charged=(prelude.decision or {}).get('wallet_credits_charged', 0),
     )
 
 

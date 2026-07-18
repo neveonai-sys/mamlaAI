@@ -75,7 +75,11 @@ function PlanCard({ plan }) {
 export default function PricingSection() {
   const [activeTab, setActiveTab] = useState('lawyer');
   const plans = activeTab === 'lawyer' ? LAWYER_PLANS : NAGRIK_PLANS;
-  const cols = plans.length === 2 ? 'md:grid-cols-2 max-w-3xl mx-auto' : 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5';
+  const cols = plans.length === 2
+    ? 'md:grid-cols-2 max-w-3xl mx-auto'
+    : plans.length === 4
+      ? 'md:grid-cols-2 lg:grid-cols-4'
+      : 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5';
 
   return (
     <section id="pricing" className="border-t border-slate-200 bg-gray-50 py-24">
@@ -131,7 +135,7 @@ export default function PricingSection() {
                 Running a law firm?
               </h3>
               <p className="max-w-2xl text-base leading-7 text-white/80">
-                Firm Basic (₹2,049) and Firm Pro (₹4,549) plans add multi-lawyer support, a client lifecycle dashboard and firm-wide calendar coordination. Get in touch for a tailored quote.
+                Multi-lawyer firm plans add team seats, a client lifecycle dashboard and firm-wide calendar coordination. Get in touch for a tailored quote.
               </p>
             </div>
             <a
