@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
@@ -6,13 +6,20 @@ import {
   searchSCIJudgmentsByCase,
   searchSCIJudgmentsByParty,
   searchSCIJudgmentsByDate,
+  searchSCIJudgmentsByDiary,
+  searchSCIJudgmentsByJudge,
+  searchSCIJudgmentsFreeText,
+  getSCIJudges,
   downloadSCIPdf,
 } from './apiSCI';
 
 const TABS = [
-  { key: 'case',  label: 'Case Number' },
-  { key: 'party', label: 'Party Name' },
-  { key: 'date',  label: 'Date Range' },
+  { key: 'case',      label: 'Case Number' },
+  { key: 'diary',     label: 'Diary No' },
+  { key: 'party',     label: 'Party Name' },
+  { key: 'judge',     label: 'Judge' },
+  { key: 'date',      label: 'Judgment Date' },
+  { key: 'free_text', label: 'Free Text' },
 ];
 
 function JudgmentRow({ item, onDownload, downloading }) {
@@ -52,10 +59,32 @@ export default function SCIJudgmentsTerminal() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  const [diaryNo, setDiaryNo] = useState('');
+  const [diaryYear, setDiaryYear] = useState('');
+
+  const [judge, setJudge] = useState('');
+  const [judges, setJudges] = useState([]);
+  const [loadingJudges, setLoadingJudges] = useState(true);
+  const [judgeFromDate, setJudgeFromDate] = useState('');
+  const [judgeToDate, setJudgeToDate] = useState('');
+
+  const [searchText, setSearchText] = useState('');
+  const [freeTextFromDate, setFreeTextFromDate] = useState('');
+  const [freeTextToDate, setFreeTextToDate] = useState('');
+
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [downloadingUrl, setDownloadingUrl] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getSCIJudges()
+      .then((res) => { if (active) setJudges(res.data?.judges || res.data || []); })
+      .catch(() => { if (active) setJudges([]); })
+      .finally(() => { if (active) setLoadingJudges(false); });
+    return () => { active = false; };
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -68,8 +97,14 @@ export default function SCIJudgmentsTerminal() {
       let res;
       if (tab === 'case') {
         res = await searchSCIJudgmentsByCase({ case_type: caseType, case_no: caseNo, case_year: caseYear });
+      } else if (tab === 'diary') {
+        res = await searchSCIJudgmentsByDiary({ diary_no: diaryNo, year: diaryYear });
       } else if (tab === 'party') {
         res = await searchSCIJudgmentsByParty({ party_name: partyName });
+      } else if (tab === 'judge') {
+        res = await searchSCIJudgmentsByJudge({ judge, from_date: judgeFromDate, to_date: judgeToDate });
+      } else if (tab === 'free_text') {
+        res = await searchSCIJudgmentsFreeText({ search_text: searchText, from_date: freeTextFromDate, to_date: freeTextToDate });
       } else {
         res = await searchSCIJudgmentsByDate({ from_date: fromDate, to_date: toDate });
       }
@@ -148,11 +183,50 @@ export default function SCIJudgmentsTerminal() {
             </div>
           )}
 
+          {tab === 'diary' && (
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Diary No.</label>
+                <input type="text" value={diaryNo} onChange={(e) => setDiaryNo(e.target.value)}
+                  placeholder="e.g. 5678" className="input-base w-full" required />
+              </div>
+              <div className="w-28">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Year</label>
+                <input type="text" value={diaryYear} onChange={(e) => setDiaryYear(e.target.value)}
+                  placeholder="2024" maxLength={4} className="input-base w-full" required />
+              </div>
+            </div>
+          )}
+
           {tab === 'party' && (
             <div className="flex-1">
               <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Party Name</label>
               <input type="text" value={partyName} onChange={(e) => setPartyName(e.target.value)}
                 placeholder="Min. 3 characters" className="input-base w-full" required />
+            </div>
+          )}
+
+          {tab === 'judge' && (
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Judge</label>
+                <select value={judge} onChange={(e) => setJudge(e.target.value)} className="input-base w-full" disabled={loadingJudges} required>
+                  <option value="">{loadingJudges ? 'Loading…' : 'Select Judge'}</option>
+                  {judges.map((j) => (
+                    <option key={j.value} value={j.value}>{j.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">From Date</label>
+                <input type="text" value={judgeFromDate} onChange={(e) => setJudgeFromDate(e.target.value)}
+                  placeholder="DD-MM-YYYY" className="input-base w-full" required />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">To Date (max 30 days)</label>
+                <input type="text" value={judgeToDate} onChange={(e) => setJudgeToDate(e.target.value)}
+                  placeholder="DD-MM-YYYY" className="input-base w-full" required />
+              </div>
             </div>
           )}
 
@@ -166,6 +240,26 @@ export default function SCIJudgmentsTerminal() {
               <div className="flex-1">
                 <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">To Date</label>
                 <input type="text" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                  placeholder="DD-MM-YYYY" className="input-base w-full" required />
+              </div>
+            </div>
+          )}
+
+          {tab === 'free_text' && (
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Search Text</label>
+                <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="e.g. arbitration" className="input-base w-full" required />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">From Date</label>
+                <input type="text" value={freeTextFromDate} onChange={(e) => setFreeTextFromDate(e.target.value)}
+                  placeholder="DD-MM-YYYY" className="input-base w-full" required />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">To Date (max 30 days)</label>
+                <input type="text" value={freeTextToDate} onChange={(e) => setFreeTextToDate(e.target.value)}
                   placeholder="DD-MM-YYYY" className="input-base w-full" required />
               </div>
             </div>

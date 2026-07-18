@@ -21,9 +21,9 @@ def _url(path: str) -> str:
     return f"{SCI_SCRAPER_BASE}/{path.lstrip('/')}"
 
 
-def get(endpoint: str, timeout: int | None = None) -> dict | list:
-    """GET a scraper endpoint. Returns parsed JSON."""
-    r = requests.get(_url(endpoint), timeout=timeout or SCI_SCRAPER_TIMEOUT)
+def get(endpoint: str, params: dict | None = None, timeout: int | None = None) -> dict | list:
+    """GET a scraper endpoint with optional query params. Returns parsed JSON."""
+    r = requests.get(_url(endpoint), params=params, timeout=timeout or SCI_SCRAPER_TIMEOUT)
     r.raise_for_status()
     return r.json()
 

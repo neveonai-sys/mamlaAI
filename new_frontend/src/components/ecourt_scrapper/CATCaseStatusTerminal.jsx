@@ -33,26 +33,31 @@ function CaseCard({ item, onOpen }) {
     <div className="rounded-[18px] border border-primary/10 bg-background-light p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="truncate font-bold text-ink">{item.Applicant || item.party || 'Case'}</p>
-          {item.Respondent && <p className="mt-0.5 truncate text-xs text-slate-500">vs {item.Respondent}</p>}
-          <p className="mt-1 font-mono text-xs text-slate-400">{item['Case No'] || ''}</p>
+          <p className="truncate font-bold text-ink">{item.applicant || 'Case'}</p>
+          {item.respondent && <p className="mt-0.5 truncate text-xs text-slate-500">vs {item.respondent}</p>}
+          <p className="mt-1 font-mono text-xs text-slate-400">
+            {item.case_no || ''}
+            {item.diary_no ? ` · Diary ${item.diary_no}` : ''}
+          </p>
         </div>
-        {item.Status && (
+        {item.location && (
           <span className="shrink-0 rounded-full border border-primary/15 bg-white px-2 py-0.5 text-[11px] font-bold text-slate-600">
-            {item.Status}
+            {item.location}
           </span>
         )}
       </div>
-      {item['Next Date'] && (
-        <p className="mt-2 text-[11px] text-slate-500">Next: {item['Next Date']}</p>
+      {item.filing_date && (
+        <p className="mt-2 text-[11px] text-slate-500">Filed: {item.filing_date}</p>
       )}
-      <button
-        type="button"
-        onClick={onOpen}
-        className="mt-3 rounded-xl border border-primary/15 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-primary/40 hover:text-primary"
-      >
-        View Details →
-      </button>
+      {item.detail_token && (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="mt-3 rounded-xl border border-primary/15 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          View Details →
+        </button>
+      )}
     </div>
   );
 }
@@ -118,10 +123,6 @@ export default function CATCaseStatusTerminal() {
     setStatusText('');
   }
 
-  function buildDetailId() {
-    return `${bench}_${caseType}_${caseNo}_${caseYear}`;
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     clearResults();
@@ -141,7 +142,7 @@ export default function CATCaseStatusTerminal() {
       }
 
       const data = res.data;
-      const caseList = data?.case_details ? [data.case_details] : (Array.isArray(data?.cases) ? data.cases : []);
+      const caseList = Array.isArray(data?.cases) ? data.cases : [];
       setResults(caseList);
       setStatusText(data?.error || `${caseList.length} result${caseList.length !== 1 ? 's' : ''}`);
     } catch (err) {
@@ -294,7 +295,7 @@ export default function CATCaseStatusTerminal() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {results.map((item, i) => (
-                <CaseCard key={i} item={item} onOpen={() => navigate(`/ecourts/cat/case/${encodeURIComponent(buildDetailId())}`)} />
+                <CaseCard key={i} item={item} onOpen={() => navigate(`/ecourts/cat/case/${encodeURIComponent(item.detail_token)}`)} />
               ))}
             </div>
           )}

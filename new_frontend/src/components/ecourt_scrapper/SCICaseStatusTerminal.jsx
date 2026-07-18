@@ -8,6 +8,11 @@ import {
   searchSCIByDiary,
   searchSCIByParty,
   searchSCIByAor,
+  searchSCIByCnr,
+  getSCICaseStatusCourtStates,
+  getSCICaseStatusCourtBenches,
+  getSCICaseStatusCourtCaseTypes,
+  searchSCIByCourt,
 } from './apiSCI';
 
 const TABS = [
@@ -15,6 +20,16 @@ const TABS = [
   { key: 'diary',  label: 'Diary Number' },
   { key: 'party',  label: 'Party Name' },
   { key: 'aor',    label: 'AOR Code' },
+  { key: 'cnr',    label: 'CNR Number' },
+  { key: 'court',  label: 'Court' },
+];
+
+// Static — confirmed live from /case-status-court/'s <select id="case_status_court">.
+const COURT_OPTIONS = [
+  { value: '4', label: 'Supreme Court' },
+  { value: '1', label: 'High Court' },
+  { value: '3', label: 'District Court' },
+  { value: '5', label: 'State Agency' },
 ];
 
 const SESSION_KEY = 'sciCaseStatusSearchState';
@@ -25,6 +40,20 @@ function saveSession(state) {
 
 function loadSession() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); } catch (_) { return null; }
+}
+
+// error.response.data.detail/.error is usually a string, but a FastAPI
+// validation failure (422) makes "detail" an array of {type, loc, msg,
+// input} objects instead — rendering that directly as {error} crashes the
+// whole tree ("Objects are not valid as a React child"), confirmed live.
+function extractErrorMessage(err) {
+  const raw = err.response?.data?.error || err.response?.data?.detail;
+  if (typeof raw === 'string') return raw;
+  if (Array.isArray(raw)) {
+    const msgs = raw.map((d) => (typeof d === 'string' ? d : d?.msg)).filter(Boolean);
+    if (msgs.length) return msgs.join('; ');
+  }
+  return 'Search failed. Please try again.';
 }
 
 function CaseCard({ item, onOpen }) {
@@ -82,10 +111,30 @@ export default function SCICaseStatusTerminal() {
   // Party Name tab
   const [partyName, setPartyName] = useState(saved?.partyName || '');
   const [partyYear, setPartyYear] = useState(saved?.partyYear || '');
+  const [partyType, setPartyType] = useState(saved?.partyType || 'any');
+  const [partyStatus, setPartyStatus] = useState(saved?.partyStatus || '');
 
   // AOR Code tab
   const [aorCode, setAorCode] = useState(saved?.aorCode || '');
   const [aorYear, setAorYear] = useState(saved?.aorYear || '');
+
+  // CNR Number tab
+  const [cnrNo, setCnrNo] = useState(saved?.cnrNo || '');
+
+  // Court tab (cascading Court → State → Bench → Case Type)
+  const [courtCourt, setCourtCourt]       = useState(saved?.courtCourt || '');
+  const [courtState, setCourtState]       = useState(saved?.courtState || '');
+  const [courtBench, setCourtBench]       = useState(saved?.courtBench || '');
+  const [courtCaseType, setCourtCaseType] = useState(saved?.courtCaseType || '');
+  const [courtCaseNo, setCourtCaseNo]     = useState(saved?.courtCaseNo || '');
+  const [courtYear, setCourtYear]         = useState(saved?.courtYear || '');
+  const [courtListingDate, setCourtListingDate] = useState(saved?.courtListingDate || '');
+  const [courtStates, setCourtStates]         = useState([]);
+  const [courtBenches, setCourtBenches]       = useState([]);
+  const [courtCaseTypes, setCourtCaseTypes]   = useState([]);
+  const [loadingCourtStates, setLoadingCourtStates]     = useState(false);
+  const [loadingCourtBenches, setLoadingCourtBenches]   = useState(false);
+  const [loadingCourtCaseTypes, setLoadingCourtCaseTypes] = useState(false);
 
   const [results, setResults]       = useState(saved?.results || null);
   const [loading, setLoading]       = useState(false);
@@ -103,13 +152,55 @@ export default function SCICaseStatusTerminal() {
   }, []);
 
   useEffect(() => {
-    saveSession({ tab, caseType, caseNo, caseYear, diaryNo, diaryYear, partyName, partyYear, aorCode, aorYear, results });
-  }, [tab, caseType, caseNo, caseYear, diaryNo, diaryYear, partyName, partyYear, aorCode, aorYear, results]);
+    saveSession({
+      tab, caseType, caseNo, caseYear, diaryNo, diaryYear, partyName, partyYear, partyType, partyStatus,
+      aorCode, aorYear, cnrNo, courtCourt, courtState, courtBench, courtCaseType, courtCaseNo, courtYear,
+      courtListingDate, results,
+    });
+  }, [tab, caseType, caseNo, caseYear, diaryNo, diaryYear, partyName, partyYear, partyType, partyStatus,
+      aorCode, aorYear, cnrNo, courtCourt, courtState, courtBench, courtCaseType, courtCaseNo, courtYear,
+      courtListingDate, results]);
 
   function clearResults() {
     setResults(null);
     setError('');
     setStatusText('');
+  }
+
+  function handleCourtChange(court) {
+    setCourtCourt(court);
+    setCourtState(''); setCourtBench(''); setCourtCaseType('');
+    setCourtStates([]); setCourtBenches([]); setCourtCaseTypes([]);
+    if (!court) return;
+    setLoadingCourtStates(true);
+    getSCICaseStatusCourtStates(court)
+      .then((res) => setCourtStates(res.data?.states || []))
+      .catch(() => setCourtStates([]))
+      .finally(() => setLoadingCourtStates(false));
+  }
+
+  function handleCourtStateChange(state) {
+    setCourtState(state);
+    setCourtBench(''); setCourtCaseType('');
+    setCourtBenches([]); setCourtCaseTypes([]);
+    if (!state) return;
+    setLoadingCourtBenches(true);
+    getSCICaseStatusCourtBenches(courtCourt, state)
+      .then((res) => setCourtBenches(res.data?.benches || []))
+      .catch(() => setCourtBenches([]))
+      .finally(() => setLoadingCourtBenches(false));
+  }
+
+  function handleCourtBenchChange(bench) {
+    setCourtBench(bench);
+    setCourtCaseType('');
+    setCourtCaseTypes([]);
+    if (!bench) return;
+    setLoadingCourtCaseTypes(true);
+    getSCICaseStatusCourtCaseTypes(courtCourt, courtState, bench)
+      .then((res) => setCourtCaseTypes(res.data?.case_types || []))
+      .catch(() => setCourtCaseTypes([]))
+      .finally(() => setLoadingCourtCaseTypes(false));
   }
 
   async function handleSubmit(e) {
@@ -125,9 +216,16 @@ export default function SCICaseStatusTerminal() {
       } else if (tab === 'diary') {
         res = await searchSCIByDiary({ diary_no: diaryNo, diary_year: diaryYear });
       } else if (tab === 'party') {
-        res = await searchSCIByParty({ party_name: partyName, year: partyYear });
+        res = await searchSCIByParty({ party_name: partyName, year: partyYear, party_type: partyType, party_status: partyStatus });
       } else if (tab === 'aor') {
         res = await searchSCIByAor({ aor_code: aorCode, year: aorYear });
+      } else if (tab === 'cnr') {
+        res = await searchSCIByCnr({ cnr_no: cnrNo });
+      } else if (tab === 'court') {
+        res = await searchSCIByCourt({
+          court: courtCourt, state: courtState, bench: courtBench, case_type: courtCaseType,
+          case_no: courtCaseNo, year: courtYear, listing_date: courtListingDate,
+        });
       }
 
       const data = res.data;
@@ -135,7 +233,7 @@ export default function SCICaseStatusTerminal() {
       setResults(caseList);
       setStatusText(`${caseList.length} result${caseList.length !== 1 ? 's' : ''}`);
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.detail || 'Search failed. Please try again.');
+      setError(extractErrorMessage(err));
     } finally {
       setLoading(false);
       dispatch(stopBlocking());
@@ -218,9 +316,25 @@ export default function SCICaseStatusTerminal() {
                   placeholder="Min. 3 characters" className="input-base w-full" required />
               </div>
               <div className="w-28">
-                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Year (optional)</label>
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Year</label>
                 <input type="text" value={partyYear} onChange={(e) => setPartyYear(e.target.value)}
-                  placeholder="2024" maxLength={4} className="input-base w-full" />
+                  placeholder="2024" maxLength={4} className="input-base w-full" required />
+              </div>
+              <div className="w-40">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Party Type</label>
+                <select value={partyType} onChange={(e) => setPartyType(e.target.value)} className="input-base w-full" required>
+                  <option value="any">Any</option>
+                  <option value="P">Petitioner</option>
+                  <option value="R">Respondent</option>
+                </select>
+              </div>
+              <div className="w-40">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Case Status</label>
+                <select value={partyStatus} onChange={(e) => setPartyStatus(e.target.value)} className="input-base w-full" required>
+                  <option value="">--Select--</option>
+                  <option value="P">Pending</option>
+                  <option value="D">Disposed</option>
+                </select>
               </div>
             </div>
           )}
@@ -236,6 +350,79 @@ export default function SCICaseStatusTerminal() {
                 <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Year (optional)</label>
                 <input type="text" value={aorYear} onChange={(e) => setAorYear(e.target.value)}
                   placeholder="2024" maxLength={4} className="input-base w-full" />
+              </div>
+            </div>
+          )}
+
+          {tab === 'cnr' && (
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">CNR Number</label>
+                <input type="text" value={cnrNo} onChange={(e) => setCnrNo(e.target.value)}
+                  placeholder="e.g. DLHC010012345678" className="input-base w-full" required />
+              </div>
+            </div>
+          )}
+
+          {tab === 'court' && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Court</label>
+                  <select value={courtCourt} onChange={(e) => handleCourtChange(e.target.value)} className="input-base w-full" required>
+                    <option value="">--Select--</option>
+                    {COURT_OPTIONS.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">State</label>
+                  <select value={courtState} onChange={(e) => handleCourtStateChange(e.target.value)} className="input-base w-full"
+                    disabled={!courtCourt || loadingCourtStates} required>
+                    <option value="">{loadingCourtStates ? 'Loading…' : '--Select--'}</option>
+                    {courtStates.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Bench</label>
+                  <select value={courtBench} onChange={(e) => handleCourtBenchChange(e.target.value)} className="input-base w-full"
+                    disabled={!courtState || loadingCourtBenches} required>
+                    <option value="">{loadingCourtBenches ? 'Loading…' : '--Select--'}</option>
+                    {courtBenches.map((b) => (
+                      <option key={b.value} value={b.value}>{b.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Case Type</label>
+                  <select value={courtCaseType} onChange={(e) => setCourtCaseType(e.target.value)} className="input-base w-full"
+                    disabled={!courtBench || loadingCourtCaseTypes} required>
+                    <option value="">{loadingCourtCaseTypes ? 'Loading…' : '--Select--'}</option>
+                    {courtCaseTypes.map((ct) => (
+                      <option key={ct.value} value={ct.value}>{ct.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-32">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Case No.</label>
+                  <input type="text" value={courtCaseNo} onChange={(e) => setCourtCaseNo(e.target.value)}
+                    placeholder="e.g. 1234" className="input-base w-full" required />
+                </div>
+                <div className="w-28">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Year</label>
+                  <input type="text" value={courtYear} onChange={(e) => setCourtYear(e.target.value)}
+                    placeholder="2026" maxLength={4} className="input-base w-full" required />
+                </div>
+                <div className="w-36">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Order Date (optional)</label>
+                  <input type="text" value={courtListingDate} onChange={(e) => setCourtListingDate(e.target.value)}
+                    placeholder="dd-mm-yyyy" className="input-base w-full" />
+                </div>
               </div>
             </div>
           )}

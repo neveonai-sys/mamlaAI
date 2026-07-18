@@ -26,10 +26,8 @@ function CaseRow({ item }) {
           </span>
         )}
       </div>
-      {(item.purpose || item.advocate) && (
-        <p className="mt-2 text-[11px] text-slate-500">
-          {item.purpose}{item.purpose && item.advocate ? ' · ' : ''}{item.advocate}
-        </p>
+      {item.advocate && (
+        <p className="mt-2 text-[11px] text-slate-500">{item.advocate}</p>
       )}
     </div>
   );

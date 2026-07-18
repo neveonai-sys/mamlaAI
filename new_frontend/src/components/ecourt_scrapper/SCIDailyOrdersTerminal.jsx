@@ -2,11 +2,19 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
-import { searchSCIOrdersByCase, searchSCIOrdersByDiary, downloadSCIPdf } from './apiSCI';
+import {
+  searchSCIOrdersByCase,
+  searchSCIOrdersByDiary,
+  searchSCIOrdersByRopDate,
+  searchSCIOrdersFreeText,
+  downloadSCIPdf,
+} from './apiSCI';
 
 const TABS = [
-  { key: 'case',  label: 'Case Number' },
-  { key: 'diary', label: 'Diary Number' },
+  { key: 'case',      label: 'Case Number' },
+  { key: 'diary',     label: 'Diary Number' },
+  { key: 'rop_date',  label: 'ROP Date' },
+  { key: 'free_text', label: 'Free Text' },
 ];
 
 function OrderRow({ item, onDownload, downloading }) {
@@ -44,6 +52,13 @@ export default function SCIDailyOrdersTerminal() {
   const [diaryNo, setDiaryNo] = useState('');
   const [diaryYear, setDiaryYear] = useState('');
 
+  const [ropFromDate, setRopFromDate] = useState('');
+  const [ropToDate, setRopToDate] = useState('');
+
+  const [searchText, setSearchText] = useState('');
+  const [freeTextFromDate, setFreeTextFromDate] = useState('');
+  const [freeTextToDate, setFreeTextToDate] = useState('');
+
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -60,8 +75,12 @@ export default function SCIDailyOrdersTerminal() {
       let res;
       if (tab === 'case') {
         res = await searchSCIOrdersByCase({ case_type: caseType, case_no: caseNo, case_year: caseYear });
-      } else {
+      } else if (tab === 'diary') {
         res = await searchSCIOrdersByDiary({ diary_no: diaryNo, diary_year: diaryYear });
+      } else if (tab === 'rop_date') {
+        res = await searchSCIOrdersByRopDate({ from_date: ropFromDate, to_date: ropToDate });
+      } else {
+        res = await searchSCIOrdersFreeText({ search_text: searchText, from_date: freeTextFromDate, to_date: freeTextToDate });
       }
       const data = res.data;
       const list = data?.orders || (Array.isArray(data) ? data : []);
@@ -149,6 +168,41 @@ export default function SCIDailyOrdersTerminal() {
                 <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Year</label>
                 <input type="text" value={diaryYear} onChange={(e) => setDiaryYear(e.target.value)}
                   placeholder="2024" maxLength={4} className="input-base w-full" required />
+              </div>
+            </div>
+          )}
+
+          {tab === 'rop_date' && (
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">From Date</label>
+                <input type="text" value={ropFromDate} onChange={(e) => setRopFromDate(e.target.value)}
+                  placeholder="DD-MM-YYYY" className="input-base w-full" required />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">To Date</label>
+                <input type="text" value={ropToDate} onChange={(e) => setRopToDate(e.target.value)}
+                  placeholder="DD-MM-YYYY" className="input-base w-full" required />
+              </div>
+            </div>
+          )}
+
+          {tab === 'free_text' && (
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Search Text</label>
+                <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="e.g. bail" className="input-base w-full" required />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">From Date</label>
+                <input type="text" value={freeTextFromDate} onChange={(e) => setFreeTextFromDate(e.target.value)}
+                  placeholder="DD-MM-YYYY" className="input-base w-full" required />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">To Date</label>
+                <input type="text" value={freeTextToDate} onChange={(e) => setFreeTextToDate(e.target.value)}
+                  placeholder="DD-MM-YYYY" className="input-base w-full" required />
               </div>
             </div>
           )}

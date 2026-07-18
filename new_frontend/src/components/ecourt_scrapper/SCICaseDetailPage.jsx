@@ -2,9 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { beginBlocking, stopBlocking } from '../../features/uiSlice';
-import { searchSCIByDiary, downloadSCIPdf } from './apiSCI';
+import { getSCICaseDetails } from './apiSCI';
 
 const COURT_BLUE = '#0b3260';
+
+// Status badge coloring — mirrors the convention used across the other
+// eCourts detail pages (HC/CAT) so "Pending" vs "Disposed" reads at a glance.
+function statusClasses(status) {
+  const s = (status || '').toLowerCase();
+  if (s.includes('dispos')) return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+  if (s.includes('pend')) return 'bg-amber-100 text-amber-700 border-amber-300';
+  return 'bg-slate-100 text-slate-600 border-slate-300';
+}
 
 function Section({ label, children }) {
   return (
@@ -29,6 +38,53 @@ function Field({ label, value }) {
   );
 }
 
+// A callout variant of Field for the handful of values that matter most at
+// a glance (status/stage, next listing date) — a plain grid entry made these
+// easy to miss next to the identifier fields, so give them their own
+// highlighted chip instead.
+function HighlightField({ label, value, tone = 'primary' }) {
+  if (!value) return null;
+  const toneClasses = tone === 'amber'
+    ? 'border-amber-200 bg-amber-50 text-amber-900'
+    : 'border-primary/20 bg-primary/5 text-ink';
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${toneClasses}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">{label}</p>
+      <p className="mt-1 text-sm font-bold">{value}</p>
+    </div>
+  );
+}
+
+// Petitioner/Respondent side of the Parties section — a colored left rail
+// bifurcates the two opposing sides so they don't blur into one undifferentiated
+// list (the earlier version stacked both in identically-styled cards).
+function PartyColumn({ side, names, advocates }) {
+  const isPetitioner = side === 'petitioner';
+  const railColor = isPetitioner ? 'border-l-primary' : 'border-l-amber-400';
+  const label = isPetitioner ? 'Petitioner(s)' : 'Respondent(s)';
+  const labelColor = isPetitioner ? 'text-primary' : 'text-amber-600';
+  return (
+    <div className={`flex-1 border-l-4 ${railColor} pl-4`}>
+      <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${labelColor}`}>{label}</p>
+      <div className="mt-2 flex flex-col gap-1">
+        {names.map((n, i) => (
+          <p key={i} className="text-sm font-semibold text-ink">{n}</p>
+        ))}
+      </div>
+      {advocates?.length > 0 && (
+        <div className="mt-3 border-t border-primary/10 pt-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Advocate(s)</p>
+          <div className="mt-1 flex flex-col gap-0.5">
+            {advocates.map((n, i) => (
+              <p key={i} className="text-xs text-slate-600">{n}</p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // id is "<diary_no>_<diary_year>"
 function parseId(id) {
   const idx = id.lastIndexOf('_');
@@ -43,7 +99,6 @@ export default function SCICaseDetailPage() {
   const [caseData, setCaseData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -52,37 +107,21 @@ export default function SCICaseDetailPage() {
     setError('');
     dispatch(beginBlocking({ message: 'Loading case details...' }));
     const { diary_no, diary_year } = parseId(id);
-    searchSCIByDiary({ diary_no, diary_year })
-      .then((res) => { if (active) setCaseData(res.data?.cases?.[0] || res.data); })
+    getSCICaseDetails(diary_no, diary_year)
+      .then((res) => { if (active) setCaseData(res.data); })
       .catch((err) => {
         if (!active) return;
         setError(err.response?.data?.detail || err.response?.data?.error || 'Unable to fetch case details.');
       })
-      .finally(() => { if (active) { setLoading(false); dispatch(stopBlocking()); } });
+      .finally(() => { if (active) setLoading(false); dispatch(stopBlocking()); });
     return () => { active = false; };
   }, [id]);
-
-  async function handleDownload(docUrl) {
-    setDownloading(true);
-    try {
-      const resp = await downloadSCIPdf(docUrl);
-      const blob = new Blob([resp.data], { type: 'application/pdf' });
-      const objUrl = URL.createObjectURL(blob);
-      window.open(objUrl, '_blank');
-      setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
-    } catch (err) {
-      setError('PDF download failed. Please try again.');
-    } finally {
-      setDownloading(false);
-    }
-  }
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <span className="material-symbols-outlined text-primary text-4xl animate-spin">progress_activity</span>
         <p className="text-sm text-slate-500">Fetching case details from the Supreme Court portal…</p>
-        <p className="text-xs text-slate-400">This may take 10–30 seconds (CAPTCHA solve required).</p>
       </div>
     );
   }
@@ -105,87 +144,64 @@ export default function SCICaseDetailPage() {
   }
 
   const d = caseData;
+  const title = [d.petitioners?.[0], d.respondents?.[0]].filter(Boolean).join(' vs ') || 'Case';
 
   return (
     <div className="p-8 max-w-5xl">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-primary hover:underline">
-          <span className="material-symbols-outlined text-sm">arrow_back</span> Back
-        </button>
-        <span className="text-slate-300">·</span>
-        <button type="button" onClick={() => navigate('/ecourts/sci/case-status')} className="text-sm text-slate-500 hover:text-primary hover:underline">Case Search</button>
-        <span className="text-slate-300">·</span>
-        <button type="button" onClick={() => navigate('/ecourts/sci')} className="text-sm text-slate-500 hover:text-primary hover:underline">Supreme Court Home</button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-primary hover:underline">
+            <span className="material-symbols-outlined text-sm">arrow_back</span> Back
+          </button>
+          <span className="text-slate-300">·</span>
+          <button type="button" onClick={() => navigate('/ecourts/sci/case-status')} className="text-sm text-slate-500 hover:text-primary hover:underline">Case Search</button>
+          <span className="text-slate-300">·</span>
+          <button type="button" onClick={() => navigate('/ecourts/sci')} className="text-sm text-slate-500 hover:text-primary hover:underline">Supreme Court Home</button>
+        </div>
+        {d.status && (
+          <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusClasses(d.status)}`}>
+            {d.status}
+          </span>
+        )}
       </div>
 
       <header className="text-white py-5 px-6 text-center rounded-[24px] mb-6" style={{ backgroundColor: COURT_BLUE }}>
         <p className="font-mono text-white/60 text-xs mb-1">
           {d.diary_no ? `Diary No. ${d.diary_no}/${d.diary_year}` : ''}
-          {d.case_no ? ` · ${d.case_no}/${d.case_year}` : ''}
         </p>
-        <h1 className="text-xl font-serif leading-snug max-w-4xl mx-auto">
-          {d.petitioner || 'Case'} {d.respondent ? `vs ${d.respondent}` : ''}
-        </h1>
-        {d.status && <p className="mt-1 text-white/70 text-sm">{d.status}</p>}
+        <h1 className="text-xl font-serif leading-snug max-w-4xl mx-auto">{title}</h1>
+        {d.tentative_listing_date && (
+          <p className="mt-2 inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-amber-200">
+            Next Listing: {d.tentative_listing_date}
+          </p>
+        )}
       </header>
 
       <Section label="Case Details">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Diary Number" value={d.diary_no ? `${d.diary_no}/${d.diary_year}` : null} />
-          <Field label="Case Number" value={d.case_no ? `${d.case_no}/${d.case_year}` : null} />
-          <Field label="Case Type" value={d.case_type} />
-          <Field label="Filing Date" value={d.filing_date} />
-          <Field label="Status" value={d.status} />
-          <Field label="Next Hearing" value={d.next_hearing} />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Diary Number" value={d.diary_number_detail} />
+          <Field label="Case Number" value={d.case_number_detail} />
+          <Field label="CNR Number" value={d.cnr_no} />
+          <Field label="Category" value={d.category} />
         </div>
+        {(d.status_stage || d.present_last_listed_on || d.tentative_listing_date) && (
+          <div className="mt-5 grid gap-3 border-t border-primary/10 pt-5 sm:grid-cols-3">
+            <HighlightField label="Status / Stage" value={d.status_stage} />
+            <HighlightField label="Present / Last Listed On" value={d.present_last_listed_on} />
+            <HighlightField label="Tentative Listing Date" value={d.tentative_listing_date} tone="amber" />
+          </div>
+        )}
       </Section>
 
-      {(d.petitioner || d.petitioner_advocate) && (
-        <Section label="Petitioner">
-          <Field label="Petitioner" value={d.petitioner} />
-          <Field label="Advocate" value={d.petitioner_advocate} />
-        </Section>
-      )}
-
-      {(d.respondent || d.respondent_advocate) && (
-        <Section label="Respondent">
-          <Field label="Respondent" value={d.respondent} />
-          <Field label="Advocate" value={d.respondent_advocate} />
-        </Section>
-      )}
-
-      {d.hearing_history?.length > 0 && (
-        <Section label="Hearing History">
-          <div className="flex flex-col gap-2">
-            {d.hearing_history.map((h, i) => (
-              <div key={i} className="flex items-center justify-between rounded-xl border border-primary/10 bg-background-light px-4 py-2 text-sm">
-                <span className="font-mono text-xs text-slate-500">{h.date}</span>
-                <span className="text-slate-600">{h.purpose || '—'}</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {d.orders?.length > 0 && (
-        <Section label="Orders">
-          <div className="flex flex-col gap-2">
-            {d.orders.map((o, i) => (
-              <div key={i} className="flex items-center justify-between rounded-xl border border-primary/10 bg-background-light px-4 py-2 text-sm">
-                <span className="font-mono text-xs text-slate-500">{o.date || o.order_date}</span>
-                {o.doc_url ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDownload(o.doc_url)}
-                    disabled={downloading}
-                    className="text-xs font-semibold underline disabled:opacity-60"
-                    style={{ color: COURT_BLUE }}
-                  >
-                    {downloading ? '…' : 'View PDF'}
-                  </button>
-                ) : <span className="text-slate-400">—</span>}
-              </div>
-            ))}
+      {(d.petitioners?.length > 0 || d.respondents?.length > 0) && (
+        <Section label="Parties">
+          <div className="flex flex-col gap-6 sm:flex-row">
+            {(d.petitioners?.length > 0 || d.petitioner_advocates?.length > 0) && (
+              <PartyColumn side="petitioner" names={d.petitioners || []} advocates={d.petitioner_advocates} />
+            )}
+            {(d.respondents?.length > 0 || d.respondent_advocates?.length > 0) && (
+              <PartyColumn side="respondent" names={d.respondents || []} advocates={d.respondent_advocates} />
+            )}
           </div>
         </Section>
       )}
