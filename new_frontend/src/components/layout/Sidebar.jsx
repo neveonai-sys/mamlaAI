@@ -12,12 +12,13 @@ import clsx from 'clsx';
 // ─── Navigation items ────────────────────────────────────────────────────────
 const LAWYER_NAV = [
   { label: 'Dashboard',          path: '/dashboard',      icon: 'dashboard' },
+  { label: 'MamlaAI Chat',        path: '/chat',           icon: 'forum' },
   { label: 'Cases',              path: '/cases',          icon: 'folder_open' },
   { label: 'AI Drafting',        path: '/drafting',       icon: 'edit_note' },
-  { label: 'Document Intel',     path: '/documents',      icon: 'description' },
   { label: 'Calendar & Events',  path: '/calendar',       icon: 'calendar_month' },
   // { label: 'Court Updates',      path: '/court-updates',  icon: 'account_balance' },
   { label: 'eCourts',            path: '/ecourts',        icon: 'search' },
+  { label: 'Citation Search',    path: '/citations',      icon: 'gavel' },
   // Clients nav removed — onboarding now inline in Case creation
   // { label: 'Clients',            path: '/clients',        icon: 'people' },
   // { label: 'Sessions',           path: '/sessions',       icon: 'forum' },
@@ -27,7 +28,6 @@ const LAWYER_NAV = [
 const CLIENT_NAV = [
   { label: 'Dashboard',          path: '/dashboard',      icon: 'dashboard' },
   { label: 'My Case',            path: '/my-case',        icon: 'folder_open' },
-  { label: 'Document Intel',     path: '/documents',      icon: 'description' },
   { label: 'Calendar & Events',  path: '/calendar',       icon: 'calendar_month' },
   // { label: 'Sessions',           path: '/sessions',       icon: 'forum' },
   { label: 'Feedback',           path: '/feedback',       icon: 'rate_review' },

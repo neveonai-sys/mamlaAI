@@ -411,6 +411,7 @@ def get_draft_sections(request):
             'draft_sections': sections,
             'ai_suggested_update_count': chk.get('ai_suggested_update_count'),
             'status': chk.get('status', 'completed'),
+            'conversation_history': chk.get('conversation_history', []),
             'cached': False
         })
     else:
@@ -801,6 +802,7 @@ def create_drfatsession_by_casedocument(request):
     file = request.FILES.get('file')
     draft_for = json.loads(request.POST.get('draft_for'))
     language  = request.POST.get('language','English')
+    user_description = request.POST.get('user_query', '').strip() or None
 
     logger.info(f"create_drfatsession_by_casedocument ---->>>>> {draft_for} ====== {type(draft_for)}")
 
@@ -824,9 +826,9 @@ def create_drfatsession_by_casedocument(request):
     file_text = obj.extract_text_from_file(file_stream, file_name)
 
     # Use GPT to process the text and generate draft sections
-    draft_sections = obj.generate_draft_sections_with_gpt(file_text, language)
+    draft_sections = obj.generate_draft_sections_with_gpt(file_text, language, user_description)
 
-    chk = obj.insert_draft_session_for_casedocument(draft_sections, draft_for, language)
+    chk = obj.insert_draft_session_for_casedocument(draft_sections, draft_for, language, user_description)
     if chk.get("mssg"):
         quota = _finalize_draft_quota(request, 'ai_draft_generation', decision)
         return JsonResponse({'message': 'Case document processed successfully.', 'session_id': chk.get("mssg"), 'quota': quota}, status=200)
@@ -976,6 +978,11 @@ def refine_section(request):
 
     chk = obj.update_content_using_AI_with_user_input(session_id, section_id, instruction)
     refined = chk.get('mssg', '')
+    # This suggestion just pushed a new turn onto conversation_history in Mongo —
+    # invalidate the cached sections response so the next get_draft_sections read
+    # picks up the fresh conversation_history instead of serving a stale cached
+    # payload that predates this exchange (cache never includes conversation_history).
+    cache.delete(f"draft_sections:{session_id}")
     ai_update_count = obj.update_ai_suggested_content_count(session_id)
     wallet_credits_charged = 0
     message_key = ''

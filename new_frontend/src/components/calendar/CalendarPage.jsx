@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -529,6 +530,7 @@ function EventField({ label, children, hint }) {
 
 export default function CalendarPage() {
   const calendarRef = useRef(null);
+  const holidayRequestIdRef = useRef(0);
   const dispatch = useDispatch();
   const { firstname, lastname, email, user_type } = useSelector((state) => state.user);
   const fullName = `${firstname || ''} ${lastname || ''}`.trim() || email || 'Lead counsel';
@@ -564,6 +566,16 @@ export default function CalendarPage() {
   const [conflictReport, setConflictReport] = useState(null);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
 
+  const [visibleRange, setVisibleRange] = useState({
+    start: format(startOfWeek(startOfMonth(new Date())), 'yyyy-MM-dd'),
+    end: format(endOfWeek(endOfMonth(new Date())), 'yyyy-MM-dd'),
+  });
+  const [holidays, setHolidays] = useState([]);
+  const [holidayState, setHolidayState] = useState(() => localStorage.getItem('calendarHolidayState') || '');
+  const [stateOptions, setStateOptions] = useState([]);
+  const [showHolidays, setShowHolidays] = useState(true);
+  const [holidayTooltip, setHolidayTooltip] = useState(null);
+
   const isEditingSeries = editorMode === 'edit' && Boolean(eventForm.isSeries || eventForm.recurring || eventForm.seriesLength > 1);
 
   const monthlyDays = useMemo(() => buildMiniCalendarDays(miniCalendarDate), [miniCalendarDate]);
@@ -584,6 +596,66 @@ export default function CalendarPage() {
       return visible && haystack.includes(searchTerm.toLowerCase());
     });
   }, [events, searchTerm, visibleTypes]);
+
+  const weekendHolidays = useMemo(() => {
+    const entries = [];
+    eachDayOfInterval({ start: parseISO(visibleRange.start), end: parseISO(visibleRange.end) }).forEach((day) => {
+      const dow = day.getDay();
+      if (dow === 0) {
+        entries.push({ date: format(day, 'yyyy-MM-dd'), name: 'Sunday', source: 'weekend' });
+      } else if (dow === 6) {
+        const occurrence = Math.ceil(day.getDate() / 7);
+        if (occurrence === 2 || occurrence === 4) {
+          entries.push({ date: format(day, 'yyyy-MM-dd'), name: `${occurrence === 2 ? '2nd' : '4th'} Saturday`, source: 'weekend' });
+        }
+      }
+    });
+    return entries;
+  }, [visibleRange]);
+
+  const allHolidayEntries = useMemo(() => [...holidays, ...weekendHolidays], [holidays, weekendHolidays]);
+
+  const holidayDateMap = useMemo(() => {
+    const map = new Map();
+    allHolidayEntries.forEach((holiday) => {
+      const label = holiday.holiday_type && holiday.holiday_type !== 'Holiday'
+        ? `${holiday.name} (${holiday.holiday_type})`
+        : holiday.name;
+      const isVacation = holiday.holiday_type === 'Vacation';
+      const existing = map.get(holiday.date);
+      if (existing) {
+        existing.names.push(label);
+        if (holiday.source !== 'weekend') existing.hasFestival = true;
+        if (isVacation) existing.hasVacation = true;
+      } else {
+        map.set(holiday.date, { names: [label], hasFestival: holiday.source !== 'weekend', hasVacation: isVacation });
+      }
+    });
+    return map;
+  }, [allHolidayEntries]);
+
+  const holidayFcEvents = useMemo(() => {
+    if (!showHolidays) return [];
+    return allHolidayEntries.map((holiday, index) => {
+      let backgroundColor = 'rgba(16, 122, 87, 0.28)'; // Holiday / Local Holiday / Court Closure / national
+      if (holiday.source === 'weekend') {
+        backgroundColor = 'rgba(148, 163, 184, 0.35)';
+      } else if (holiday.holiday_type === 'Vacation') {
+        backgroundColor = 'rgba(180, 94, 8, 0.22)'; // multi-day court vacation — distinct from a single-day holiday
+      }
+      return {
+        id: `holiday-${holiday.date}-${index}`,
+        title: holiday.name,
+        start: holiday.date,
+        allDay: true,
+        display: 'background',
+        backgroundColor,
+        extendedProps: { isHoliday: true, holidaySource: holiday.source, holidayType: holiday.holiday_type },
+      };
+    });
+  }, [allHolidayEntries, showHolidays]);
+
+  const calendarEvents = useMemo(() => [...filteredEvents, ...holidayFcEvents], [filteredEvents, holidayFcEvents]);
 
   const conflictEventIds = useMemo(() => deriveConflictEventIds(filteredEvents), [filteredEvents]);
 
@@ -674,10 +746,45 @@ export default function CalendarPage() {
     }
   }
 
+  async function fetchHolidays(state = holidayState) {
+    const requestId = (holidayRequestIdRef.current += 1);
+    try {
+      const query = state ? `?state=${encodeURIComponent(state)}` : '';
+      const response = await apiClient.get(`calendar/holidays/${query}`);
+      if (requestId !== holidayRequestIdRef.current) return; // a newer request has since started
+      const results = Array.isArray(response.data?.results) ? response.data.results : [];
+      setHolidays(results);
+      if (!state && response.data?.state) {
+        setHolidayState(response.data.state);
+      }
+    } catch {
+      if (requestId !== holidayRequestIdRef.current) return;
+      setHolidays([]);
+    }
+  }
+
+  async function fetchStateOptions() {
+    try {
+      const response = await apiClient.get('users/get-states/');
+      const options = Array.isArray(response.data) ? response.data.map((item) => item.name).filter(Boolean) : [];
+      setStateOptions(options);
+    } catch {
+      setStateOptions([]);
+    }
+  }
+
+  function handleHolidayStateChange(nextState) {
+    setHolidayState(nextState);
+    localStorage.setItem('calendarHolidayState', nextState);
+    fetchHolidays(nextState);
+  }
+
   useEffect(() => {
     fetchEvents(currentRange.start, currentRange.end, { blockUi: true });
     fetchCaseClientData();
-  }, []);
+    fetchStateOptions();
+    fetchHolidays(holidayState);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── If opened via ?case_id= URL param, pre-open editor for a new hearing ──
   useEffect(() => {
@@ -702,6 +809,30 @@ export default function CalendarPage() {
     }
   }
 
+  function goToPrevious() {
+    if (calendarRef.current && activeView !== 'agenda') {
+      calendarRef.current.getApi().prev();
+    }
+  }
+
+  function goToNext() {
+    if (calendarRef.current && activeView !== 'agenda') {
+      calendarRef.current.getApi().next();
+    }
+  }
+
+  // Mini calendar always steps by exactly one month, regardless of the big
+  // calendar's current view granularity — so it drives the big calendar via
+  // gotoDate (matching pushCalendarDate) rather than .prev()/.next(), which
+  // move by the active view's own unit (a week in Week view, a day in Day view).
+  function shiftMiniCalendar(direction) {
+    const next = direction < 0 ? subMonths(miniCalendarDate, 1) : addMonths(miniCalendarDate, 1);
+    setMiniCalendarDate(next);
+    if (calendarRef.current && activeView !== 'agenda') {
+      calendarRef.current.getApi().gotoDate(next);
+    }
+  }
+
   function handleDatesSet(info) {
     const startDate = format(info.view.currentStart, 'yyyy-MM-dd');
     const endDate = format(addDays(info.view.currentEnd, -1), 'yyyy-MM-dd');
@@ -710,6 +841,10 @@ export default function CalendarPage() {
       : format(info.view.currentStart, 'MMMM yyyy');
 
     setCurrentRange({ start: startDate, end: endDate, label });
+    setVisibleRange({
+      start: format(info.start, 'yyyy-MM-dd'),
+      end: format(addDays(info.end, -1), 'yyyy-MM-dd'),
+    });
     setMiniCalendarDate(info.view.currentStart);
     fetchEvents(startDate, endDate);
   }
@@ -760,6 +895,7 @@ export default function CalendarPage() {
   }
 
   function handleEventClick(info) {
+    if (info.event.extendedProps.isHoliday) return;
     openEditDialog({ id: info.event.id, title: info.event.title, ...info.event.extendedProps });
   }
 
@@ -975,6 +1111,11 @@ export default function CalendarPage() {
   }
 
   function renderEventContent(eventInfo) {
+    // Background holiday events (display: 'background') already show a
+    // colored day-cell tint plus a label via dayCellContent below — render
+    // no separate title chip for them here, or it visually collides with
+    // the day number (that overlap is exactly what was reported as a bug).
+    if (eventInfo.event.extendedProps.isHoliday) return null;
     return (
       <div className="overflow-hidden px-0.5">
         {!eventInfo.event.allDay ? (
@@ -985,7 +1126,66 @@ export default function CalendarPage() {
     );
   }
 
+  function renderDayCellContent(arg) {
+    const info = showHolidays ? holidayDateMap.get(format(arg.date, 'yyyy-MM-dd')) : null;
+    const extraCount = info ? info.names.length - 1 : 0;
+
+    function showTooltip(event) {
+      if (!info) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      setHolidayTooltip({ x: rect.left + rect.width / 2, y: rect.top, names: info.names });
+    }
+    function hideTooltip() {
+      setHolidayTooltip(null);
+    }
+
+    return (
+      <div className="flex h-full w-full min-w-0 flex-col items-stretch gap-0.5">
+        <span>{arg.dayNumberText}</span>
+        {info ? (
+          // Only the label that fits the cell renders inline (truncated to one line);
+          // the rest of the names for this date surface in a floating tooltip on
+          // hover instead of overflowing the cell (that overflow was the bug reported
+          // as holidays "overlapping side by side").
+          <div className="flex min-w-0 items-center gap-1" onMouseEnter={showTooltip} onMouseLeave={hideTooltip}>
+            <span
+              className={cx(
+                'block min-w-0 flex-1 truncate text-[9px] font-bold',
+                info.hasVacation ? 'text-primary' : info.hasFestival ? 'text-emerald-700' : 'text-slate-500'
+              )}
+            >
+              {info.names[0]}
+            </span>
+            {extraCount > 0 ? (
+              <span className="shrink-0 rounded-full bg-primary/15 px-1 text-[8px] font-extrabold leading-[14px] text-primary">
+                +{extraCount}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderHolidayTooltip() {
+    if (!holidayTooltip) return null;
+    return createPortal(
+      <div
+        className="pointer-events-none fixed z-[999] max-w-[220px] -translate-x-1/2 -translate-y-[calc(100%+8px)] rounded-xl border border-primary/10 bg-[#1c140d] px-3 py-2 text-xs font-semibold text-ivory shadow-2xl"
+        style={{ left: holidayTooltip.x, top: holidayTooltip.y }}
+      >
+        {holidayTooltip.names.map((name, index) => (
+          <div key={index} className="whitespace-normal leading-snug">
+            {name}
+          </div>
+        ))}
+      </div>,
+      document.body
+    );
+  }
+
   function eventDidMount(info) {
+    if (info.event.extendedProps.isHoliday) return;
     const meta = getEventTypeMeta(info.event.extendedProps.eventType);
     info.el.style.background = meta.fcBg;
     info.el.style.border = `1px solid ${meta.fcBorder}`;
@@ -997,10 +1197,18 @@ export default function CalendarPage() {
   return (
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_rgba(180,94,8,0.10),_transparent_30%),linear-gradient(180deg,#fbf8f3_0%,#f3ede5_100%)] p-4 sm:p-6 lg:p-8">
       <style>{`
-        .legal-calendar .fc { --fc-border-color: rgba(180, 94, 8, 0.12); --fc-page-bg-color: #fffdfa; --fc-neutral-bg-color: rgba(180, 94, 8, 0.05); --fc-list-event-hover-bg-color: rgba(180, 94, 8, 0.08); --fc-today-bg-color: rgba(180, 94, 8, 0.08); }
+        .legal-calendar .fc { --fc-border-color: rgba(180, 94, 8, 0.12); --fc-page-bg-color: #fffdfa; --fc-neutral-bg-color: rgba(180, 94, 8, 0.05); --fc-list-event-hover-bg-color: rgba(180, 94, 8, 0.08); --fc-today-bg-color: rgba(180, 94, 8, 0.08); --fc-bg-event-opacity: 1; }
         .legal-calendar .fc .fc-toolbar.fc-header-toolbar { display: none; }
         .legal-calendar .fc .fc-daygrid-day-top, .legal-calendar .fc .fc-col-header-cell-cushion, .legal-calendar .fc .fc-timegrid-axis-cushion, .legal-calendar .fc .fc-timegrid-slot-label-cushion, .legal-calendar .fc .fc-daygrid-day-number { color: #1c140d; font-weight: 800; text-decoration: none; }
         .legal-calendar .fc .fc-day-other .fc-daygrid-day-number { color: rgba(28, 20, 13, 0.35); }
+        /* FullCalendar wraps dayCellContent in <a class="fc-daygrid-day-number"> as the
+           sole flex item of "fc-daygrid-day-top" (display:flex). Without flex-grow + a
+           min-width override, that <a> shrink-wraps to its own text's max-content width
+           instead of the cell's width, so our truncate/ellipsis classes never had a real
+           boundary to clip against — long holiday labels rendered at full width and
+           visually spilled into neighboring day cells. */
+        .legal-calendar .fc .fc-daygrid-day-top { width: 100%; }
+        .legal-calendar .fc .fc-daygrid-day-number { flex: 1 1 auto; width: 100%; min-width: 0; }
         .legal-calendar .fc .fc-scrollgrid, .legal-calendar .fc-theme-standard td, .legal-calendar .fc-theme-standard th { border-color: rgba(180, 94, 8, 0.10); }
         .legal-calendar .fc .fc-view-harness { min-height: 680px; }
         .legal-calendar .fc .fc-button { display: none; }
@@ -1039,14 +1247,14 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => setMiniCalendarDate(subMonths(miniCalendarDate, 1))}
+                    onClick={() => shiftMiniCalendar(-1)}
                     className="rounded-full border border-primary/10 p-2 text-slate-500 transition-colors hover:bg-primary/5 hover:text-primary"
                   >
                     <span className="material-symbols-outlined text-base">chevron_left</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setMiniCalendarDate(addMonths(miniCalendarDate, 1))}
+                    onClick={() => shiftMiniCalendar(1)}
                     className="rounded-full border border-primary/10 p-2 text-slate-500 transition-colors hover:bg-primary/5 hover:text-primary"
                   >
                     <span className="material-symbols-outlined text-base">chevron_right</span>
@@ -1064,13 +1272,15 @@ export default function CalendarPage() {
                 {monthlyDays.map((day) => {
                   const selected = selectedDate === format(day, 'yyyy-MM-dd');
                   const today = isSameDay(day, new Date());
+                  const holidayInfo = showHolidays ? holidayDateMap.get(format(day, 'yyyy-MM-dd')) : null;
                   return (
                     <button
                       key={day.toISOString()}
                       type="button"
                       onClick={() => pushCalendarDate(day)}
+                      title={holidayInfo ? holidayInfo.names.join(', ') : undefined}
                       className={cx(
-                        'h-9 rounded-xl text-sm font-semibold transition-colors',
+                        'relative h-9 rounded-xl text-sm font-semibold transition-colors',
                         selected ? 'bg-primary text-ivory shadow-sm' : '',
                         !selected && today ? 'bg-primary/10 text-primary' : '',
                         !selected && !today && isSameMonth(day, miniCalendarDate) ? 'text-ink hover:bg-primary/5' : '',
@@ -1078,10 +1288,48 @@ export default function CalendarPage() {
                       )}
                     >
                       {format(day, 'd')}
+                      {holidayInfo ? (
+                        <span
+                          className={cx(
+                            'absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full',
+                            selected ? 'bg-ivory' : holidayInfo.hasVacation ? 'bg-primary' : holidayInfo.hasFestival ? 'bg-emerald-600' : 'bg-slate-400'
+                          )}
+                        />
+                      ) : null}
                     </button>
                   );
                 })}
               </div>
+            </section>
+
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">Court Holidays</p>
+              </div>
+              <label className="mb-2 flex items-center gap-3 rounded-2xl border border-primary/10 bg-white px-3 py-2 text-sm text-ink shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={showHolidays}
+                  onChange={(event) => setShowHolidays(event.target.checked)}
+                />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                <span className="font-semibold">Show holidays</span>
+              </label>
+              <select
+                value={holidayState}
+                onChange={(event) => handleHolidayStateChange(event.target.value)}
+                className="w-full rounded-2xl border border-primary/10 bg-white px-3 py-2 text-sm font-semibold text-ink shadow-sm outline-none"
+              >
+                {!holidayState ? <option value="">Select a state…</option> : null}
+                <option value="Supreme Court of India">Supreme Court of India</option>
+                <optgroup label="States & UTs">
+                  {stateOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
             </section>
 
             <section>
@@ -1153,6 +1401,24 @@ export default function CalendarPage() {
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
+                    {activeView !== 'agenda' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={goToPrevious}
+                          className="rounded-full border border-primary/10 p-2 text-slate-500 transition-colors hover:bg-primary/5 hover:text-primary"
+                        >
+                          <span className="material-symbols-outlined text-base">chevron_left</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={goToNext}
+                          className="rounded-full border border-primary/10 p-2 text-slate-500 transition-colors hover:bg-primary/5 hover:text-primary"
+                        >
+                          <span className="material-symbols-outlined text-base">chevron_right</span>
+                        </button>
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => pushCalendarDate(new Date())}
@@ -1245,7 +1511,8 @@ export default function CalendarPage() {
                   ref={calendarRef}
                   plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                   initialView={activeView}
-                  events={filteredEvents}
+                  initialDate={currentRange.start}
+                  events={calendarEvents}
                   selectable={!readOnly}
                   editable={!readOnly}
                   eventStartEditable={!readOnly}
@@ -1258,6 +1525,7 @@ export default function CalendarPage() {
                   eventDrop={handleEventMove}
                   eventResize={handleEventMove}
                   eventContent={renderEventContent}
+                  dayCellContent={renderDayCellContent}
                   eventDidMount={eventDidMount}
                   headerToolbar={false}
                   height="auto"
@@ -1593,6 +1861,8 @@ export default function CalendarPage() {
           </div>
         </div>
       </ModalShell>
+
+      {renderHolidayTooltip()}
     </div>
   );
 }

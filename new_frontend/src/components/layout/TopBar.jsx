@@ -21,13 +21,6 @@ const SEARCH_ITEMS = [
     keywords: ['draft', 'petition', 'editor', 'document'],
   },
   {
-    label: 'Document Intel',
-    path: '/documents',
-    icon: 'description',
-    description: 'Upload and analyse case files',
-    keywords: ['talkdoc', 'rag', 'analysis', 'chat', 'documents'],
-  },
-  {
     label: 'Calendar & Events',
     path: '/calendar',
     icon: 'calendar_month',
@@ -112,50 +105,6 @@ function normalizeSavedDraftRows(savedDrafts) {
   }));
 }
 
-function buildCaseSearchRows(payload) {
-  const rows = [];
-  const seenCaseIds = new Set();
-
-  (payload?.caseIds_without_client || []).forEach((caseId) => {
-    const normalizedCaseId = String(caseId || '').trim();
-    if (!normalizedCaseId || seenCaseIds.has(normalizedCaseId)) return;
-    seenCaseIds.add(normalizedCaseId);
-    rows.push({
-      caseId: normalizedCaseId,
-      clientId: '',
-      clientLabel: '',
-    });
-  });
-
-  Object.entries(payload?.case_client_map || {}).forEach(([caseId, clientEntry]) => {
-    const normalizedCaseId = String(caseId || '').trim();
-    if (!normalizedCaseId) return;
-    const clients = Array.isArray(clientEntry) ? clientEntry : [clientEntry];
-
-    if (!clients.length && !seenCaseIds.has(normalizedCaseId)) {
-      seenCaseIds.add(normalizedCaseId);
-      rows.push({ caseId: normalizedCaseId, clientId: '', clientLabel: '' });
-      return;
-    }
-
-    clients.forEach((client) => {
-      const clientId = String(client?.client_id || client?.clientid || client?.id || client?.user_id || client?.phone_number || client?.email || '').trim();
-      const clientLabel = [client?.Fname || client?.fname || '', client?.Lname || client?.lname || '']
-        .filter(Boolean)
-        .join(' ')
-        .trim() || client?.email || client?.phone_number || clientId;
-      rows.push({
-        caseId: normalizedCaseId,
-        clientId,
-        clientLabel: clientLabel || '',
-      });
-      seenCaseIds.add(normalizedCaseId);
-    });
-  });
-
-  return rows;
-}
-
 export default function TopBar({ onToggleSidebar, title }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -176,7 +125,7 @@ export default function TopBar({ onToggleSidebar, title }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [searchDataLoaded, setSearchDataLoaded] = useState(false);
-  const [searchData, setSearchData] = useState({ savedDrafts: [], caseRows: [] });
+  const [searchData, setSearchData] = useState({ savedDrafts: [] });
   const searchRef = useRef(null);
   const notificationRef = useRef(null);
   const helpRef = useRef(null);
@@ -250,27 +199,6 @@ export default function TopBar({ onToggleSidebar, title }) {
       });
     });
 
-    const matchingCases = searchData.caseRows.filter((row) => {
-      const haystack = [row.caseId, row.clientId, row.clientLabel].filter(Boolean).join(' ').toLowerCase();
-      return haystack.includes(lowered);
-    }).slice(0, 4);
-
-    matchingCases.forEach((row, index) => {
-      const params = new URLSearchParams();
-      params.set('caseid', row.caseId);
-      if (row.clientId) params.set('clientid', row.clientId);
-      results.push({
-        id: `case-${row.caseId}-${row.clientId || index}`,
-        label: `Case ${row.caseId}`,
-        description: row.clientLabel
-          ? `Open Document Intel filtered to ${row.clientLabel}`
-          : 'Open Document Intel filtered to this case',
-        icon: 'folder_open',
-        path: `/documents?${params.toString()}`,
-        kind: 'case',
-      });
-    });
-
     const draftIdLike = /^[A-Za-z0-9_-]{8,}$/.test(trimmedQuery);
     if (draftIdLike && !matchingDrafts.some((draft) => draft.session_id === trimmedQuery)) {
       results.push({
@@ -284,12 +212,12 @@ export default function TopBar({ onToggleSidebar, title }) {
     }
 
     return [...results, ...routeResults].slice(0, 8);
-  }, [query, routeResults, searchData.caseRows, searchData.savedDrafts]);
+  }, [query, routeResults, searchData.savedDrafts]);
 
   const alerts = useMemo(() => {
     const items = [];
-    const docAlert = buildQuotaAlert(features?.brain_doc_analysis, 'Document analysis', '/documents', 'document analyses', 'description');
-    const chatAlert = buildQuotaAlert(features?.general_legal_chat, 'General legal chat', '/documents', 'general legal chats', 'forum');
+    const docAlert = buildQuotaAlert(features?.brain_doc_analysis, 'Document analysis', '/chat', 'document analyses', 'description');
+    const chatAlert = buildQuotaAlert(features?.general_legal_chat, 'General legal chat', '/chat', 'general legal chats', 'forum');
     const draftingAlert = buildQuotaAlert(features?.brain_drafting_actions, 'Drafting actions', '/drafting', 'drafting actions', 'edit_note');
     if (docAlert) items.push(docAlert);
     if (chatAlert) items.push(chatAlert);
@@ -407,23 +335,19 @@ export default function TopBar({ onToggleSidebar, title }) {
     setSearchLoading(true);
     setSearchError('');
 
-    Promise.allSettled([
-      apiClient.get('aidrafts/get_user_saved_drafts_v2'),
-      apiClient.get('users/filter_with_details/'),
-    ]).then(([draftsResult, casesResult]) => {
-      const savedDrafts = draftsResult.status === 'fulfilled'
-        ? normalizeSavedDraftRows(draftsResult.value.data?.saved_drafts || draftsResult.value.data?.results || [])
-        : [];
-      const caseRows = casesResult.status === 'fulfilled'
-        ? buildCaseSearchRows(casesResult.value.data || {})
-        : [];
-
-      setSearchData({ savedDrafts, caseRows });
-      if (draftsResult.status === 'rejected' && casesResult.status === 'rejected') {
-        setSearchError('Could not load draft and case suggestions right now.');
-      }
-      setSearchDataLoaded(true);
-    }).finally(() => setSearchLoading(false));
+    apiClient.get('aidrafts/get_user_saved_drafts_v2')
+      .then((response) => {
+        const savedDrafts = normalizeSavedDraftRows(response.data?.saved_drafts || response.data?.results || []);
+        setSearchData({ savedDrafts });
+      })
+      .catch(() => {
+        setSearchData({ savedDrafts: [] });
+        setSearchError('Could not load draft suggestions right now.');
+      })
+      .finally(() => {
+        setSearchDataLoaded(true);
+        setSearchLoading(false);
+      });
   }, [searchDataLoaded, searchLoading, searchOpen]);
 
   function handleSearchSubmit(event) {

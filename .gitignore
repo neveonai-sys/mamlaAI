@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+new_frontend/node_modules
 /.pnp
 .pnp.js
 
@@ -12,6 +13,10 @@
 
 # production
 /build
+new_frontend/dist
+new_frontend/android/app/build
+new_frontend/android/build
+new_frontend/android/.gradle
 
 draftdocs/*
 draftdocs_v2/*
@@ -42,3 +47,4 @@ Legalv1/legalenv.dev
 graphify-out/
 mamlaAI_ground_zero/frontend/graphify-out/
 new_frontend/public/stitch/*
+Legalv1/legalenv

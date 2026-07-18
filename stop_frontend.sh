@@ -2,7 +2,7 @@
 
 # Frontend Stop Script
 
-PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "🎨 Stopping Frontend Services..."
 echo "--------------------------------"

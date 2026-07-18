@@ -40,7 +40,7 @@ export default function WelcomeModal({ userType, email, planCode, trialEndsAt, o
     } catch (_) { /* storage blocked */ }
     onClose();
     if (cta === 'draft') navigate('/drafting');
-    else if (cta === 'docs') navigate('/documents');
+    else if (cta === 'docs') navigate('/chat');
     else if (cta === 'ecourts') navigate('/ecourts');
   }
 

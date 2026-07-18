@@ -331,16 +331,16 @@ export default function Dashboard() {
               to="/drafting"
             />
             <QuickActionCard
-              icon="description"
-              title="Upload & Analyse"
-              desc="Upload documents for AI-powered analysis"
-              to="/documents"
-            />
-            <QuickActionCard
               icon="search"
               title="eCourts Search"
               desc="Search cases, lawyers, and cause lists"
               to="/ecourts/case-search"
+            />
+            <QuickActionCard
+              icon="gavel"
+              title="Citation Search"
+              desc="Verify Supreme Court citations against e-SCR"
+              to="/citations"
             />
           </div>
         </div>

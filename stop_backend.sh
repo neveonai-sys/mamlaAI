@@ -7,9 +7,15 @@
 # Isolation: each mode owns named Celery workers + a specific port.
 # Stopping dev does NOT touch prod (port 8000 / prod_worker) and vice-versa.
 
-PROJECT_ROOT="/home/pronoys/products/sessioned_AiAdalat/Adalatai_ground_zero"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-MODE="${1:-both}"  # dev | prod | both (default)
+if [ -f "$PROJECT_ROOT/.deploy-mode" ]; then
+    DEFAULT_MODE="$(cat "$PROJECT_ROOT/.deploy-mode")"
+else
+    DEFAULT_MODE="both"
+fi
+
+MODE="${1:-$DEFAULT_MODE}"  # dev | prod | both (default)
 
 if [[ "$MODE" != "dev" && "$MODE" != "prod" && "$MODE" != "both" ]]; then
     echo "Usage: $0 [dev|prod|both]"

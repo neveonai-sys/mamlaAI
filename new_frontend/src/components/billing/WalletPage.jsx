@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import apiClient from '../../services/api';
+import { getUsageSummary } from '../../services/chatApi';
+
+const TIER_LABELS = {
+  t1: 'Low (Llama)',
+  t2: 'Medium (Haiku)',
+  t3: 'High (Sonnet)',
+};
 
 const WHATSAPP_NUMBER = '919999999999'; // update to real number
 const SUPPORT_EMAIL   = 'neveon.ai@gmail.com';
@@ -11,28 +18,29 @@ const PACKS = [
     credits: 60,
     price: 99,
     label: 'Starter',
-    perks: ['~60 legal chats', '~30 doc analyses', '~15 drafts'],
+    perks: ['~30-60 legal chats*', '~30 doc analyses', '~15 drafts'],
   },
   {
     credits: 150,
     price: 199,
     label: 'Regular',
     popular: true,
-    perks: ['~150 legal chats', '~75 doc analyses', '~37 drafts'],
+    perks: ['~75-150 legal chats*', '~75 doc analyses', '~37 drafts'],
   },
   {
     credits: 450,
     price: 499,
     label: 'Value',
-    perks: ['~450 legal chats', '~225 doc analyses', '~112 drafts'],
+    perks: ['~225-450 legal chats*', '~225 doc analyses', '~112 drafts'],
   },
   {
     credits: 1000,
     price: 999,
     label: 'Power',
-    perks: ['~1000 legal chats', '~500 doc analyses', '~250 drafts'],
+    perks: ['~500-1000 legal chats*', '~500 doc analyses', '~250 drafts'],
   },
 ];
+const CHAT_PERK_NOTE = '* Legal chat usage varies with the model tier you pick — Low/Medium cost less per message than High or Premium.';
 
 const FEATURE_LABELS = {
   brain_doc_analysis:     'Document Analysis',
@@ -69,6 +77,8 @@ export default function WalletPage() {
   const [selectedPack, setSelectedPack]   = useState(null);
   const [transactions, setTransactions]   = useState([]);
   const [txLoading, setTxLoading]         = useState(true);
+  const [usageByTier, setUsageByTier]     = useState([]);
+  const [usageLoading, setUsageLoading]   = useState(true);
 
   useEffect(() => {
     apiClient
@@ -76,6 +86,13 @@ export default function WalletPage() {
       .then((r) => setTransactions(r.data?.transactions || []))
       .catch(() => setTransactions([]))
       .finally(() => setTxLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getUsageSummary()
+      .then((r) => setUsageByTier(r.data?.by_tier || []))
+      .catch(() => setUsageByTier([]))
+      .finally(() => setUsageLoading(false));
   }, []);
 
   const balance      = wallet?.balance ?? 0;
@@ -205,6 +222,7 @@ export default function WalletPage() {
             );
           })}
         </div>
+        <p className="mt-3 text-[10px] text-gray-400">{CHAT_PERK_NOTE}</p>
 
         {selectedPack ? (
           <div className="mt-4 flex flex-wrap gap-3">
@@ -276,6 +294,42 @@ export default function WalletPage() {
             When a feature's limit is reached, that feature is paused — other features keep working. Wallet credits can extend individual features as overage.
           </p>
         )}
+      </div>
+
+      {/* ── Model usage breakdown ────────────────────────────────── */}
+      <div className="mb-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-gray-800">Model usage breakdown</h2>
+        {usageLoading ? (
+          <p className="text-xs text-gray-400">Loading…</p>
+        ) : usageByTier.length === 0 ? (
+          <p className="text-xs text-gray-400">No MamlaAI Chat activity yet — usage by model tier will appear here.</p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b text-left text-gray-400">
+                <th className="pb-2 font-medium">Model tier</th>
+                <th className="pb-2 text-right font-medium">Messages</th>
+                <th className="pb-2 text-right font-medium">Tokens</th>
+                <th className="pb-2 text-right font-medium">Credits</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usageByTier.map((row, i) => (
+                <tr key={`${row.tier}-${row.premium}-${i}`} className="border-b last:border-0">
+                  <td className="py-2 font-medium text-gray-700">
+                    {row.premium ? 'Premium (Opus)' : (TIER_LABELS[row.tier] || row.tier || 'Unknown')}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-gray-600">{row.messages}</td>
+                  <td className="py-2 text-right tabular-nums text-gray-600">{row.tokens}</td>
+                  <td className="py-2 text-right tabular-nums font-semibold text-gray-700">{row.credits_charged}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <p className="mt-3 text-[11px] text-gray-400">
+          Lower tiers use cheaper models and cost fewer wallet credits; Premium (Opus) drains credits fastest.
+        </p>
       </div>
 
       {/* ── Transaction history ──────────────────────────────────── */}

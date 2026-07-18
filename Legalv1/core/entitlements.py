@@ -37,7 +37,7 @@ PLAN_FEATURES = {
     },
     # ── Law Student ₹220/month ──────────────────────────────────────────────
     # Full lawyer-feature access. College name collected at signup as soft signal.
-    # case_companion capped at 1 — the most expensive feature (claude-sonnet-4-5).
+    # case_companion capped at 1 — the most expensive feature (premium tier, claude-opus-4.8).
     'law_student': {
         'brain_doc_analysis':     {'included_limit': 12, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 40, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
@@ -48,7 +48,29 @@ PLAN_FEATURES = {
         'ecourts_case_lookup':    {'included_limit': 50, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
         'ecourts_order_download': {'included_limit': 8,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
-    # ── Vakil Starter ₹349/month ─────────────────────────────────────────────
+    # ── Basic ₹1,000/month ───────────────────────────────────────────────────
+    'basic': {
+        'brain_doc_analysis':     {'included_limit': 50,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 200,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 75,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'case_companion':         {'included_limit': 12,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 30,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 90,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 60,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+    },
+    # ── Premium ₹3,000/month ─────────────────────────────────────────────────
+    'premium': {
+        'brain_doc_analysis':     {'included_limit': 150,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'general_legal_chat':     {'included_limit': 600,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
+        'brain_drafting_actions': {'included_limit': 200,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
+        'case_companion':         {'included_limit': 40,      'soft_warning_threshold': 0.50, 'overage_credit_cost': 5, 'hard_block': False},
+        'ai_suggestions':         {'included_limit': 90,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
+        'ai_draft_generation':    {'included_limit': 250,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 4, 'hard_block': False},
+        'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
+        'ecourts_order_download': {'included_limit': 200,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
+    },
+    # ── Vakil Starter ₹349/month (legacy plan code — no longer sold, kept for existing subscribers) ──
     'vakil_starter': {
         'brain_doc_analysis':     {'included_limit': 15, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 50, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
@@ -59,7 +81,7 @@ PLAN_FEATURES = {
         'ecourts_case_lookup':    {'included_limit': 60, 'soft_warning_threshold': 0.80, 'overage_credit_cost': 1, 'hard_block': False},
         'ecourts_order_download': {'included_limit': 15, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
-    # ── Vakil Pro ₹749/month ─────────────────────────────────────────────────
+    # ── Vakil Pro ₹749/month (legacy plan code — no longer sold, kept for existing subscribers) ──
     'vakil_pro': {
         'brain_doc_analysis':     {'included_limit': 40,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 150,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
@@ -70,7 +92,7 @@ PLAN_FEATURES = {
         'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
         'ecourts_order_download': {'included_limit': 50,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
-    # ── Vakil Power ₹1,349/month ─────────────────────────────────────────────
+    # ── Vakil Power ₹1,349/month (legacy plan code — no longer sold, kept for existing subscribers) ──
     'vakil_power': {
         'brain_doc_analysis':     {'included_limit': 100,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 400,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
@@ -103,7 +125,8 @@ PLAN_FEATURES = {
         'ecourts_case_lookup':    {'included_limit': 30, 'soft_warning_threshold': 0.75, 'overage_credit_cost': 1, 'hard_block': False},
         'ecourts_order_download': {'included_limit': 3,  'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
-    # ── Firm Basic ₹2,049/month (= Vakil Pro quotas per seat) ───────────────
+    # ── Firm Basic ₹2,049/month (= Vakil Pro quotas per seat; no longer advertised —
+    # new firm/multi-seat signups go through "Talk to Team" and are assigned manually) ──
     'firm_basic': {
         'brain_doc_analysis':     {'included_limit': 40,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 150,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
@@ -114,7 +137,8 @@ PLAN_FEATURES = {
         'ecourts_case_lookup':    {'included_limit': 1000000, 'soft_warning_threshold': 0.95, 'overage_credit_cost': 0, 'hard_block': False},
         'ecourts_order_download': {'included_limit': 50,      'soft_warning_threshold': 0.75, 'overage_credit_cost': 3, 'hard_block': False},
     },
-    # ── Firm Pro ₹4,549/month (= Vakil Power quotas per seat) ───────────────
+    # ── Firm Pro ₹4,549/month (= Vakil Power quotas per seat; no longer advertised —
+    # new firm/multi-seat signups go through "Talk to Team" and are assigned manually) ──
     'firm_pro': {
         'brain_doc_analysis':     {'included_limit': 100,     'soft_warning_threshold': 0.75, 'overage_credit_cost': 2, 'hard_block': False},
         'general_legal_chat':     {'included_limit': 400,     'soft_warning_threshold': 0.85, 'overage_credit_cost': 1, 'hard_block': False},
@@ -173,7 +197,7 @@ PLAN_FEATURES = {
 # Plans that don't expire in Phase A (active paid subscriptions).
 # In Phase B, subscription status from the `subscriptions` MongoDB collection will replace this set.
 PAID_PLANS = {
-    'pro', 'vakil_starter', 'vakil_pro', 'vakil_power',
+    'pro', 'basic', 'premium', 'vakil_starter', 'vakil_pro', 'vakil_power',
     'nagrik_basic', 'firm_basic', 'firm_pro', 'law_student',
 }
 

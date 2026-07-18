@@ -3,7 +3,7 @@ core/intent_gate.py
 ===================
 T0 intent gate for Mamla.AI.
 
-Uses meta-llama/llama-3.2-1b-instruct:free on OpenRouter (free tier).
+Uses meta-llama/llama-3.2-1b-instruct on OpenRouter (cheap tiny model).
 Max 20 output tokens -> {"intent": "legal"} or {"intent": "chitchat"}.
 
 Only call this when ALL of the following are true:
@@ -54,7 +54,7 @@ def classify_intent(text: str) -> str:
     """
     t_start = time.perf_counter()
     try:
-        model = os.getenv("BRAIN_T0_MODEL", "meta-llama/llama-3.2-1b-instruct:free")
+        model = os.getenv("BRAIN_T0_MODEL", "meta-llama/llama-3.2-1b-instruct")
         response = _get_client().chat.completions.create(
             model=model,
             messages=[

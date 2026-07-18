@@ -507,11 +507,6 @@ function DraftsTab({ caseId, onNewDraft }) {
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-semibold text-ink">Case Drafts ({drafts.length})</p>
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(`/drafting/guided?case_id=${caseId}`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition">
-            <span className="material-symbols-outlined text-sm">chat</span>
-            Guided Draft
-          </button>
           <button onClick={onNewDraft}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition">
             <span className="material-symbols-outlined text-sm">add</span>
@@ -602,7 +597,7 @@ function DocumentsTab({ caseId }) {
           <span className="material-symbols-outlined text-sm">{uploading ? 'progress_activity' : 'upload'}</span>
           {uploading ? 'Uploading…' : 'Upload'}
         </button>
-        <button onClick={() => navigate('/documents', { state: { caseid: caseId, openchat: true } })}
+        <button onClick={() => navigate('/chat')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition">
           <span className="material-symbols-outlined text-sm">chat</span>
           Chat

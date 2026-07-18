@@ -3,6 +3,7 @@
 from rest_framework.decorators import api_view
 # from rest_framework.response import Response
 from django.http import JsonResponse
+import os
 # import jwt
 import resend
 import requests
@@ -24,6 +25,71 @@ logger = logging.getLogger('django')
 
 MEETING_TYPES = {'VideoCall', 'VoiceCall', 'InPerson', 'Other'}
 DEFAULT_EVENT_DURATION_MINUTES = 60
+
+HOLIDAYS_DIR = os.path.join(os.path.dirname(__file__), 'holidays')
+DEFAULT_HOLIDAY_STATE = 'Delhi'
+
+
+def _load_holiday_file(path):
+    try:
+        with open(path, 'r') as f:
+            entries = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+    return [entry for entry in entries if entry.get('date') and entry.get('name')]
+
+
+def _resolve_default_holiday_state(user_id):
+    try:
+        from core.init_clients import get_mongo_client, get_mongo_db
+        if not get_mongo_client():
+            return DEFAULT_HOLIDAY_STATE
+        user_doc = get_mongo_db()['user_details'].find_one({'user_id': user_id}, {'state': 1})
+        state = _clean_text((user_doc or {}).get('state'))
+        return state or DEFAULT_HOLIDAY_STATE
+    except Exception:
+        return DEFAULT_HOLIDAY_STATE
+
+
+def _load_holidays(state):
+    state_name = _clean_text(state)
+    state_holidays = []
+    if state_name:
+        # basename() strips any path components so a crafted state query
+        # string can't escape the holidays/states directory.
+        safe_name = os.path.basename(state_name)
+        state_path = os.path.join(HOLIDAYS_DIR, 'states', f'{safe_name}.json')
+        state_holidays = _load_holiday_file(state_path)
+
+    holidays = [dict(entry, source='state') for entry in state_holidays]
+
+    # A state's official court calendar already includes that court's own
+    # observance of national holidays (e.g. its own "Republic Day" entry),
+    # so national.json is only a gap-filler for dates the state file
+    # doesn't already cover — not an unconditional merge, which would
+    # otherwise double-list the same date under two different labels.
+    covered_dates = {entry['date'] for entry in state_holidays}
+    national = _load_holiday_file(os.path.join(HOLIDAYS_DIR, 'national.json'))
+    holidays.extend(
+        dict(entry, source='national') for entry in national if entry['date'] not in covered_dates
+    )
+
+    holidays.sort(key=lambda entry: entry['date'])
+    return holidays
+
+
+@api_view(['GET'])
+@supabase_required
+def holidays_rest(request):
+    """GET /api/calendar/holidays/?state=<state> — national + state court holidays."""
+    supa_user = request.supabase_user
+    user_id = supa_user.get('user_id')
+
+    state = _clean_text(request.GET.get('state'))
+    if not state:
+        state = _resolve_default_holiday_state(user_id)
+
+    return JsonResponse({'state': state, 'results': _load_holidays(state)})
 
 
 def _clean_text(value):

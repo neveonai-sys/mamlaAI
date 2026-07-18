@@ -215,6 +215,9 @@ def ensure_indexes():
         db["case_tasks"].create_index([("case_id", 1), ("status", 1)])
         db["case_tasks"].create_index([("assigned_to", 1), ("due_date", 1)])
 
+        # MamlaAI Chat (v2) usage-summary aggregation index
+        db["brain_v2_messages"].create_index([("owner_id", 1), ("role", 1)])
+
         logger.info("Database indexes created/verified successfully")
     except Exception as e:
         logger.error(f"Error creating database indexes: {e}")

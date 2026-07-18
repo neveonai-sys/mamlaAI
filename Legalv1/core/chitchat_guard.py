@@ -136,11 +136,10 @@ def check_chitchat(text: str) -> tuple[bool, str | None]:
     norm = _normalise(raw)      # hiii->hi, hellooo->helloo  (for gibberish)
     dedup = _dedup(raw)         # hiii->hi, hellooo->helo    (for regex match)
 
-    # Step 2 — gibberish (check normalised; collapsing may shorten the token)
-    if _is_gibberish(norm):
-        return True, _REPLY_GIBBERISH
-
-    # Step 3 — regex against raw, normalised, and deduped forms
+    # Step 2 — regex against raw, normalised, and deduped forms. Checked BEFORE
+    # the gibberish heuristic: these are precise, anchored patterns (many of the
+    # ACK words — "yes", "no", "ok", "yep" — are <=3 chars and would otherwise be
+    # misclassified as gibberish by the length check below).
     for candidate in (raw, norm, dedup):
         if _META_PAT.match(candidate):       return True, _REPLY_META
         if _BYE_PAT.match(candidate):        return True, _REPLY_FAREWELL
@@ -149,6 +148,10 @@ def check_chitchat(text: str) -> tuple[bool, str | None]:
         if _TIME_GREET_PAT.match(candidate): return True, _REPLY_GREETING
         if _HOW_PAT.match(candidate):        return True, _REPLY_GREETING
         if _ACK_PAT.match(candidate):        return True, _REPLY_ACK
+
+    # Step 3 — gibberish (only for text none of the precise patterns matched)
+    if _is_gibberish(norm):
+        return True, _REPLY_GIBBERISH
 
     return False, None
 

@@ -1,6 +1,7 @@
 from django.urls import include, path
 
 from ecourt_scrapped import views
+from ecourt_scrapped import citation_views
 
 urlpatterns = [
     # Health
@@ -56,4 +57,17 @@ urlpatterns = [
 
     # ── High Court (HC scraper on port 8001) ─────────────────────────────────
     path('hc/', include('ecourt_scrapped.hc_urls')),
+
+    # ── Supreme Court of India broad case search (SCI scraper, mounted at /sci) ──
+    path('sci/', include('ecourt_scrapped.sci_urls')),
+
+    # ── Central Administrative Tribunal (CAT scraper, mounted at /cat) ──────
+    path('cat/', include('ecourt_scrapped.cat_urls')),
+
+    # ── Supreme Court citation lookup (e-SCR scraper, mounted at /sc) ────────
+    path('citations/health/', citation_views.citation_health),
+    path('citations/lookup/', citation_views.citation_lookup),
+    path('citations/case-search/search/', citation_views.citation_case_search),
+    path('citations/case-search/page/', citation_views.citation_case_search_page),
+    path('citations/case-search/resolve/', citation_views.citation_case_search_resolve),
 ]

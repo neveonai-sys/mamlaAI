@@ -64,7 +64,7 @@ export default function HCCaseDetailPage() {
           `Unable to fetch case details for CNR: ${cino}`
         );
       })
-      .finally(() => { if (active) { setLoading(false); dispatch(stopBlocking()); } });
+      .finally(() => { if (active) setLoading(false); dispatch(stopBlocking()); });
     return () => { active = false; };
   }, [cino]);
 

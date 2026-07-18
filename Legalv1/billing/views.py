@@ -24,6 +24,8 @@ logger = logging.getLogger('django')
 
 PLAN_PRICES_PAISE = {
     'law_student':   22000,
+    'basic':        100000,
+    'premium':      300000,
     'vakil_starter': 34900,
     'vakil_pro':     74900,
     'vakil_power':  134900,
