@@ -11,7 +11,7 @@ backlog = 2048
 
 # Worker processes
 # GUNICORN_WORKERS / GUNICORN_WORKER_CONNECTIONS override via env (useful to limit dev)
-workers = int(os.getenv('GUNICORN_WORKERS', '8'))  # 2-4 x CPU cores recommended
+workers = int(os.getenv('GUNICORN_WORKERS', '4'))  # 2-4 x CPU cores (reduced from 8 for dual-env)
 worker_class = 'gevent'
 worker_connections = int(os.getenv('GUNICORN_WORKER_CONNECTIONS', '1000'))
 max_requests = 1000  # Restart workers after N requests (prevents memory leaks)
@@ -24,7 +24,7 @@ keepalive = 2
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Access log — TimedRotatingFileHandler rotates at midnight, appending .YYYY-MM-DD suffix
+# Access log — rotates at midnight into gunicorn-access.<YYYY-MM-DD>.log (see access_file handler)
 accesslog = os.path.join(LOG_DIR, 'gunicorn-access.log')
 access_log_format = '%(h)s "%(r)s" %(s)s %(b)s %(D)s'  # IP, request, status, bytes, time
 
@@ -47,7 +47,7 @@ tmp_upload_dir = None
 # keyfile = '/path/to/ssl/key.pem'
 # certfile = '/path/to/ssl/cert.pem'
 
-# Log rotation — TimedRotatingFileHandler rotates access log nightly
+# Log rotation — multi-process-safe handler rotates access log nightly
 logconfig_dict = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -66,7 +66,9 @@ logconfig_dict = {
             'stream': 'ext://sys.stderr',
         },
         'access_file': {
-            'class': 'logging.handlers.TimedRotatingFileHandler',
+            # Multi-process-safe (all gunicorn workers share this file).
+            # Archives: gunicorn-access.<YYYY-MM-DD>.log (date before the extension).
+            'class': 'core.log_handlers.MiddleDateTimedRotatingFileHandler',
             'formatter': 'generic',
             'filename': os.path.join(LOG_DIR, 'gunicorn-access.log'),
             'when': 'midnight',

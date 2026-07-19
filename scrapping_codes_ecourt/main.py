@@ -96,7 +96,6 @@ logging.basicConfig(
     format="[%(levelname)s -- %(asctime)s -- %(process)d -- %(funcName)s -- %(module)s -- %(lineno)d -- %(name)s] || %(message)s",
 )
 log = logging.getLogger("scraper.main")
-log.info("legalenv loaded from %s", _LEGALENV)
 
 # ─────────────────────────────────────────────────────────────────
 #  IMPORT SUB-APPS

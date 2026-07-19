@@ -57,16 +57,28 @@ function PlanCard({ plan }) {
           ))}
         </ul>
 
-        <Link
-          to="/signup"
-          className={`mt-auto block rounded-2xl py-3 text-center text-sm font-bold transition-all hover:-translate-y-0.5 ${
-            recommended
-              ? 'bg-primary text-white hover:bg-primary-dark shadow-md'
-              : 'border-2 border-primary/20 bg-white text-primary hover:bg-primary/5'
-          }`}
-        >
-          {plan.cta}
-        </Link>
+        {plan.custom ? (
+          <div className="mt-auto rounded-2xl border-2 border-primary/20 bg-primary/5 px-4 py-3 text-center">
+            <p className="text-xs font-medium text-graphite">Reach out to us at</p>
+            <a
+              href="mailto:neveon.ai@gmail.com?subject=Mamla.ai%20Firm%20Plan%20Enquiry"
+              className="text-sm font-bold text-primary hover:underline"
+            >
+              neveon.ai@gmail.com
+            </a>
+          </div>
+        ) : (
+          <Link
+            to="/signup"
+            className={`mt-auto block rounded-2xl py-3 text-center text-sm font-bold transition-all hover:-translate-y-0.5 ${
+              recommended
+                ? 'bg-primary text-white hover:bg-primary-dark shadow-md'
+                : 'border-2 border-primary/20 bg-white text-primary hover:bg-primary/5'
+            }`}
+          >
+            {plan.cta}
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -90,7 +102,7 @@ export default function PricingSection() {
             Affordable AI Legal Software Pricing for Lawyers &amp; Law Firms
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm text-graphite">
-            Choose the best legal practice management software plan for solo advocates, law firms, litigants and law students. Currently in private beta — join now to lock in early-adopter pricing.
+            Choose the best legal practice management software plan for solo advocates, law firms, litigants and law students. Simple, transparent pricing — no hidden fees.
           </p>
           {/* Lawyer / Nagrik toggle */}
           <div className="mt-8 inline-flex gap-1 rounded-xl border border-slate-200 bg-white p-1">

@@ -37,7 +37,7 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-3xl px-6 text-center">
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5">
             <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-            <span className="text-xs font-bold uppercase tracking-widest text-primary">Now in Private Beta</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-primary">Trusted by 200+ legal professionals</span>
           </div>
 
           <h1 className="mb-6 font-display text-4xl font-extrabold leading-[1.08] tracking-tight text-ink md:text-6xl">

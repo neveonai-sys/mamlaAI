@@ -13,13 +13,17 @@ const pricingJsonLd = {
   name: 'Mamla AI — Legal Practice Management Software',
   description: 'AI-powered legal practice management software for Indian lawyers, law firms, litigants and law students.',
   brand: { '@type': 'Brand', name: 'Mamla AI' },
-  offers: LAWYER_PLANS.map((p) => ({
-    '@type': 'Offer',
-    name: p.name,
-    price: p.price.replace(/[^0-9]/g, '') || '0',
-    priceCurrency: 'INR',
-    availability: 'https://schema.org/InStock',
-  })),
+  offers: LAWYER_PLANS
+    // Skip non-numeric / custom-priced plans (e.g. the Firm "Custom" tier) so
+    // structured data never emits a NaN/empty price.
+    .filter((p) => !p.custom && /\d/.test(p.price))
+    .map((p) => ({
+      '@type': 'Offer',
+      name: p.name,
+      price: p.price.replace(/[^0-9]/g, '') || '0',
+      priceCurrency: 'INR',
+      availability: 'https://schema.org/InStock',
+    })),
 };
 
 export default function PricingPage() {
@@ -28,14 +32,14 @@ export default function PricingPage() {
       <Seo
         path="/pricing"
         title="Pricing — Affordable AI Legal Software Plans | Mamla AI"
-        description="Simple, affordable pricing for AI legal software. Plans for solo advocates, law students, litigants (Nagrik) and law firms. Start free — lock in early-adopter beta pricing."
+        description="Simple, affordable pricing for AI legal software. Plans for solo advocates, law students, litigants (Nagrik) and law firms. Start free, upgrade anytime."
         jsonLd={pricingJsonLd}
       />
       <PublicNavbar />
       <PageHero
         eyebrow="Pricing"
         title="Affordable plans for every practice"
-        subtitle="From law students to multi-lawyer firms and citizens tracking their own matters — pick a plan that fits. Currently in private beta with early-adopter pricing."
+        subtitle="From law students to multi-lawyer firms and citizens tracking their own matters — pick a plan that fits. Simple, transparent pricing with no hidden fees."
       />
       <PricingSection />
       <PublicFooter />

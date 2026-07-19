@@ -12,16 +12,18 @@
 # Get the project root directory
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Parse command line arguments
-MODE="prod"  # Default to production
-if [ "$1" = "dev" ]; then
-    MODE="dev"
-elif [ "$1" = "prod" ]; then
-    MODE="prod"
+# Parse command line arguments — check .deploy-mode file first, then argument, then default
+if [ -f "$PROJECT_ROOT/.deploy-mode" ]; then
+    MODE="$(cat "$PROJECT_ROOT/.deploy-mode")"
 elif [ -n "$1" ]; then
-    echo "Usage: $0 [dev|prod]"
+    MODE="$1"
+else
+    MODE="prod"
+fi
+if [[ "$MODE" != "dev" && "$MODE" != "prod" ]]; then
+    echo "Usage: $0 [dev|prod]  or set .deploy-mode file"
     echo "  dev  - Development mode (Django runserver port 8100, Redis DB 1, reduced workers)"
-    echo "  prod - Production mode (Gunicorn port 8000, Redis DB 0, full workers)"
+    echo "  prod - Production mode (Gunicorn port 8000, Redis DB 0, reduced workers for dual-env)"
     exit 1
 fi
 

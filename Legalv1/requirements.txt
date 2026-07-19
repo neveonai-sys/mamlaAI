@@ -24,6 +24,7 @@ langchain-core>=1.2.0
 celery[redis]>=5.2.7
 gevent>=21.12.0
 gunicorn>=20.1.0
+concurrent-log-handler>=0.9.25  # multi-process-safe log rotation (gunicorn/celery workers)
 
 # Monitoring and Performance
 prometheus-client>=0.15.0

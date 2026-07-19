@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import PublicNavbar from './shared/PublicNavbar';
+import PublicFooter from './shared/PublicFooter';
 import Seo from './shared/Seo';
+import ProductPreviewSection from './sections/ProductPreviewSection';
+import ComparisonSection from './sections/ComparisonSection';
 import MamlaLogoIcon from '../common/MamlaLogoIcon';
 
 function IconDraft() {
@@ -85,6 +88,14 @@ export default function MinimalLanding() {
                 Explore Platform
               </Link>
             </div>
+            <p className="mt-6 flex items-center gap-2 text-sm font-medium text-slate-500">
+              <span className="flex -space-x-1.5">
+                {['#16345f', '#1e4a7a', '#2a5d96'].map((c) => (
+                  <span key={c} className="h-6 w-6 rounded-full border-2 border-white" style={{ background: c }} />
+                ))}
+              </span>
+              Trusted by <span className="font-bold text-ink">200+ legal professionals</span> across India
+            </p>
           </div>
 
           {/* Hero visual (decorative, no external image) */}
@@ -144,6 +155,9 @@ export default function MinimalLanding() {
         </div>
       </section>
 
+      {/* ── PRODUCT PREVIEW ── */}
+      <ProductPreviewSection />
+
       {/* ── WHY CHOOSE / TRUST ── */}
       <section className="bg-white py-16">
         <div className="mx-auto grid max-w-7xl gap-16 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
@@ -180,19 +194,11 @@ export default function MinimalLanding() {
         </div>
       </section>
 
+      {/* ── COMPARISON ── */}
+      <ComparisonSection />
+
       {/* ── Footer ── */}
-      <footer className="bg-slate-900 py-12 text-center text-sm text-slate-400">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <p className="mb-3">© {new Date().getFullYear()} Neveon AI Technologies Pvt. Ltd. — Your trusted partner for Indian legal solutions.</p>
-          <nav className="flex flex-wrap items-center justify-center gap-5">
-            <Link to="/pricing" className="hover:text-white">Pricing</Link>
-            <Link to="/about" className="hover:text-white">About</Link>
-            <Link to="/case-tracking" className="hover:text-white">Case Tracking</Link>
-            <Link to="/login" className="hover:text-white">Log In</Link>
-            <Link to="/signup" className="hover:text-white">Sign Up</Link>
-          </nav>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import apiClient from '../../../services/api';
 
 export default function ContactSection() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
@@ -11,9 +12,13 @@ export default function ContactSection() {
   async function handleSubmit(e) {
     e.preventDefault();
     setStatus('sending');
-    await new Promise((r) => setTimeout(r, 900));
-    setStatus('success');
-    setForm({ name: '', email: '', phone: '', message: '' });
+    try {
+      await apiClient.post('utils/contact/', form);
+      setStatus('success');
+      setForm({ name: '', email: '', phone: '', message: '' });
+    } catch (err) {
+      setStatus('error');
+    }
   }
 
   const inputCls = 'w-full rounded-md border border-slate-300 px-4 py-3 text-sm text-ink shadow-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30';
@@ -57,6 +62,12 @@ export default function ContactSection() {
                 {status === 'success' && (
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 sm:col-span-2">
                     ✓ Message sent! We&apos;ll respond within one business day.
+                  </div>
+                )}
+                {status === 'error' && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 sm:col-span-2">
+                    Something went wrong. Please email us directly at{' '}
+                    <a href="mailto:neveon.ai@gmail.com" className="underline">neveon.ai@gmail.com</a>.
                   </div>
                 )}
               </form>

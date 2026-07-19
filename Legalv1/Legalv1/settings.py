@@ -231,7 +231,9 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'class': 'logging.handlers.TimedRotatingFileHandler',
+            # Multi-process-safe (8 gunicorn workers + celery procs share this file).
+            # Archives are named django.<YYYY-MM-DD>.log (date before the extension).
+            'class': 'core.log_handlers.MiddleDateTimedRotatingFileHandler',
             'filename': str(_log_dir / 'django.log'),
             'when': 'midnight',
             'interval': 1,
@@ -330,6 +332,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Email (Resend SDK)
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 EMAIL_FROM = os.getenv('EMAIL_FROM', 'mamla@noreply.mamla.ai')
+# Recipient for public contact / demo enquiry form submissions.
+CONTACT_EMAIL = os.getenv('CONTACT_EMAIL', 'neveon.ai@gmail.com')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 

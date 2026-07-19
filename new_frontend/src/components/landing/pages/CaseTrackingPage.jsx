@@ -29,7 +29,7 @@ export default function CaseTrackingPage() {
             Track every matter in one place
           </h2>
           <p className="mb-10 text-base font-medium leading-8 text-white/65">
-            Start tracking your cases across Indian courts today — no card needed. Lock in early-adopter beta pricing.
+            Start tracking your cases across Indian courts today — no card needed. Join 200+ legal professionals already on Mamla.ai.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link to="/signup" className="rounded-xl bg-white px-8 py-4 text-[15px] font-bold text-primary-dark shadow-elevated transition-all hover:-translate-y-0.5 hover:bg-primary-soft">

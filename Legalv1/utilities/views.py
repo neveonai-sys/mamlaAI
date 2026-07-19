@@ -88,6 +88,46 @@ def send_email(request):
         return Response({"error": str(err)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['POST'])
+def contact_inquiry(request):
+    """Public 'Schedule a demo' / contact form. Emails the submission to the
+    fixed CONTACT_EMAIL admin address (recipient is server-controlled to avoid
+    being used as an open email relay)."""
+    try:
+        data = request.data
+        name    = (data.get('name') or '').strip()
+        email   = (data.get('email') or '').strip()
+        phone   = (data.get('phone') or '').strip()
+        message = (data.get('message') or '').strip()
+
+        if not name or not email:
+            return JsonResponse(
+                {'status': 'fail', 'message': 'Name and email are required.'},
+                status=400,
+            )
+
+        html = (
+            f"<p><strong>New contact / demo enquiry from mamla.ai</strong></p>"
+            f"<p><strong>Name:</strong> {name}</p>"
+            f"<p><strong>Email:</strong> {email}</p>"
+            f"<p><strong>Phone:</strong> {phone or '—'}</p>"
+            f"<p><strong>Message:</strong><br>{(message or '—').replace(chr(10), '<br>')}</p>"
+        )
+
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send({
+            "from":     settings.EMAIL_FROM,
+            "to":       [settings.CONTACT_EMAIL],
+            "reply_to": email,
+            "subject":  f"New enquiry from {name} — mamla.ai",
+            "html":     html,
+        })
+        return JsonResponse({'status': 'success', 'message': 'Enquiry sent successfully.'})
+    except Exception as err:
+        logger.error(f"contact_inquiry ERROR --> {err}")
+        return JsonResponse({'status': 'fail', 'message': 'Could not send enquiry.'}, status=500)
+
+
 @csrf_exempt
 @api_view(['POST'])
 def state_district_courtlist(request):

@@ -53,6 +53,7 @@ module.exports = {
         { from: 'public/sitemap.xml', to: 'sitemap.xml' },
         { from: 'public/legal', to: 'legal' },
         { from: 'public/support', to: 'support' },
+        { from: 'public/screenshots', to: 'screenshots', noErrorOnMissing: true },
       ],
     }),
   ],
