@@ -6,6 +6,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from .case_crud import _serialize, _can_access
+from users.routes.encryption import encrypt_field
 
 logger = logging.getLogger('django')
 
@@ -55,10 +56,10 @@ def create_hearing_note(db, supa_user, case_id: str, payload: dict) -> dict:
         'hearing_date': hearing_date,
         'calendar_event_id': (payload.get('calendar_event_id') or '').strip(),
         'type': note_type,
-        'content': (payload.get('content') or '').strip(),
+        'content': encrypt_field((payload.get('content') or '').strip()),
         'ai_brief': payload.get('ai_brief') or {},
         'purpose': (payload.get('purpose') or '').strip(),
-        'outcome': (payload.get('outcome') or '').strip(),
+        'outcome': encrypt_field((payload.get('outcome') or '').strip()),
         'next_date': (payload.get('next_date') or '').strip(),
         'tasks_generated': payload.get('tasks_generated') or [],
         'created_at': now,
@@ -83,11 +84,11 @@ def update_hearing_outcome(db, supa_user, case_id: str, note_id: str, payload: d
 
     updates = {}
     if 'outcome' in payload:
-        updates['outcome'] = payload['outcome']
+        updates['outcome'] = encrypt_field(payload['outcome'])
     if 'next_date' in payload:
         updates['next_date'] = payload['next_date']
     if 'content' in payload:
-        updates['content'] = payload['content']
+        updates['content'] = encrypt_field(payload['content'])
     if 'tasks_generated' in payload:
         updates['tasks_generated'] = payload['tasks_generated']
     if 'ai_brief' in payload:

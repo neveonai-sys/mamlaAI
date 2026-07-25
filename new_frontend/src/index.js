@@ -9,6 +9,7 @@ import './index.css';
 
 import posthog from 'posthog-js';
 import { PostHogProvider, PostHogErrorBoundary } from '@posthog/react';
+import { getStoredConsent } from './utils/cookieConsent';
 
 // On some Android devices (Samsung Secure Folder, WebView, strict privacy mode)
 // accessing window.sessionStorage or window.localStorage throws a SecurityError.
@@ -34,7 +35,20 @@ posthog.init(process.env.REACT_APP_POSTHOG_KEY, {
   capture_pageview: false,
   disable_session_recording: true,
   persistence: phPersistence,
+  // Analytics is an "Optional" cookie category per our Cookie Policy — no
+  // event should transmit until the user has explicitly opted in via the
+  // consent banner. See CookieConsentBanner.jsx for the opt-in/opt-out calls.
+  opt_out_capturing_by_default: true,
 });
+
+// Returning visitor who already chose "Accept" for analytics: activate
+// capturing immediately so they aren't silently untracked forever, without
+// re-showing the consent banner (CookieConsentBanner.jsx only renders when
+// no stored decision exists).
+const storedConsent = getStoredConsent();
+if (storedConsent?.preferences?.analytics) {
+  posthog.opt_in_capturing();
+}
 
 const container = document.getElementById('root');
 

@@ -442,6 +442,21 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=2, minute=0),
         'options': {'queue': 'ecourts_background'},
     },
+    # Compliance retention jobs — enforce the Privacy Policy's Data Retention
+    # table (Section 5). Each wraps a management command with its own
+    # --days/--execute flags for manual/ops use; see Legalv1/core/tasks.py.
+    'purge-old-usage-events-daily': {
+        'task': 'core.tasks.purge_old_usage_events_task',
+        'schedule': crontab(hour=5, minute=0),
+    },
+    'purge-expired-case-data-daily': {
+        'task': 'core.tasks.purge_expired_case_data_task',
+        'schedule': crontab(hour=5, minute=15),
+    },
+    'anonymize-expired-payment-records-daily': {
+        'task': 'core.tasks.anonymize_expired_payment_records_task',
+        'schedule': crontab(hour=5, minute=30),
+    },
 }
 
 # Internationalization

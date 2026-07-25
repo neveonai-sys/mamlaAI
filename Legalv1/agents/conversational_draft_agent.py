@@ -21,6 +21,7 @@ from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import chat_complete
 from mamla_brain.prompts import DRAFT_INTAKE_SYSTEM
 from mamla_brain.retrieval import search_user_docs
+from users.routes.encryption import encrypt_field, decrypt_field
 
 from .base_agent import safe_json_loads
 
@@ -37,6 +38,18 @@ def _now():
 def _get_db():
     mongo = get_mongo_client()
     return get_mongo_db()
+
+
+def _encrypt_messages(messages):
+    """Encrypt 'content' on each turn before it's stored (Privacy Policy
+    Section 7 / Sensitive Personal Data — draft_conversations is Priority-1
+    legal case content)."""
+    return [{**m, 'content': encrypt_field(m['content'])} if 'content' in m else m for m in messages]
+
+
+def _decrypt_messages(messages):
+    """Inverse of _encrypt_messages — safe to call on already-plaintext data."""
+    return [{**m, 'content': decrypt_field(m['content'])} if 'content' in m else m for m in messages]
 
 
 # ─── System prompt builder ────────────────────────────────────────────────────
@@ -175,7 +188,7 @@ def start(user_id: str, case_id: str = None, document_ids: list = None) -> dict:
         "conv_id": conv_id,
         "user_id": user_id,
         "state": "gathering",
-        "messages": messages_log,
+        "messages": _encrypt_messages(messages_log),
         "doc_context": doc_context,
         "case_context": case_context_str,   # persisted so it can be re-injected on every turn
         "draft_plan": None,
@@ -218,7 +231,9 @@ def message(conv_id: str, user_id: str, user_text: str) -> dict:
     llm_messages = [{"role": "system", "content": system_content}]
 
     # Include conversation history (skip original system message stored in DB)
-    for m in conv.get("messages", []):
+    # conv["messages"] is ciphertext (raw Mongo read) — decrypt before it
+    # goes into the LLM call.
+    for m in _decrypt_messages(conv.get("messages", [])):
         if m["role"] != "system":
             llm_messages.append({"role": m["role"], "content": m["content"]})
 
@@ -252,7 +267,7 @@ def message(conv_id: str, user_id: str, user_text: str) -> dict:
     db['draft_conversations'].update_one(
         {"conv_id": conv_id},
         {
-            "$push": {"messages": {"$each": new_messages}},
+            "$push": {"messages": {"$each": _encrypt_messages(new_messages)}},
             "$set": update_fields,
         },
     )
@@ -303,7 +318,7 @@ def handle_doc_upload(conv_id: str, user_id: str, document_ids: list) -> dict:
         doc_context=merged_doc_context,
     )
     llm_messages = [{"role": "system", "content": system_content}]
-    for m in conv.get("messages", []):
+    for m in _decrypt_messages(conv.get("messages", [])):
         if m["role"] != "system":
             llm_messages.append({"role": m["role"], "content": m["content"]})
     llm_messages.append({"role": "user", "content": injected_content})
@@ -324,7 +339,7 @@ def handle_doc_upload(conv_id: str, user_id: str, document_ids: list) -> dict:
         {"conv_id": conv_id},
         {
             "$set": {"doc_context": merged_doc_context, "updated_at": now},
-            "$push": {"messages": {"$each": new_messages}},
+            "$push": {"messages": {"$each": _encrypt_messages(new_messages)}},
             "$inc": {"turn_count": 1},
         },
     )
@@ -353,9 +368,10 @@ def generate(conv_id: str, user_id: str) -> dict:
     facts_text = "\n".join(f"- {k}: {v}" for k, v in key_facts.items() if v)
     sections_text = ", ".join(sections_plan) if sections_plan else ""
 
-    # Include the full intake conversation so the drafting pipeline has rich context
+    # Include the full intake conversation so the drafting pipeline has rich context.
+    # conv["messages"] is ciphertext (raw Mongo read) — decrypt before use.
     conv_lines = []
-    for m in conv.get("messages", []):
+    for m in _decrypt_messages(conv.get("messages", [])):
         if m["role"] in ("user", "assistant"):
             content = (m.get("content") or "").strip()
             # Skip injected system-style markers — they are noise for the drafter

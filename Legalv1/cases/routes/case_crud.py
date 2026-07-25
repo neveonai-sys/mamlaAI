@@ -9,6 +9,7 @@ import string
 import logging
 from datetime import datetime, timezone
 from core.init_clients import get_supabase_client
+from users.routes.encryption import encrypt_field, decrypt_field
 
 logger = logging.getLogger('django')
 
@@ -20,12 +21,23 @@ def _now():
 
 
 def _serialize(doc):
-    """Convert MongoDB doc to JSON-serialisable dict."""
+    """
+    Convert MongoDB doc to JSON-serialisable dict.
+
+    Also decrypts Priority-1 sensitive-content fields written by this module,
+    case_notes.py, and hearing_notes.py (all three import this function) —
+    'brief' (cases), 'content' (case_notes/hearing_notes), 'outcome'
+    (hearing_notes). decrypt_field() safely no-ops on plaintext/missing
+    values, so this is safe to apply across all three doc shapes.
+    """
     if doc is None:
         return None
     doc = dict(doc)
     if '_id' in doc:
         doc['_id'] = str(doc['_id'])   # keep as JSON-safe string
+    for field in ('brief', 'content', 'outcome'):
+        if doc.get(field):
+            doc[field] = decrypt_field(doc[field])
     return doc
 
 
@@ -79,7 +91,7 @@ def create_case(db, supa_user, payload: dict) -> dict:
         'filing_date': (payload.get('filing_date') or '').strip(),
         'next_hearing': (payload.get('next_hearing') or '').strip(),
         'tags': payload.get('tags') or [],
-        'brief': (payload.get('brief') or '').strip(),
+        'brief': encrypt_field((payload.get('brief') or '').strip()),
         'client_name_display': (payload.get('client_name_display') or '').strip(),
         'created_at': now,
         'updated_at': now,
@@ -227,6 +239,8 @@ def update_case(db, supa_user, case_id: str, payload: dict) -> dict:
     updates = {k: v for k, v in payload.items() if k in UPDATABLE_FIELDS}
     if not updates:
         raise ValueError('No valid fields to update.')
+    if 'brief' in updates:
+        updates['brief'] = encrypt_field(updates['brief'])
     updates['updated_at'] = _now()
     db[DB_CASES].update_one({'_id': case_id}, {'$set': updates})
     return get_case(db, supa_user, case_id)
@@ -253,10 +267,14 @@ def close_case(db, supa_user, case_id: str, resolution_type: str, summary: str) 
     if resolution_type not in valid_resolutions:
         raise ValueError(f"resolution_type must be one of {valid_resolutions}.")
 
+    # doc.get('brief') is ciphertext (read straight from Mongo) — decrypt
+    # before using it as a fallback, otherwise an unchanged brief would get
+    # re-encrypted on top of itself.
+    existing_brief = decrypt_field(doc.get('brief', ''))
     updates = {
         'status': resolution_type,
         'stage': 'Closed',
-        'brief': summary or doc.get('brief', ''),
+        'brief': encrypt_field(summary or existing_brief),
         'updated_at': _now(),
     }
     db[DB_CASES].update_one({'_id': case_id}, {'$set': updates})

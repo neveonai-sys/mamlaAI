@@ -13,6 +13,7 @@ from core.entitlements import authorize_feature_use, consume_feature_use, get_fe
 from .storage import upload_bytes
 from .tasks import ingest_document, embed_texts
 from .search import ensure_index, knn_search
+from users.routes.encryption import decrypt_field
 import logging
 from gridfs import GridFS
 
@@ -329,7 +330,9 @@ def _load_case_context(matter: dict, db) -> str:
     if case.get('next_hearing'):
         parts.append(f"Next hearing: {case['next_hearing']}")
     if case.get('brief'):
-        parts.append(f"Brief: {str(case['brief'])[:400]}")
+        # case['brief'] is ciphertext (read straight from Mongo, not through
+        # case_crud._serialize) — decrypt before it goes into the LLM prompt.
+        parts.append(f"Brief: {decrypt_field(str(case['brief']))[:400]}")
     return '\n'.join(parts)
 
 

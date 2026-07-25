@@ -1135,14 +1135,64 @@ def delete_user_data(request):
             {'$set': {'ip_address': '', 'user_agent': ''}},
         )
 
+        # Note: case-related collections (cases, case_notes, hearing_notes,
+        # aidrafts_complete_data, draft_conversations) are intentionally NOT
+        # touched here. Privacy Policy Section 5 retains case documents for
+        # 7 years after account deletion for record-keeping obligations under
+        # the Limitation Act / Bar Council rules, and Section 6.3 says such
+        # data is anonymized rather than deleted. That 7-year clock is
+        # enforced separately by the purge_expired_case_data scheduled job —
+        # do not "fix" this by cascading deletes here.
+
+        # Right to Erasure also requires removing the actual auth record, not
+        # just anonymizing Mongo — otherwise login credentials survive a
+        # "deleted" account indefinitely. Mongo anonymization above is
+        # one-way and privacy-positive, so on Supabase failure we do NOT roll
+        # it back (that would mean restoring PII); we log-and-alert and are
+        # honest in the response that erasure only partially completed.
+        supabase_deleted = False
+        supabase_error = None
+        try:
+            from .supabase_admin import admin_delete_user
+            admin_delete_user(user_id)
+            supabase_deleted = True
+        except Exception as sb_exc:
+            supabase_error = str(sb_exc)
+            logger.error(
+                '[Privacy] ALERT: Supabase auth deletion FAILED for user_id=%s — '
+                'Mongo data was anonymized but login credentials still exist. '
+                'Needs manual follow-up. error=%s',
+                user_id, sb_exc,
+            )
+
         from core.audit_log import ACTION_DELETE_USER_DATA
-        audit_from_request(request, ACTION_DELETE_USER_DATA, metadata={'initiated_by': 'self'})
+        audit_from_request(
+            request,
+            ACTION_DELETE_USER_DATA,
+            metadata={'initiated_by': 'self', 'supabase_deleted': supabase_deleted},
+        )
+
+        if not supabase_deleted:
+            logger.info('[Privacy] Data deletion partially completed for user_id=%s (Mongo only)', user_id)
+            return JsonResponse({
+                'status': 'partially_deleted',
+                'user_id': user_id,
+                'deleted_at': now.isoformat(),
+                'auth_deleted': False,
+                'note': (
+                    'Your account data was anonymized, but we hit an error removing your '
+                    'login credentials. Our team has been alerted and will complete this '
+                    'manually. Billing/invoice records are retained as required by financial regulations.'
+                ),
+                'error': supabase_error,
+            }, status=207)
 
         logger.info('[Privacy] Data deletion completed for user_id=%s', user_id)
         return JsonResponse({
             'status': 'deleted',
             'user_id': user_id,
             'deleted_at': now.isoformat(),
+            'auth_deleted': True,
             'note': 'Billing/invoice records are retained as required by financial regulations.',
         })
     except Exception as e:

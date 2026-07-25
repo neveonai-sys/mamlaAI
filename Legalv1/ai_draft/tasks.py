@@ -12,6 +12,7 @@ from bson import ObjectId
 from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import chat_complete
 from django.core.cache import cache
+from users.routes.encryption import encrypt_field
 
 logger = logging.getLogger('django')
 
@@ -97,12 +98,19 @@ Example:
         if not draft_sections:
             raise Exception("Failed to parse draft sections")
 
-        # Update session with draft sections
+        # Update session with draft sections (encrypted at rest — Privacy
+        # Policy Section 7 / Sensitive Personal Data: "Case details, legal
+        # documents"). Cache below intentionally keeps the plaintext version
+        # for fast in-process retrieval, matching cache.set()'s short TTL.
+        encrypted_sections = [
+            {**s, 'content': encrypt_field(s['content'])} if 'content' in s else s
+            for s in draft_sections
+        ]
         collection.update_one(
             {'_id': ObjectId(session_id)},
             {'$set': {
-                'draft_sections': draft_sections,
-                'original_draft': draft_sections,
+                'draft_sections': encrypted_sections,
+                'original_draft': encrypted_sections,
                 'status': 'completed',
                 'last_updated_on': datetime.datetime.utcnow()
             }}

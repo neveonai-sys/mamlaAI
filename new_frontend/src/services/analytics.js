@@ -32,6 +32,7 @@ export function initializeAnalytics() {
       capture_pageleave: false,
       disable_session_recording: true,
       persistence: 'localStorage',
+      opt_out_capturing_by_default: true,
     });
 
     const sessionId = safeSessionGet('session_id') || generateSessionId();
@@ -82,6 +83,25 @@ export function trackConsentChange(consentType, accepted, categories = {}) {
     posthog.capture('consent_changed', { consent_type: consentType, accepted, ...categories });
   } catch (error) {
     console.error('[Analytics] Failed to track consent change:', error);
+  }
+}
+
+// Toggle actual event transmission based on the user's cookie-consent choice.
+// posthog.init() always runs (see index.js) with opt_out_capturing_by_default:
+// true, so no event leaves the browser until one of these is called.
+export function optIntoAnalytics() {
+  try {
+    posthog.opt_in_capturing();
+  } catch (error) {
+    console.error('[Analytics] Failed to opt in to capturing:', error);
+  }
+}
+
+export function optOutOfAnalytics() {
+  try {
+    posthog.opt_out_capturing();
+  } catch (error) {
+    console.error('[Analytics] Failed to opt out of capturing:', error);
   }
 }
 

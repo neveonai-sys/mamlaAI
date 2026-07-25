@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 
 from core.llm_client import chat_complete
 from .base_agent import BaseAgent, get_case, safe_json_loads
+from users.routes.encryption import encrypt_field
 
 logger = logging.getLogger('django')
 
@@ -127,7 +128,7 @@ class DocumentIntelligenceAgent(BaseAgent):
         if facts.get('brief') and not case.get('brief'):
             db['cases'].update_one(
                 {'_id': case_id},
-                {'$set': {'brief': facts['brief'], 'updated_at': _now()}}
+                {'$set': {'brief': encrypt_field(facts['brief']), 'updated_at': _now()}}
             )
             brief_updated = True
             logger.info('[AGENT:DocumentIntelligenceAgent] updated cases.brief for case_id=%s', case_id)

@@ -1,56 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '../../services/api';
-import { trackConsentChange } from '../../services/analytics';
-
-const COOKIE_NAME = 'cookie_preferences';
-const STORAGE_KEY = 'mamla_cookie_preferences';
-const COOKIE_VERSION = '1.0';
-const DEFAULT_PREFERENCES = {
-  necessary: true,
-  analytics: false,
-  marketing: false,
-  personalization: false,
-};
-
-function parseCookie(name) {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) {
-    return parts.pop().split(';').shift();
-  }
-  return null;
-}
-
-function getStoredConsent() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) || parseCookie(COOKIE_NAME);
-    if (!raw) return null;
-    const parsed = JSON.parse(decodeURIComponent(raw));
-    if (!parsed || typeof parsed !== 'object') return null;
-    return parsed;
-  } catch (error) {
-    console.error('Failed to read stored cookie consent:', error);
-    return null;
-  }
-}
-
-function saveConsentToLocal(preferences) {
-  const payload = {
-    version: COOKIE_VERSION,
-    preferences,
-  };
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch (error) {
-    console.warn('Unable to save cookie consent to localStorage', error);
-  }
-  try {
-    const encoded = encodeURIComponent(JSON.stringify(payload));
-    document.cookie = `${COOKIE_NAME}=${encoded}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
-  } catch (error) {
-    console.warn('Unable to save cookie consent to cookie', error);
-  }
-}
+import { trackConsentChange, optIntoAnalytics, optOutOfAnalytics } from '../../services/analytics';
+import { DEFAULT_PREFERENCES, getStoredConsent, saveConsentToLocal, COOKIE_VERSION } from '../../utils/cookieConsent';
 
 export default function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
@@ -85,9 +36,19 @@ export default function CookieConsentBanner() {
     setExpanded(false);
     setError('');
 
-    // Track consent change in analytics
+    // Actually toggle event transmission — must happen before the
+    // trackConsentChange capture() call below so a rejection doesn't sneak
+    // out as one last tracked event.
+    if (prefs.analytics) {
+      optIntoAnalytics();
+    } else {
+      optOutOfAnalytics();
+    }
+
+    // Track consent change in analytics (only actually transmits if
+    // analytics was accepted, since optOutOfAnalytics() above is a no-op gate).
     try {
-      trackConsentChange('cookie', true, prefs);
+      trackConsentChange('cookie', prefs.analytics, prefs);
     } catch (err) {
       console.warn('Failed to track consent change:', err);
     }
@@ -118,6 +79,15 @@ export default function CookieConsentBanner() {
     });
   };
 
+  const handleRejectAll = () => {
+    saveConsent({
+      necessary: true,
+      analytics: false,
+      marketing: false,
+      personalization: false,
+    });
+  };
+
   const handleSavePreferences = () => {
     if (!preferences.necessary) {
       setError('Necessary cookies are required.');
@@ -135,7 +105,7 @@ export default function CookieConsentBanner() {
           <div>
             <h2 className="text-lg font-semibold text-white">We use cookies and similar technologies</h2>
             <p className="mt-2 text-sm text-slate-300 max-w-3xl">
-              We use cookies to keep the site working, personalize your experience, and measure usage. You can accept all cookies or save your preferences.
+              We use cookies to keep the site working, personalize your experience, and measure usage. You can accept all cookies, reject optional cookies, or save your own preferences.
             </p>
             <div className="mt-3 text-xs text-slate-400">
               By continuing, you agree to our{' '}
@@ -151,6 +121,13 @@ export default function CookieConsentBanner() {
           </div>
 
           <div className="flex flex-wrap gap-3 justify-end">
+            <button
+              type="button"
+              onClick={handleRejectAll}
+              className="rounded-full border border-slate-600 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500 hover:text-white"
+            >
+              Reject optional cookies
+            </button>
             <button
               type="button"
               onClick={() => setExpanded((prev) => !prev)}
@@ -213,6 +190,13 @@ export default function CookieConsentBanner() {
               ))}
             </div>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleRejectAll}
+                className="inline-flex items-center justify-center rounded-full border border-slate-600 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500 hover:text-white"
+              >
+                Reject optional
+              </button>
               <button
                 type="button"
                 onClick={handleSavePreferences}

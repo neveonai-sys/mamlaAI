@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 
 from core.llm_client import chat_complete
 from .base_agent import BaseAgent, get_case, safe_json_loads
+from users.routes.encryption import decrypt_field, encrypt_field
 
 logger = logging.getLogger('django')
 
@@ -73,6 +74,11 @@ class CaseClosureAgent(BaseAgent):
                 {'_id': 0, 'hearing_date': 1, 'purpose': 1, 'outcome': 1, 'type': 1}
             ).sort('hearing_date', 1)
         )
+        # outcome is ciphertext read straight from Mongo — decrypt before it
+        # goes into the LLM prompt below.
+        for note in hearing_notes:
+            if note.get('outcome'):
+                note['outcome'] = decrypt_field(note['outcome'])
         tasks = list(
             db['case_tasks'].find(
                 {'case_id': case_id},
@@ -85,7 +91,7 @@ class CaseClosureAgent(BaseAgent):
         context = (
             f"Case: {case.get('title', '')}\n"
             f"Type: {case.get('case_type', '')}\n"
-            f"Brief: {case.get('brief', '')}\n"
+            f"Brief: {decrypt_field(case.get('brief', ''))}\n"
             f"Resolution type: {resolution_type}\n"
             f"Resolution summary: {resolution_summary}\n\n"
             f"Hearing history ({len(hearing_notes)} hearings):\n"
@@ -145,7 +151,7 @@ class CaseClosureAgent(BaseAgent):
             'author_id': lawyer_id,
             'author_role': 'Lawyer',
             'visibility': 'shared',
-            'content': (
+            'content': encrypt_field(
                 f"**Case Closed — {resolution_type}**\n\n"
                 f"{client_summary}\n\n"
                 f"*Resolution: {resolution_summary}*"

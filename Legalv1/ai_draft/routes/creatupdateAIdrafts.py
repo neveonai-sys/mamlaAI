@@ -2,6 +2,7 @@ from bson import ObjectId
 from core.llm_client import chat_complete
 from talkdoc.tasks import _extract_image_text
 from ai_draft.citation_grounding import build_grounding_block
+from users.routes.encryption import encrypt_field, decrypt_field
 
 import os
 import math
@@ -15,6 +16,45 @@ import json
 import traceback
 import logging
 logger = logging.getLogger('django')
+
+
+def _encrypt_sections(sections):
+    """
+    Encrypt the 'content' field of each draft section before it goes into
+    Mongo (Privacy Policy Section 7 / Sensitive Personal Data: "Case details,
+    legal documents"). Also encrypts each section's 'history' snapshots,
+    which store prior 'content' values. Returns a new list — never mutates
+    the input in place, since callers often still need the plaintext
+    version for an immediate API response.
+    """
+    result = []
+    for s in sections or []:
+        s = dict(s)
+        if 'content' in s:
+            s['content'] = encrypt_field(s['content'])
+        if s.get('history'):
+            s['history'] = [
+                {**h, 'content': encrypt_field(h['content'])} if 'content' in h else h
+                for h in s['history']
+            ]
+        result.append(s)
+    return result
+
+
+def _decrypt_sections(sections):
+    """Inverse of _encrypt_sections — safe to call on already-plaintext data."""
+    result = []
+    for s in sections or []:
+        s = dict(s)
+        if 'content' in s:
+            s['content'] = decrypt_field(s['content'])
+        if s.get('history'):
+            s['history'] = [
+                {**h, 'content': decrypt_field(h['content'])} if 'content' in h else h
+                for h in s['history']
+            ]
+        result.append(s)
+    return result
 
 class CreateupdatefetchAIdrafts:
     def __init__(self,user_id):
@@ -104,7 +144,7 @@ class CreateupdatefetchAIdrafts:
             {'$push': {'saved_drafts': {
                 'draft_id'  : draft_id,
                 'draft_name': draft_name,
-                'sections'  : draft_sections,
+                'sections'  : _encrypt_sections(draft_sections),
                 'saved_at'  : now
             }},
              '$set':  {'last_updated_on': now}}
@@ -237,10 +277,11 @@ Example:
         logger.info(f"[generate_draft] Parsed draft_sections: {draft_sections}")
 
         # Update session with draft sections
+        encrypted_sections = _encrypt_sections(draft_sections)
         self.get_mongo_client_db().update_one(
             {'_id': ObjectId(session_id)},
-            {'$set': {'draft_sections': draft_sections,
-                    'original_draft': draft_sections}}
+            {'$set': {'draft_sections': encrypted_sections,
+                    'original_draft': encrypted_sections}}
         )
 
         logger.info(f"[generate_draft] Session {session_id} updated with draft_sections.")
@@ -306,7 +347,7 @@ Example:
                 {'_id': ObjectId(session_id), 'draft_sections.section_id': section_id},
                 {'$set': {
                     'draft_sections.$.section_name': section_name,
-                    'draft_sections.$.content': content,
+                    'draft_sections.$.content': encrypt_field(content),
                     'last_updated_on': time_now
                 }}
             )
@@ -338,7 +379,9 @@ Example:
     def update_content_using_AI_with_user_input(self, session_id, section_id, suggestion):
         try:
             session = self.get_mongo_client_db().find_one({'_id': ObjectId(session_id)})
-            all_sections = session.get('draft_sections', [])
+            # all_sections is ciphertext (raw Mongo read) — decrypt before any
+            # of it goes into the LLM prompt below.
+            all_sections = _decrypt_sections(session.get('draft_sections', []))
             section = next(
                 (s for s in all_sections if s['section_id'] == section_id), None
             )
@@ -405,11 +448,12 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
     def add_new_section_in_existing_draft(self, session_id, section_name, content):
         try:
             section_id = str(ObjectId())
-            new_section = {
+            plaintext_section = {
                 'section_id': section_id,
                 'section_name': section_name,
                 'content': content
             }
+            new_section = {**plaintext_section, 'content': encrypt_field(content)}
             time_now = datetime.datetime.now(datetime.timezone.utc)
             # Add the new section to the session
             result = self.get_mongo_client_db().update_one(
@@ -423,7 +467,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 return {'mssg': False}
 
             logger.info(f"[add_section] Section {section_id} added successfully to session {session_id}.")
-            return {'mssg': new_section}
+            return {'mssg': plaintext_section}
         except Exception as e:
             logger.error(f"[add_new_section_in_existing_draft]  ============>>>>>>: {traceback.format_exc()}")
             return {'mssg': False}
@@ -436,10 +480,13 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 logger.error(f"[download_draft] Session {session_id} not found.")
                 return {'mssg': False} 
 
-            draft_sections = session.get('draft_sections', [])
+            # draft_sections is ciphertext (raw Mongo read) — must decrypt
+            # before compiling, otherwise the downloaded .docx would contain
+            # Fernet tokens instead of the actual legal document text.
+            draft_sections = _decrypt_sections(session.get('draft_sections', []))
             if not draft_sections:
                 logger.error(f"[download_draft] No draft sections found for session {session_id}.")
-                return {'mssg': False} 
+                return {'mssg': False}
 
             logger.info(f"[download_draft] Compiling draft sections for session {session_id}.")
 
@@ -504,6 +551,10 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 return {'mssg': False}
 
             history = section.get('history', [])
+            history = [
+                {**h, 'content': decrypt_field(h['content'])} if 'content' in h else h
+                for h in history
+            ]
             return {'mssg': history}
         except Exception as e:
             logger.error(f"[retrieve_history_of_section_of_draft_if_updated]  ============>>>>>>: {traceback.format_exc()}")
@@ -517,7 +568,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 logger.error(f"[get_draft_sections] Session {session_id} not found.")
                 return {'mssg': False, 'status': 'not_found'}
 
-            draft_sections = session.get('draft_sections', [])
+            draft_sections = _decrypt_sections(session.get('draft_sections', []))
             final_count = session.get('ai_suggested_update_count', 0)
             status = session.get('status', 'completed')
             conversation_history = session.get('conversation_history', [])
@@ -545,7 +596,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                             'draft_sections.$': 1  # Project the matched section from draft_sections
                         }
                     )
-            latest_content = draft_section['draft_sections'][0]['content']
+            latest_content = decrypt_field(draft_section['draft_sections'][0]['content'])
             logger.info(f"retrieve_single_section_from_session ========== <><><><><><><><> {latest_content}")
             return {'mssg': latest_content}
         except Exception as e:
@@ -590,6 +641,9 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 )
 
             time_now = datetime.datetime.now(datetime.timezone.utc)
+            # draft_sections arrives as plaintext from the caller — encrypt
+            # once, reuse for whichever branch below actually runs.
+            encrypted_sections = _encrypt_sections(draft_sections)
 
             if draft_id:
                 # Overwrite the existing entry if it exists
@@ -602,7 +656,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                     {
                         '$set': {
                             'saved_drafts.$.draft_name': draft_name,
-                            'saved_drafts.$.sections': draft_sections,
+                            'saved_drafts.$.sections': encrypted_sections,
                             'saved_drafts.$.saved_at': time_now,
                             'last_updated_on': time_now,
                         }
@@ -625,7 +679,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
             saved_draft = {
                 'draft_id': new_draft_id,
                 'draft_name': draft_name,
-                'sections': draft_sections,
+                'sections': encrypted_sections,
                 'saved_at': time_now
             }
             self.get_mongo_client_db().update_one(
@@ -800,7 +854,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 logger.error(f"Draft not found for draft_id: {draft_id}")
                 return {'error': 'Draft not found.'}
 
-            return {'draft_sections': saved_draft['sections']}
+            return {'draft_sections': _decrypt_sections(saved_draft['sections'])}
 
         except Exception as e:
             logger.error(f"Exception in load_saved_draft: {traceback.format_exc()}")
@@ -812,6 +866,7 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
             if draft_for is None:
                 draft_for = {}
             time_now = datetime.datetime.now(datetime.timezone.utc)
+            encrypted_sections = _encrypt_sections(draft_sections)
             # Create a new session
             session = {
                 'user_id': self.user_id,
@@ -820,11 +875,11 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 'location': {
                     'last_updated_on': time_now
                 },
-                'draft_sections': draft_sections,
+                'draft_sections': encrypted_sections,
                 'conversation_history': [],
                 'created_on': time_now,
                 'last_updated_on': time_now,
-                'original_draft': draft_sections.copy()
+                'original_draft': encrypted_sections
             }
 
             # Insert the session into MongoDB
@@ -897,17 +952,18 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
             # Check how many keys are populated
             # populated_keys = [k for k, v in draft_for_filtered.items() if v]
             # Create a new session
+            encrypted_sections = _encrypt_sections(draft_sections)
             session = {
                 'user_id': self.user_id,
                 'user_query': user_description or 'case_document',
                 'draft_for': draft_for_filtered,
                 'language': language,
                 'location': {},  # No state and district needed
-                'draft_sections': draft_sections,
+                'draft_sections': encrypted_sections,
                 'conversation_history': [],
                 'created_on': datetime.datetime.now(datetime.timezone.utc),
                 'last_updated_on': datetime.datetime.now(datetime.timezone.utc),
-                'original_draft': draft_sections.copy()
+                'original_draft': encrypted_sections
             }
 
             # Insert the session into MongoDB

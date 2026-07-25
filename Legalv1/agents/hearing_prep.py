@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 
 from core.llm_client import chat_complete
 from .base_agent import BaseAgent, get_case, safe_json_loads
+from users.routes.encryption import encrypt_field, decrypt_field
 
 logger = logging.getLogger('django')
 
@@ -109,7 +110,7 @@ class HearingPrepAgent(BaseAgent):
             context_parts.append(
                 "Past Hearing Outcomes:\n" +
                 "\n".join(
-                    f"[{o.get('hearing_date','')}] {o.get('purpose','')}: {o.get('outcome','')}"
+                    f"[{o.get('hearing_date','')}] {o.get('purpose','')}: {decrypt_field(o.get('outcome',''))}"
                     for o in past_outcomes
                 )
             )
@@ -163,7 +164,7 @@ class HearingPrepAgent(BaseAgent):
             'hearing_date': hearing_date,
             'calendar_event_id': (inputs.get('calendar_event_id') or '').strip(),
             'type': 'prep',
-            'content': f"AI-generated hearing brief for: {purpose}",
+            'content': encrypt_field(f"AI-generated hearing brief for: {purpose}"),
             'ai_brief': ai_brief,
             'purpose': purpose,
             'outcome': '',

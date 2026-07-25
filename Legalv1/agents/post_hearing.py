@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 
 from core.llm_client import chat_complete
 from .base_agent import BaseAgent, get_case, safe_json_loads
+from users.routes.encryption import encrypt_field
 
 logger = logging.getLogger('django')
 
@@ -70,8 +71,10 @@ class PostHearingAgent(BaseAgent):
         now = _now()
 
         # ── Step 1: Update hearing_notes record ───────────────────────────
+        # outcome_text stays plaintext for the LLM call and task description
+        # below — only the stored DB value is encrypted.
         note_updates = {
-            'outcome': outcome_text,
+            'outcome': encrypt_field(outcome_text),
             'type': 'outcome',  # promote to outcome if it was prep
         }
         if next_date:

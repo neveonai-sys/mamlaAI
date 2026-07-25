@@ -11,7 +11,7 @@
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs"
 REDIS_LOG="$PROJECT_ROOT/Legalv1/logs/redis/redis-monitor.log"
-RETENTION_DAYS=3
+RETENTION_DAYS=90
 
 echo "Cleaning up archived log files older than $RETENTION_DAYS days..."
 

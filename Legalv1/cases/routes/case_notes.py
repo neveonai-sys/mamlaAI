@@ -6,6 +6,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from .case_crud import _serialize, _can_access
+from users.routes.encryption import encrypt_field
 
 logger = logging.getLogger('django')
 
@@ -60,7 +61,7 @@ def create_note(db, supa_user, case_id: str, payload: dict) -> dict:
         'author_id': user_id,
         'author_role': user_type,
         'visibility': visibility,
-        'content': content,
+        'content': encrypt_field(content),
         'attachments': payload.get('attachments') or [],
         'created_at': now,
         'updated_at': now,
@@ -107,7 +108,7 @@ def update_note(db, supa_user, case_id: str, note_id: str, payload: dict) -> dic
 
     updates = {}
     if 'content' in payload:
-        updates['content'] = payload['content']
+        updates['content'] = encrypt_field(payload['content'])
     if 'visibility' in payload:
         # clients cannot set internal visibility
         vis = payload['visibility'].lower()

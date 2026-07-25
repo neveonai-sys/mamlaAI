@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 
 from core.llm_client import chat_complete
 from .base_agent import BaseAgent, safe_json_loads
+from users.routes.encryption import encrypt_field
 
 logger = logging.getLogger('django')
 
@@ -159,9 +160,12 @@ class CaseIntakeAgent(BaseAgent):
             'updated_at': now,
         }
 
+        plaintext_brief = doc['brief']
+        doc['brief'] = encrypt_field(plaintext_brief)
         db[DB_CASES].insert_one(doc)
         doc.pop('_id', None)
         doc['id'] = case_id
+        doc['brief'] = plaintext_brief
 
         return {
             'case': doc,

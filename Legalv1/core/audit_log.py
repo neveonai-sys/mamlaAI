@@ -62,6 +62,10 @@ ACTION_ADMIN_USER_LOOKUP = "admin_user_lookup"
 ACTION_ANALYTICS_READ = "analytics_usage_by_user_read"
 ACTION_OWNER_DASHBOARD_READ = "owner_dashboard_read"
 
+# Scheduled retention / compliance jobs
+ACTION_CASE_DATA_PURGED = "case_data_purged"
+ACTION_PAYMENT_RECORD_ANONYMIZED = "payment_record_anonymized"
+
 
 def write_audit_log(
     action: str,

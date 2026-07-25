@@ -25,6 +25,37 @@ def decrypt_data(token):
     return fernet.decrypt(token.encode()).decode()
 
 
+def encrypt_field(value):
+    """
+    Encrypts a single MongoDB document field value for at-rest storage
+    (Privacy Policy Section 7: "Encryption in transit (TLS 1.3) and at rest
+    (AES-256)"). Falsy values (None, '') pass through unchanged — there's
+    nothing sensitive to protect and it keeps empty-field checks working
+    elsewhere in the codebase.
+    """
+    if not value:
+        return value
+    return fernet.encrypt(str(value).encode()).decode()
+
+
+def decrypt_field(token):
+    """
+    Decrypts a single MongoDB document field value written by encrypt_field.
+
+    Falls back to returning the value as-is if decryption fails — this is
+    the intended behaviour during the migration window, when existing
+    documents still hold plaintext content that was never encrypted. Once a
+    backfill has run against a collection this fallback becomes dead code
+    for that collection, but stays safe to keep.
+    """
+    if not token:
+        return token
+    try:
+        return fernet.decrypt(str(token).encode()).decode()
+    except Exception:
+        return token
+
+
 # from cryptography.fernet import Fernet
 # import os
 # import base64

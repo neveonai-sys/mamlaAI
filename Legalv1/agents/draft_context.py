@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 
 from core.llm_client import chat_complete
 from .base_agent import BaseAgent, get_case, safe_json_loads
+from users.routes.encryption import decrypt_field
 
 logger = logging.getLogger('django')
 
@@ -65,6 +66,10 @@ class DraftContextAgent(BaseAgent):
             raise ValueError("'case_id' is required.")
 
         case = get_case(db, case_id, lawyer_id)
+        # case['brief'] is ciphertext (raw Mongo read via base_agent.get_case,
+        # not case_crud._serialize) — decrypt once up front, everything below
+        # (LLM context + the returned draft_context) uses this variable.
+        case_brief = decrypt_field(case.get('brief', ''))
         context_parts = []
 
         # ── Step 1: Case context ──────────────────────────────────────────
@@ -74,7 +79,7 @@ class DraftContextAgent(BaseAgent):
             f"Case type: {case.get('case_type', '')}\n"
             f"Stage: {case.get('stage', '')}\n"
             f"Court: {json.dumps(case.get('court', {}))}\n"
-            f"Brief: {case.get('brief', '')}\n"
+            f"Brief: {case_brief}\n"
             f"Draft type requested: {draft_type}"
         )
 
@@ -86,7 +91,7 @@ class DraftContextAgent(BaseAgent):
         if last_outcome:
             context_parts.append(
                 f"Last Hearing [{last_outcome.get('hearing_date','')}]: "
-                f"{last_outcome.get('outcome','')}"
+                f"{decrypt_field(last_outcome.get('outcome',''))}"
             )
 
         # ── Step 3: Document search (if doc IDs provided) ─────────────────
@@ -146,7 +151,7 @@ class DraftContextAgent(BaseAgent):
             'case_type': case.get('case_type', ''),
             'context_summary': (
                 enriched.get('context_summary')
-                or case.get('brief', '')
+                or case_brief
             ),
             'key_facts': enriched.get('key_facts') or [],
             'suggested_sections': suggested_sections,

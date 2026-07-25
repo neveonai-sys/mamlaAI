@@ -36,3 +36,14 @@ def admin_update_password(user_id: str, new_password: str):
     attrs = AdminUserAttributes(password=new_password)
     result = sb.auth.admin.update_user_by_id(user_id, attrs)
     return result
+
+def admin_delete_user(user_id: str):
+    """
+    Calls supabase.auth.admin.delete_user(...) to permanently remove the
+    auth record (login credentials + user_metadata). Used by the Right to
+    Erasure flow (delete_user_data) after Mongo anonymization succeeds.
+    Raises on failure — caller is responsible for log-and-alert handling.
+    """
+    sb = get_supabase_admin()
+    result = sb.auth.admin.delete_user(user_id)
+    return result
