@@ -33,6 +33,7 @@ export function initializeAnalytics() {
       disable_session_recording: true,
       persistence: 'localStorage',
       opt_out_capturing_by_default: true,
+      capture_performance: { web_vitals: true },
     });
 
     const sessionId = safeSessionGet('session_id') || generateSessionId();

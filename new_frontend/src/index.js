@@ -34,6 +34,9 @@ posthog.init(process.env.REACT_APP_POSTHOG_KEY, {
   autocapture: false,
   capture_pageview: false,
   disable_session_recording: true,
+  // Explicit override so Core Web Vitals ($web_vitals events) are captured
+  // regardless of the remote "Web vitals autocapture" project toggle.
+  capture_performance: { web_vitals: true },
   persistence: phPersistence,
   // Analytics is an "Optional" cookie category per our Cookie Policy — no
   // event should transmit until the user has explicitly opted in via the

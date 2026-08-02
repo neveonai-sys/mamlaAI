@@ -37,7 +37,15 @@ class Handleusermetadata:
             supabase = get_supabase_client()
             if key == "phone":
                 val = int(val)
-            user = supabase.table("user_metadata").select("*").eq(key, val).execute()
+                query = supabase.table("user_metadata").select("*").eq(key, val)
+            elif key == "email":
+                # Gmail and virtually every provider treat the local-part
+                # case-insensitively, so match case-insensitively too — a raw
+                # .eq() let "Foo@x.com" and "foo@x.com" both re-register.
+                query = supabase.table("user_metadata").select("*").ilike(key, val)
+            else:
+                query = supabase.table("user_metadata").select("*").eq(key, val)
+            user = query.execute()
             # logger.info(f"check_user_exists ---->>> {user}")
             res = {}
             if user.data:
@@ -198,6 +206,16 @@ class Handleusermetadata:
                     },
                 }
             )
+
+            # Supabase doesn't raise for a signUp() against an email that
+            # already has an account — for anti-enumeration reasons it returns
+            # a normal-looking response with no persisted auth.users row.
+            # `identities` is empty in that case; a genuine new signup always
+            # has at least one. Without this check we'd write a phantom
+            # user_id into Mongo/Postgres for an account Supabase never made.
+            if not response.user or not response.user.identities:
+                logger.warning(f"create_newuser_and_insert_metadata: signUp for {email} returned no identities — account already exists, not creating domain records.")
+                return False
 
             ## if client is not boarded by lawyer
             if not prefilled:

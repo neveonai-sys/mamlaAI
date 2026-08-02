@@ -76,6 +76,7 @@ const CATCaseDetailPage      = lazy(() => import('./components/ecourt_scrapper/C
 
 // Owner analytics (owner/admin only)
 const OwnerDashboard     = lazy(() => import('./components/dashboard/OwnerDashboard'));
+const AdminPanel         = lazy(() => import('./components/admin/AdminPanel'));
 
 // Wallet & billing
 const WalletPage         = lazy(() => import('./components/billing/WalletPage'));
@@ -274,6 +275,7 @@ export default function AppContent() {
 
             {/* Owner-only analytics */}
             <Route path="/owner-dashboard"                              element={<OwnerDashboard />} />
+            <Route path="/admin"                                        element={<AdminPanel />} />
           </Route>
         </Route>
 

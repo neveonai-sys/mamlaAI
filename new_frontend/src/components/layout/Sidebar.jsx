@@ -35,6 +35,7 @@ const CLIENT_NAV = [
 
 const OWNER_EXTRA = [
   { label: 'Analytics',          path: '/owner-dashboard', icon: 'monitoring' },
+  { label: 'Admin Panel',        path: '/admin',           icon: 'admin_panel_settings' },
 ];
 
 const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || '')

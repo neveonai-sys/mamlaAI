@@ -18,11 +18,19 @@ from django.contrib import admin
 from django.urls import path, include
 
 from core.views import health, schema_view, swagger_ui_view, dashboard_home
-from core.admin_views import admin_wallet_top_up
+from core.admin_views import (
+    admin_wallet_top_up,
+    admin_list_users,
+    admin_get_user_detail,
+    admin_update_user_package,
+)
 
 urlpatterns = [
     path('api/health/', health),
     path('api/admin/wallet/top-up/', admin_wallet_top_up),
+    path('api/admin/users/', admin_list_users),
+    path('api/admin/users/<str:user_id>/', admin_get_user_detail),
+    path('api/admin/users/<str:user_id>/package/', admin_update_user_package),
     path('api/dashboard/home/', dashboard_home),
     path('api/schema/', schema_view, name='schema'),
     path('api/schema/swagger-ui/', swagger_ui_view, name='swagger-ui'),
