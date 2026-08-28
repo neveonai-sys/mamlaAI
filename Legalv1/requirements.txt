@@ -34,6 +34,9 @@ sentry-sdk>=1.9.0
 python-slugify>=6.1.2
 requests>=2.28.1
 urllib3>=1.26.12
+# Golden-set fixtures for the drafting eval harness (ai_draft/evals/fixtures/*.yaml).
+# Previously present only as a transitive dependency.
+PyYAML>=6.0
 
 # Development
 pytest>=7.2.0

@@ -274,8 +274,10 @@ export default function AppContent() {
             <Route path="/my-case"                                      element={<ClientCasePage />} />
 
             {/* Owner-only analytics */}
-            <Route path="/owner-dashboard"                              element={<OwnerDashboard />} />
-            <Route path="/admin"                                        element={<AdminPanel />} />
+            <Route element={<ProtectedRoute roles={['owner', 'admin', 'Owner', 'Admin']} />}>
+              <Route path="/owner-dashboard" element={<OwnerDashboard />} />
+              <Route path="/admin"           element={<AdminPanel />} />
+            </Route>
           </Route>
         </Route>
 

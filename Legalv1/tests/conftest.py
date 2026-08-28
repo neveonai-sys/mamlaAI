@@ -63,6 +63,25 @@ def mock_chat_complete():
         yield mock
 
 
+@pytest.fixture
+def mock_draft_llm():
+    """
+    Patches chat_complete *as the drafting engine sees it*.
+
+    `mock_chat_complete` above cannot reach drafting: creatupdateAIdrafts.py
+    does `from core.llm_client import chat_complete` at import time, so it holds
+    its own reference and patching the source module has no effect. Any drafting
+    test must patch this name instead.
+
+    Set `mock.return_value` to the JSON string the engine should parse.
+    """
+    with patch('ai_draft.routes.creatupdateAIdrafts.chat_complete') as mock:
+        mock.return_value = json.dumps([
+            {'section_name': 'RECITALS', 'content': 'That my Client is the owner.'},
+        ])
+        yield mock
+
+
 # ---------------------------------------------------------------------------
 # DB + user stubs
 # ---------------------------------------------------------------------------

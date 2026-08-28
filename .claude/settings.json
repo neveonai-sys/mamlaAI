@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/home/pronoys/miniconda3/envs/myenv/bin/python -m pytest tests/test_draft_validator.py -q)"
+    ]
+  }
+}

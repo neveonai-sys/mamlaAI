@@ -1,0 +1,165 @@
+id: 003_will_rajesh_mehra
+
+# Scored 6/10: "facially complete but substantively incomplete".
+# Reviewer findings this fixture encodes:
+#   - revocation clause purported to revoke wills made "before or after" this one.
+#     A Will cannot revoke a later instrument. Substantive drafting error.
+#   - life interest given "for her lifetime" with no definition of possession,
+#     income, maintenance, or restraint on alienation
+#   - no contingency if the wife predeceases the testator
+#   - "their children, if any" — no substitutionary scheme, no fallback where a
+#     child leaves no descendants
+#   - executor immunity for "any loss or damage" — overbroad, no good-faith limit
+#   - the prompt expressly asked it to identify legal issues and state its
+#     assumptions. It did neither. (Defect #4, in its purest form.)
+
+prompt: |
+  Draft a legally comprehensive Last Will and Testament for an Indian Hindu
+  individual based on the following facts:
+
+  Mr. Rajesh Mehra, aged 68, residing in Kolkata, West Bengal, is a retired
+  businessman. He is married to Sunita Mehra and has two children: his son
+  Arjun Mehra and daughter Riya Mehra.
+
+  Rajesh owns the following assets:
+  - A residential flat in Kolkata valued at approximately Rs 1.5 crore,
+    currently occupied by Rajesh and his wife.
+  - A plot of land in Siliguri valued at approximately Rs 80 lakh.
+  - Bank fixed deposits and savings of approximately Rs 40 lakh.
+  - Mutual fund investments worth approximately Rs 25 lakh.
+  - Gold jewellery valued at approximately Rs 15 lakh.
+  - A 30% shareholding in Mehra Trading Private Limited.
+
+  Rajesh wishes to:
+  - Leave the Kolkata residential flat to his wife, Sunita, for her lifetime.
+    After her death, the property should pass equally to his son and daughter.
+  - Leave the Siliguri land to his son Arjun.
+  - Divide his bank deposits and mutual fund investments equally between Arjun and Riya.
+  - Leave all his personal jewellery to his daughter Riya.
+  - Transfer his shares in Mehra Trading Private Limited equally between Arjun
+    and Riya, subject to the company's Articles of Association and applicable law.
+  - Provide that if either child predeceases him, that child's share should pass
+    to their respective children, if any.
+
+  Rajesh wishes to appoint his wife Sunita as the Executor of the Will and, if
+  she is unable or unwilling to act, his daughter Riya as the alternate Executor.
+
+  The Will should also contain appropriate provisions regarding: revocation of
+  previous wills; testamentary capacity and voluntary execution; payment of
+  debts, taxes and testamentary expenses; residuary estate; survivorship and
+  predeceasing beneficiaries; appointment and powers of the Executor;
+  attestation and execution requirements; and a severability/general
+  provisions clause.
+
+  Draft the Will in formal legal language applicable in India. Identify any
+  legal or drafting issues arising from the facts and state any assumptions
+  made. Do not invent facts that have not been provided.
+
+expect:
+  doc_type: will
+  branch: testamentary
+
+  must_contain:
+    - "sound mind"
+    - "revoke"
+    - ["Executrix", "Executor"]
+    - "witness"
+    - ["IN WITNESS WHEREOF", "hereunto set my hand"]
+
+  # Presence of a heading is not adequacy of the clause under it. The baseline
+  # scored 8.0 on a draft where every required SECTION existed but the operative
+  # content was thin — carrying three of the reviewers' substantive defects.
+  # These are scored under `completeness` at 3.0 each, not averaged into the
+  # format checklist where they vanish.
+  must_contain_clauses:
+    # Reviewer defect ii — a life interest that does not restrain alienation
+    # leaves the remainder beneficiaries unprotected. "for her lifetime" alone
+    # is not a life-interest clause.
+    #
+    # Matched as a CONCEPT, not a phrasebook. The original literal alternatives
+    # were a fourth false positive on this fixture: they missed a textbook
+    # restraint reading "shall NOT have the power to sell, transfer, mortgage,
+    # charge ... or otherwise encumber or alienate the said flat ... without any
+    # power of alienation", because that drafting uses none of the exact word
+    # sequences the list enumerated. A negation governing an alienation verb is
+    # what the reviewers' finding is actually about.
+    - ["re:(?:shall\\s+not|no\\s+power|without\\s+(?:any\\s+)?power|not\\s+(?:be\\s+)?(?:entitled|permitted)|restrain\\w*|prohibit\\w*)[^.]{0,120}?(?:sell|sold|transfer|mortgag|charge|encumber|alienat|dispose)"]
+
+    # Reviewer defect iii — no contingency if THE WIFE predeceases the testator,
+    # which fails the life interest and leaves the flat undisposed.
+    #
+    # Must name the wife. A generic "if either of my children predeceases me"
+    # satisfies a loose "predeceases me" check while leaving the actual defect
+    # in place — which is what happened on the baseline run.
+    - ["my wife predecease", "my wife, Sunita Mehra, predecease",
+       "wife predeceases me", "Sunita Mehra predeceases me",
+       "wife does not survive me", "wife shall not survive me",
+       "Sunita Mehra does not survive"]
+
+  must_contain_section_names:
+    - "REVOCATION"
+    - "EXECUTOR"
+    - "RESIDUARY"
+    - "ATTESTATION"
+
+  must_not_contain:
+    - "TITLE OF THE SUIT"
+
+  # A testamentary instrument. No penal code has any application.
+  forbid_penal_statutes: true
+
+  must_not_match:
+    # The defective revocation clause, verbatim in substance: revoking wills
+    # made "before or after" this one. A Will cannot revoke a later instrument.
+    #
+    # NARROWED after a false positive. The original pattern was
+    #   (?i)revok\w*[^.]{0,120}\b(after|subsequent|future)\b
+    # which fired on a CORRECT clause reading "...nothing in this Will shall be
+    # read as an attempt to revoke, restrict, or fetter any testamentary
+    # instrument that I may execute after the date hereof, my power to make
+    # further or later wills being expressly reserved."
+    #
+    # That clause is the reviewers' finding properly answered, and the check
+    # scored it as the defect itself — which would have driven the model away
+    # from disclaiming future revocation. Match the operative construction only.
+    - "(?i)revok\\w*[^.]{0,150}\\bbefore\\s+or\\s+after\\b"
+    - "(?i)revok\\w*[^.]{0,80}\\b(?:all\\s+)?(?:future|subsequent)\\s+(?:wills?|codicils?)\\b"
+    # Blanket executor immunity with no good-faith carve-out.
+    #
+    # NARROWED after a false positive — the third on this fixture, and the same
+    # class as the other two: a correctly-drafted clause scored as the defect.
+    # The original pattern was
+    #   (?i)not\s+be\s+liable\s+for\s+any\s+loss[^.]{0,80}(?!.*good faith)
+    # whose lookahead is inert: `[^.]{0,80}` is greedy WITH BACKTRACKING, so the
+    # engine simply retreats to a shorter match at which "good faith" no longer
+    # follows. It therefore fired on every immunity clause, limited or not —
+    # including this one, which is the reviewers' finding properly answered:
+    #
+    #   "...shall not be liable for any loss to my estate arising from any act
+    #    done or omitted to be done in good faith ... but nothing in this clause
+    #    shall exonerate my Executor from liability for any act done in bad
+    #    faith, wilful default or gross negligence."
+    #
+    # Left standing it would have driven the model AWAY from carving out bad
+    # faith. The lookahead now sits directly after the anchor, so there is
+    # nothing for the engine to backtrack over, and it recognises any of the
+    # standard carve-outs.
+    - "(?i)not\\s+be\\s+liable\\s+for\\s+any\\s+loss(?![^.]{0,200}?(?:good\\s+faith|bad\\s+faith|wilful\\s+default|gross\\s+negligence|dishonest))"
+
+  literals_from_prompt:
+    - "30%"
+
+  min_sections: 10
+
+  # The prompt asked for these in terms. Their absence is the cleanest possible
+  # test of defect #4.
+  require_assumptions: true
+  require_drafting_notes: true
+
+notes: |
+  Jhana scored better here largely by adding schedules and an "IMPORTANT NOTES
+  FOR THE TESTATOR" block — which is exactly what our `assumptions` /
+  `drafting_notes` channel is for. Note the reviewers also found a factual
+  error inside Jhana's notes (it called probate mandatory), so score_judge must
+  penalise confident wrong statements in the advisory panel, not just reward
+  the panel existing.

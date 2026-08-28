@@ -4,7 +4,6 @@ All AI operations should be async to handle 100-200 concurrent users.
 """
 from celery import shared_task
 import os
-import json
 import datetime
 import logging
 import traceback
@@ -12,7 +11,11 @@ from bson import ObjectId
 from core.init_clients import get_mongo_client, get_mongo_db
 from core.llm_client import chat_complete
 from django.core.cache import cache
-from users.routes.encryption import encrypt_field
+from ai_draft.drafting.classify import DraftContext, classify
+from ai_draft.routes.creatupdateAIdrafts import (
+    CreateupdatefetchAIdrafts,
+    draft_cache_key,
+)
 
 logger = logging.getLogger('django')
 
@@ -24,104 +27,68 @@ def _get_collection():
     return get_mongo_db()['aidrafts_complete_data']
 
 
-@shared_task(bind=True, max_retries=3)
-def generate_draft_async(self, session_id, user_query, location, language):
+#: Two retries, not three. Every attempt is a full Sonnet-5 generation of an
+#: 8-10k-token instrument (44-177s measured, plus its own correction turn), so
+#: an unfixable request would otherwise burn four of them and minutes of worker
+#: time before settling on the failure the user can already see.
+@shared_task(bind=True, max_retries=2)
+def generate_draft_async(self, session_id, user_query, location, language, document_type=None,
+                         user_id=None):
     """
-    Asynchronously generate draft using AI.
-    This prevents blocking the HTTP request for 100-200 concurrent users.
+    Asynchronously generate a draft, by delegating to the synchronous engine.
+
+    This task used to carry its own copy of the prompt, the parser and the
+    encryption helper — the worst of the four prompt copies, having never even
+    received the 2023-codes paragraph the other three had. Everything now runs
+    through `CreateupdatefetchAIdrafts.generate_draft`, so enabling Celery
+    cannot revert the playbooks, the repair ladder, the validator's correction
+    turn, or the advisory schema. The task owns only what is genuinely
+    Celery's: retry policy and cache invalidation.
     """
     logger.info(f"[ASYNC_DRAFT] Generating draft for session_id: {session_id}")
-    
+
     try:
         collection = _get_collection()
         if not collection:
             raise Exception("MongoDB connection failed")
-        
-        # Build location string
-        location_string = ''
-        if location:
-            if 'court' in location and 'district' in location and 'state' in location:
-                location_string = f"""for court "{location.get('court')}" in the district "{location.get('district')}" of state "{location.get('state')}" """
-            elif 'district' in location and 'state' in location:
-                location_string = f"""in the district "{location.get('district')}" of state "{location.get('state')}" """
-            elif 'state' in location:
-                location_string = f"""for the state "{location.get('state')}" """
 
-        # Construct optimized prompt
-        prompt = f"""You are a legal expert specializing in drafting legal documents as per Indian legal standards and the Indian constitution.
+        # Prefer the context the session was created with, so the worker and the
+        # request path cannot disagree about the document type.
+        session = collection.find_one({'_id': ObjectId(session_id)}) or {}
+        ctx = DraftContext.from_dict(session.get('draft_context'))
+        if ctx is None:
+            ctx = classify(user_query, document_type)
 
-A user has requested: "{user_query}" {location_string}.
-
-Please generate a comprehensive draft **in {language}**, adhering to all relevant laws and regulations specific to this location.
-
-**Formatting Instructions:**
-
-- Output the draft in **JSON** format.
-- The JSON should be an array of sections.
-- Each section should be an object with two properties:
-  - `"section_name"`: The name of the section.
-  - `"content"`: The content of the section, including placeholders where specific user information is required (like names, dates, addresses) in ALL CAPS (e.g., `[YOUR FULL NAME]`, `[DATE OF BIRTH]`).
-- Each section content should be at least 70-80 words where possible, comprehensive and accurate to Indian law.
-- Return ONLY the JSON array. Do not include any explanatory text, markdown code fences, or commentary before or after the JSON.
-
-Example:
-
-[
-{{
-    "section_name": "TITLE OF THE SUIT",
-    "content": "Content of section I..."
-}},
-{{
-    "section_name": "PRELIMINARY STATEMENT",
-    "content": "Content of section II..."
-}}
-]"""
-
-        # Update status to processing
         collection.update_one(
             {'_id': ObjectId(session_id)},
-            {'$set': {'status': 'generating', 'updated_at': datetime.datetime.utcnow()}}
+            {'$set': {'status': 'generating',
+                      'last_updated_on': datetime.datetime.now(datetime.timezone.utc)}}
         )
 
-        # Call LLM via centralized client (async Celery task — won't block HTTP requests)
-        draft_content = chat_complete(
-            messages=[{'role': 'user', 'content': prompt}],
-            app_scenario='ai_draft:generate',
-            temperature=0.3,  # Low temp → reliable JSON structure
-            max_tokens=4000,
-        )
-        logger.info(f"[ASYNC_DRAFT] Received draft content from ChatGPT")
+        obj = CreateupdatefetchAIdrafts(user_id or session.get('user_id'))
+        # generate_draft writes sections, advisories, validation metadata and
+        # the terminal status itself.
+        obj.generate_draft(session_id, user_query, location, language, ctx=ctx)
 
-        # Parse draft into sections
-        draft_sections = _parse_draft_into_sections(draft_content)
+        # The request path created the "Untitled …" saved_draft row while the
+        # sections were still empty, so that the draft appears in the user's
+        # list immediately. Fill in its snapshot now that they exist.
+        obj.backfill_initial_saved_draft(session_id)
 
-        if not draft_sections:
-            raise Exception("Failed to parse draft sections")
+        # The read path caches only completed drafts, but a stale entry from
+        # before this run must not survive it.
+        cache.delete(draft_cache_key(session_id))
 
-        # Update session with draft sections (encrypted at rest — Privacy
-        # Policy Section 7 / Sensitive Personal Data: "Case details, legal
-        # documents"). Cache below intentionally keeps the plaintext version
-        # for fast in-process retrieval, matching cache.set()'s short TTL.
-        encrypted_sections = [
-            {**s, 'content': encrypt_field(s['content'])} if 'content' in s else s
-            for s in draft_sections
-        ]
-        collection.update_one(
-            {'_id': ObjectId(session_id)},
-            {'$set': {
-                'draft_sections': encrypted_sections,
-                'original_draft': encrypted_sections,
-                'status': 'completed',
-                'last_updated_on': datetime.datetime.utcnow()
-            }}
-        )
-
-        # Cache the result for quick retrieval
-        cache_key = f"draft_sections:{session_id}"
-        cache.set(cache_key, draft_sections, timeout=3600)  # 1 hour
+        refreshed = collection.find_one({'_id': ObjectId(session_id)}) or {}
+        status = refreshed.get('status')
+        count = len(refreshed.get('draft_sections') or [])
+        if status != 'completed':
+            # `generate_draft` has already recorded status='failed', so a retry
+            # that also fails leaves the session in a state the UI can explain.
+            raise Exception(f'draft generation did not complete (status={status})')
 
         logger.info(f"[ASYNC_DRAFT] Draft generation completed for session_id: {session_id}")
-        return {'success': True, 'session_id': str(session_id), 'sections_count': len(draft_sections)}
+        return {'success': True, 'session_id': str(session_id), 'sections_count': count}
 
     except Exception as e:
         logger.error(f"[ASYNC_DRAFT] Error: {traceback.format_exc()}")
@@ -129,7 +96,8 @@ Example:
         if collection:
             collection.update_one(
                 {'_id': ObjectId(session_id)},
-                {'$set': {'status': 'failed', 'error': str(e), 'updated_at': datetime.datetime.utcnow()}}
+                {'$set': {'status': 'failed', 'error': str(e),
+                          'last_updated_on': datetime.datetime.now(datetime.timezone.utc)}}
             )
         raise self.retry(exc=e, countdown=30)  # Retry after 30 seconds
 
@@ -173,35 +141,6 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
         raise self.retry(exc=e, countdown=30)
 
 
-def _parse_draft_into_sections(draft_content):
-    """Parse AI response into structured sections"""
-    logger.info("[PARSE] Parsing draft content into sections")
-
-    # Remove Markdown code block syntax if present
-    if draft_content.startswith("```") and draft_content.endswith("```"):
-        draft_content = '\n'.join(draft_content.split('\n')[1:-1])
-
-    if not draft_content.strip():
-        logger.error("[PARSE] draft_content is empty")
-        return []
-
-    try:
-        sections = json.loads(draft_content)
-
-        # Validate and add section IDs
-        for section in sections:
-            if not isinstance(section, dict) or 'section_name' not in section or 'content' not in section:
-                logger.error("[PARSE] Invalid section format")
-                return []
-            section['section_id'] = str(ObjectId())
-
-        logger.info(f"[PARSE] Successfully parsed {len(sections)} sections")
-        return sections
-
-    except json.JSONDecodeError as e:
-        logger.error(f"[PARSE] JSONDecodeError: {str(e)}")
-        logger.error(f"[PARSE] Content: {draft_content[:500]}")
-        return []
-    except Exception as e:
-        logger.error(f"[PARSE] Exception: {traceback.format_exc()}")
-        return []
+# `_parse_draft_into_sections` used to live here as a third copy of the parser.
+# It has been deleted: the single parser is `drafting.draft_validator`, reached
+# through `CreateupdatefetchAIdrafts.generate_draft`.

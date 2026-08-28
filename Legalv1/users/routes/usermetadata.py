@@ -21,6 +21,12 @@ from core.email_templates import EmailTemplates
 # Get the logger for this module
 logger = logging.getLogger('django')
 
+# user_type values a person may self-assign at signup. Privileged types
+# (owner/admin/internal/superadmin) are granted only by an existing admin
+# via admin_update_user_package-style backend flows — never by request body,
+# since every admin/owner check in the codebase trusts this exact field.
+SELF_SIGNUP_USER_TYPES = {'Lawyer', 'Law Student', 'Client', 'Paralegal'}
+
 class Handleusermetadata:
     def __init__(self) -> None:
         pass
@@ -185,6 +191,10 @@ class Handleusermetadata:
 
     def create_newuser_and_insert_metadata(self, phone_number, fname, lname, email, password, user_type, whatsappOptIn, agreedTnC, user_status, barcode_id=None, case_ids=[], state=None, district=None, courts=[], user_id=None, prefilled=False, organization=None):
         try:
+            if user_type not in SELF_SIGNUP_USER_TYPES:
+                logger.warning(f"create_newuser_and_insert_metadata: rejected disallowed user_type={user_type!r} for {email}")
+                return False
+
             dtmstr = datetime.datetime.now(datetime.timezone.utc)
             user_id = user_id or self.generate_username(fname.lower(),lname.lower())+'_'+dtmstr.strftime("%Y%m%d%H%M%S")
 

@@ -38,6 +38,7 @@ Brain tier keys (wired ahead of the mamla_brain app landing)
 """
 
 import os
+import re
 import logging
 from typing import Optional
 
@@ -76,10 +77,14 @@ APP_OPENAI_MODELS: dict = {
 }
 
 APP_OPENROUTER_MODELS: dict = {
-    "ai_draft:generate":            os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "openai/gpt-4o-mini"),
-    "ai_draft:update_section":      os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "openai/gpt-4o-mini"),
-    "ai_draft:generate_from_case":  os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "openai/gpt-4o-mini"),
-    "ai_draft:generate_from_tpl":   os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "openai/gpt-4o-mini"),
+    # Drafting is the product's core differentiator and was running on the
+    # weakest model in the stack while chat got Sonnet. Benchmarked at 3/10 by
+    # law interns against competitors on gpt-4o-mini; see ai_draft/evals/.
+    # Reversible in one env var if cost or latency proves unacceptable.
+    "ai_draft:generate":            os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "anthropic/claude-sonnet-5"),
+    "ai_draft:update_section":      os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "anthropic/claude-sonnet-5"),
+    "ai_draft:generate_from_case":  os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "anthropic/claude-sonnet-5"),
+    "ai_draft:generate_from_tpl":   os.getenv("OPENROUTER_AI_DRAFT_MODEL",           "anthropic/claude-sonnet-5"),
     "talkdoc:rag":                  os.getenv("OPENROUTER_TALKDOC_RAG_MODEL",         "anthropic/claude-haiku-4.5"),
     "talkdoc:general":              os.getenv("OPENROUTER_TALKDOC_GENERAL_MODEL",     "anthropic/claude-haiku-4.5"),
     "utilities:describe_draft":     os.getenv("OPENROUTER_UTILS_MODEL",               "openai/gpt-4o-mini"),
@@ -126,6 +131,89 @@ def _get_openrouter_client():
 # ---------------------------------------------------------------------------
 # Public helpers
 # ---------------------------------------------------------------------------
+
+def _sampling_params(resolved_model: str, temperature: float, kwargs: dict) -> dict:
+    """Return the sampling kwargs to send for *resolved_model*.
+
+    Some models only accept default sampling settings and reject an explicit
+    ``temperature`` / ``top_p`` / ``top_k`` with a 400. Every drafting call
+    currently passes ``temperature``, so if we route drafting at such a model
+    the request fails outright rather than degrading.
+
+    This is provider- and version-dependent, so it is **opt-in** rather than
+    guessed: set ``LLM_DEFAULT_SAMPLING_MODELS`` to a regex matching the model
+    slugs that must receive defaults only. Empty (the default) preserves
+    existing behaviour exactly.
+
+    Use ``manage.py check_sampling_params`` to find out which slugs need it.
+    """
+    pattern = os.getenv("LLM_DEFAULT_SAMPLING_MODELS", "").strip()
+    if not pattern:
+        return {"temperature": temperature}
+
+    try:
+        if not re.search(pattern, resolved_model or "", re.IGNORECASE):
+            return {"temperature": temperature}
+    except re.error:
+        logger.warning(
+            "[LLM] LLM_DEFAULT_SAMPLING_MODELS is not a valid regex (%r); "
+            "passing temperature through", pattern,
+        )
+        return {"temperature": temperature}
+
+    dropped = [k for k in ("top_p", "top_k") if k in kwargs]
+    for k in dropped:
+        kwargs.pop(k)
+    logger.info(
+        "[LLM] model=%s requires default sampling — dropped temperature%s",
+        resolved_model, f" and {', '.join(dropped)}" if dropped else "",
+    )
+    return {}
+
+
+#: Scenarios whose token budget should go to visible output rather than to
+#: model deliberation. Drafting is a format-and-knowledge task: the shape of a
+#: partnership deed is not something to reason toward, it is something to know.
+_REASONING_BUDGETED_SCENARIOS = frozenset({
+    "ai_draft:generate",
+    "ai_draft:generate_from_case",
+    "ai_draft:generate_from_tpl",
+    "ai_draft:update_section",
+})
+
+
+def _reasoning_params(app_scenario: Optional[str], provider: str, kwargs: dict) -> dict:
+    """
+    Cap reasoning tokens for long-form drafting on OpenRouter.
+
+    On a reasoning model, ``max_tokens`` bounds thinking PLUS visible output. A
+    16-clause partnership deed measured here spent roughly 12k of a 16k budget
+    deliberating and was then truncated mid-clause — the model returned
+    ``finish_reason='length'`` with ``content=None``, which the engine could only
+    see as a total failure. That is defect #3a arriving by a new route.
+
+    Off by default so nothing changes for other providers or scenarios. Set
+    ``LLM_DRAFT_REASONING_TOKENS=0`` to disable reasoning entirely, or a positive
+    integer to cap it; unset leaves provider defaults alone.
+    """
+    if provider != PROVIDER_OPENROUTER or app_scenario not in _REASONING_BUDGETED_SCENARIOS:
+        return {}
+    if "extra_body" in kwargs or "reasoning" in kwargs:
+        return {}                      # an explicit caller wins
+
+    raw = os.getenv("LLM_DRAFT_REASONING_TOKENS", "").strip()
+    if not raw:
+        return {}
+    try:
+        budget = int(raw)
+    except ValueError:
+        logger.warning("[LLM] LLM_DRAFT_REASONING_TOKENS is not an integer (%r); ignoring", raw)
+        return {}
+
+    reasoning = {"enabled": False} if budget <= 0 else {"max_tokens": budget}
+    logger.info("[LLM] scenario=%s reasoning=%s", app_scenario, reasoning)
+    return {"extra_body": {"reasoning": reasoning}}
+
 
 def get_model(app_scenario: Optional[str], provider: str) -> str:
     """Return the model name for *app_scenario* on the given *provider*.
@@ -193,20 +281,29 @@ def chat_complete(
         resolved_provider, resolved_model, app_scenario, max_tokens,
     )
 
+    sampling = _sampling_params(resolved_model, temperature, kwargs)
+    reasoning = _reasoning_params(app_scenario, resolved_provider, kwargs)
+
     response = client.chat.completions.create(
         model=resolved_model,
         messages=messages,
-        temperature=temperature,
         max_tokens=max_tokens,
+        **sampling,
+        **reasoning,
         **kwargs,
     )
-    text = response.choices[0].message.content
+    choice = response.choices[0]
+    text = choice.message.content
     if return_usage:
         usage = getattr(response, 'usage', None)
         return text, {
             'prompt_tokens':     getattr(usage, 'prompt_tokens',     0) if usage else 0,
             'completion_tokens': getattr(usage, 'completion_tokens', 0) if usage else 0,
             'model':             getattr(response, 'model', resolved_model),
+            # Surfaced so callers can distinguish "the model finished" from
+            # "we hit max_tokens and the document stops mid-clause". The
+            # drafting validator treats 'length' as authoritative truncation.
+            'finish_reason':     getattr(choice, 'finish_reason', None),
         }
     return text
 

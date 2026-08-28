@@ -1,0 +1,97 @@
+id: 004_partnership_deed
+
+# Scored 7/10. Reviewer findings this fixture encodes:
+#   - the expressly instructed 50:30:20 profit/loss ratio was omitted entirely
+#     and its omission was never flagged  (defect #3b)
+#   - the document ended mid-sentence: "The partners shall sign below in the
+#     presence of the"  -- max_tokens=4000 truncation  (defect #3a)
+#   - death and insolvency of a partner not addressed despite being required
+#   - "no partner shall be liable for the acts of another partner unless such
+#     acts were authorized" -- contradicts mutual agency under the 1932 Act
+#   - dissolution distributing assets by capital contribution alone, conflicting
+#     with the agreed profit/loss ratio and the statutory settlement order
+#   - the prompt asked it to identify assumptions and flag unenforceable
+#     provisions. It did neither.
+
+prompt: |
+  Draft a Partnership Deed under the Indian Partnership Act, 1932 for Mehta Sen
+  & Associates, a business consultancy and corporate compliance firm based in
+  Kolkata, West Bengal.
+
+  Partners:
+  - Aarav Mehta - Capital: Rs 10 lakh
+  - Rohan Sen - Capital: Rs 6 lakh
+  - Priya Kapoor - Capital: Rs 4 lakh
+  Profit/Loss Ratio: 50:30:20 respectively.
+
+  The deed should cover:
+  - Firm name, business, registered/principal office and commencement.
+  - Capital, drawings, remuneration and interest.
+  - Management, authority and duties of partners.
+  - Bank accounts and books of account.
+  - Admission, retirement, death, insolvency and expulsion of partners.
+  - Transfer of partnership interest and introduction of new partners.
+  - Confidentiality and non-compete obligations.
+  - Indemnity and partner liability.
+  - Dispute resolution through arbitration.
+  - Dissolution and settlement of accounts.
+  - Amendment, notices and governing law.
+  - Execution and witness clauses.
+
+  Instructions: Identify material assumptions or missing information before
+  drafting; use placeholders rather than inventing facts; ensure consistency
+  with the Indian Partnership Act, 1932; and flag any legally problematic or
+  unenforceable provisions.
+
+expect:
+  doc_type: partnership_deed
+  branch: commercial
+
+  must_contain:
+    - "Indian Partnership Act"
+    - "IN WITNESS WHEREOF"
+    - "arbitration"
+
+  must_contain_section_names:
+    - "CAPITAL"
+    - "PROFIT"
+    - "DEATH"
+    - "DISSOLUTION"
+    - "EXECUTION"
+
+  must_not_contain:
+    - "TITLE OF THE SUIT"
+
+  # Reviewer defect 5: "Death & Insolvency Not Addressed: Despite being
+  # required, the deed contains no substantive mechanism for death or
+  # insolvency of a partner, including settlement of the outgoing partner's
+  # interest." A deed missing these cannot govern the events most likely to
+  # break the firm.
+  must_contain_clauses:
+    - ["insolvency", "insolvent", "adjudicated insolvent"]
+    - ["death of a partner", "death of any partner", "in the event of the death"]
+    - ["legal heirs", "legal representatives", "outgoing partner"]
+
+  forbid_penal_statutes: true
+
+  must_not_match:
+    # The mutual-agency error: a partner IS liable for another partner's acts
+    # done in the ordinary course of the firm's business.
+    - "(?i)no\\s+partner\\s+shall\\s+be\\s+liable\\s+for\\s+the\\s+acts\\s+of\\s+another"
+
+  # The headline omission. This literal must appear in the deed, or its absence
+  # must be flagged in drafting_notes. Silence fails.
+  literals_from_prompt:
+    - "50:30:20"
+
+  min_sections: 12
+
+  # The prompt asked for both in terms.
+  require_assumptions: true
+  require_drafting_notes: true
+
+notes: |
+  This is the truncation fixture. Completeness scoring must fail hard on a
+  dangling final clause, which is what `detect_truncation` catches. It is also
+  the cleanest test of `find_dropped_literals`: 50:30:20 is unambiguous enough
+  to assert deterministically, unlike money amounts.

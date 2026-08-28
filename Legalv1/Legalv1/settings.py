@@ -182,6 +182,19 @@ OPENROUTER_TALKDOC_GENERAL_MODEL  = os.getenv('OPENROUTER_TALKDOC_GENERAL_MODEL'
 OPENROUTER_UTILS_MODEL            = os.getenv('OPENROUTER_UTILS_MODEL',            'openai/gpt-4o-mini')
 OPENROUTER_CREATE_DRAFTS_MODEL    = os.getenv('OPENROUTER_CREATE_DRAFTS_MODEL',    'openai/gpt-4o')
 
+# Generate drafts on a Celery worker instead of inside the HTTP request.
+#
+# Off by default. A Sonnet-5 draft of an 8-10k-token instrument takes 44-177s
+# measured, plus up to one validator correction turn, which pins a gunicorn
+# worker for minutes while the user watches a blocking overlay. With this on,
+# `initial_request` returns a session in 'generating' immediately and the
+# workspace polls `get_draft_sections` until it reaches a terminal status.
+#
+# Requires a running Celery worker on the default queue. If the broker is
+# unreachable the enqueue fails and the request path falls back to generating
+# synchronously, so turning this on cannot take drafting offline.
+DRAFT_ASYNC_ENABLED = os.getenv('DRAFT_ASYNC_ENABLED', '0').strip().lower() in ('1', 'true', 'yes')
+
 # Mamla-Brain tier models (used by mamla_brain app — pre-configured)
 BRAIN_T1_MODEL = os.getenv('BRAIN_T1_MODEL', 'meta-llama/llama-3.1-8b-instruct')
 BRAIN_T2_MODEL = os.getenv('BRAIN_T2_MODEL', 'anthropic/claude-3-haiku')

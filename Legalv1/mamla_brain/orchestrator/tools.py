@@ -174,7 +174,14 @@ def run_draft_generate(session, text, history, tier_cfg, use_placeholders=False)
     owner_id = session['owner_id']
     engine = CreateupdatefetchAIdrafts(owner_id)
     try:
-        draft_session_id = engine.start_new_session(query, draft_for, location={}, language=session.get('language') or 'English')
+        # `draft_for` on the chat path is a document-type LABEL ('Rent Agreement'),
+        # unlike the drafting workspace where the same argument carries case/client
+        # association. Pass it as the type hint too, so chat gets the playbook.
+        draft_session_id = engine.start_new_session(
+            query, draft_for, location={},
+            language=session.get('language') or 'English',
+            document_type=draft_for,
+        )
     except Exception as exc:
         logger.error('[tools.draft] start_new_session failed: %s', exc)
         draft_session_id = ''

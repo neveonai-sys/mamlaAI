@@ -4,12 +4,13 @@ import os
 import json
 import io
 import datetime
-from ai_draft.routes.creatupdateAIdrafts import CreateupdatefetchAIdrafts
+from ai_draft.routes.creatupdateAIdrafts import CreateupdatefetchAIdrafts, draft_cache_key
 from ai_draft.tasks import generate_draft_async, update_section_with_ai_async
 from django_ratelimit.decorators import ratelimit
 from django.core.files.base import ContentFile
 from supabase_required import supabase_required
 from django.core.cache import cache
+from django.conf import settings
 import traceback
 import logging
 from core.analytics import record_usage_event
@@ -93,20 +94,57 @@ def initiate_drafting_session(request):
         draft_for = data.get('draft_for', {})
 
     obj = CreateupdatefetchAIdrafts(user_id)
-    session_id = obj.start_new_session(
-        data.get('user_query'),
-        draft_for,  # Use the validated draft_for
-        data.get('location', {}),
-        data.get('language', 'English')
-    )
+    user_query = data.get('user_query')
+    location = data.get('location', {})
+    language = data.get('language', 'English')
+    # The drafting workspace has been sending this on every request
+    # (DraftingWorkspace.jsx:972) and the backend has never read it.
+    document_type = data.get('document_type')
+
+    # Generation takes 44-177s measured. Synchronously, that pins a gunicorn
+    # worker and holds the user behind a blocking overlay for the whole time.
+    # When the flag is on we create the session, hand it back as 'generating',
+    # and let a worker fill it in while the workspace polls.
+    run_async = getattr(settings, 'DRAFT_ASYNC_ENABLED', False)
+    status = 'generating' if run_async else 'completed'
+
+    if run_async:
+        session_id = obj.start_new_session_without_ai(
+            user_query, draft_for, location, language, document_type=document_type,
+        )
+    else:
+        session_id = obj.start_new_session(
+            user_query, draft_for, location, language, document_type=document_type,
+        )
 
     if not session_id:
         logger.error('[initiate_drafting_session] session creation failed — insert_one returned empty id')
         return JsonResponse({'error': 'Failed to create draft session. Please try again.'}, status=500)
 
-    # fetch the freshly‑generated sections
+    if run_async:
+        try:
+            generate_draft_async.delay(
+                str(session_id), user_query, location, language,
+                document_type=document_type, user_id=user_id,
+            )
+        except Exception:
+            # An unreachable broker must not take drafting offline. Fall back to
+            # the synchronous path and answer as though the flag were off, so a
+            # misconfigured worker degrades latency rather than the feature.
+            logger.error(
+                '[initiate_drafting_session] enqueue failed for %s, generating '
+                'synchronously: %s', session_id, traceback.format_exc(),
+            )
+            obj.generate_draft(session_id, user_query, location, language)
+            run_async, status = False, 'completed'
+
+    # In async mode this is empty by construction — the worker has not run yet.
     draft_sections = obj.retrieve_sections_of_draft(session_id).get('mssg', [])
     draft_name = f"Untitled {datetime.datetime.now().strftime('%Y‑%m‑d %H:%M')}"
+    # The saved-draft row is what the sidebar lists, so it is created now in
+    # both modes — otherwise a draft would be missing from the user's list for
+    # as long as it takes to generate. In async mode it starts empty and the
+    # worker backfills its sections on completion.
     saved_draft = obj.auto_save_initial_draft(session_id, draft_name, draft_sections)
     quota = _finalize_draft_quota(request, 'ai_draft_generation', decision)
 
@@ -118,6 +156,8 @@ def initiate_drafting_session(request):
         'last_updated_on': saved_draft.get('last_updated_on'),
         'draft_for' : draft_for,
         'draft_sections': draft_sections,
+        # The workspace polls while this reads 'generating'.
+        'status': status,
         'quota': quota,
     })
 
@@ -170,7 +210,7 @@ def update_section(request):
     logger.info(f"[update_section] Section {section_id} updated successfully.")
 
     if chk.get('mssg'):
-        cache.delete(f"draft_sections:{session_id}")
+        cache.delete(draft_cache_key(session_id))
         return JsonResponse({'message': 'Section updated'})
     else:
         return JsonResponse({'error': 'Section not found'}, status=404)
@@ -194,7 +234,7 @@ def delete_section(request):
     chk = obj.delete_specific_section_of_the_draft(session_id, section_id)
 
     if chk.get('mssg'):
-        cache.delete(f"draft_sections:{session_id}")
+        cache.delete(draft_cache_key(session_id))
         return JsonResponse({'message': 'Section deleted'})
     else:
         return JsonResponse({'error': 'Section not found or already deleted'}, status=404)
@@ -300,7 +340,7 @@ def add_section(request):
     obj = CreateupdatefetchAIdrafts(user_id)
     chk = obj.add_new_section_in_existing_draft(session_id, section_name, content)
     if chk.get('mssg'):
-        cache.delete(f"draft_sections:{session_id}")
+        cache.delete(draft_cache_key(session_id))
         return JsonResponse({'message': 'Section added', 'section': chk.get('mssg')})
     else:
         return JsonResponse({'error': 'Failed to add section'}, status=500)
@@ -347,7 +387,7 @@ def update_section_order(request):
     obj = CreateupdatefetchAIdrafts(user_id)
     chk = obj.adjust_section_position_in_draft(session_id,draft_sections)
     if chk.get('mssg'):
-        cache.delete(f"draft_sections:{session_id}")
+        cache.delete(draft_cache_key(session_id))
         return JsonResponse({'message': 'Section order updated'})
     else:
         return JsonResponse({'error': 'Failed to add section'}, status=500)
@@ -385,37 +425,51 @@ def get_draft_sections(request):
     supa_user = request.supabase_user
     user_id = supa_user.get('user_id')
     
-    # Try cache first for completed drafts
-    cache_key = f"draft_sections:{session_id}"
-    cached_sections = cache.get(cache_key)
-    
-    if cached_sections:
-        logger.info(f"[get_draft_sections] Returning cached sections for {session_id}")
-        return JsonResponse({
-            'draft_sections': cached_sections,
-            'ai_suggested_update_count': 0,
-            'status': 'completed',
-            'cached': True
-        })
-    
+    # Cache the WHOLE payload, not just the sections.
+    #
+    # The old cache stored sections alone and then hard-coded
+    # `status: 'completed'` and `ai_suggested_update_count: 0` on every hit,
+    # dropping `conversation_history` entirely. A draft that was still
+    # generating — or that had failed — read back as completed the moment
+    # anything warmed the cache, which is one of the ways the workspace ended up
+    # showing an empty "finished" draft. The key is versioned so values written
+    # by the old shape expire out rather than being misread.
+    cache_key = draft_cache_key(session_id)
+    cached = cache.get(cache_key)
+
+    if cached:
+        logger.info(f"[get_draft_sections] Returning cached payload for {session_id}")
+        return JsonResponse({**cached, 'cached': True})
+
     obj = CreateupdatefetchAIdrafts(user_id)
     chk = obj.retrieve_sections_of_draft(session_id)
-    
-    if chk.get('mssg'):
-        sections = chk.get('mssg')
-        # Cache completed drafts
-        if sections:
-            cache.set(cache_key, sections, timeout=3600)  # 1 hour
-            
-        return JsonResponse({
-            'draft_sections': sections,
-            'ai_suggested_update_count': chk.get('ai_suggested_update_count'),
-            'status': chk.get('status', 'completed'),
-            'conversation_history': chk.get('conversation_history', []),
-            'cached': False
-        })
-    else:
+
+    if chk.get('status') == 'not_found':
         return JsonResponse({'error': 'Invalid session ID', 'status': 'error'}, status=400)
+
+    sections = chk.get('mssg')
+    if sections is False:
+        return JsonResponse({'error': 'Invalid session ID', 'status': 'error'}, status=400)
+
+    status = chk.get('status', 'completed')
+    payload = {
+        'draft_sections': sections or [],
+        'ai_suggested_update_count': chk.get('ai_suggested_update_count', 0),
+        'status': status,
+        'conversation_history': chk.get('conversation_history', []),
+        # Advocate's Notes — advisory only, never part of the document served
+        # or filed, and excluded from every export path by construction.
+        'assumptions': chk.get('assumptions', []),
+        'drafting_notes': chk.get('drafting_notes', []),
+    }
+
+    # Only a finished draft is cacheable. Caching a 'generating' session is what
+    # froze the spinner: the poll that would have seen 'completed' got the stale
+    # 'generating' back for the next hour.
+    if sections and status == 'completed':
+        cache.set(cache_key, payload, timeout=3600)  # 1 hour
+
+    return JsonResponse({**payload, 'cached': False})
 
 
 @api_view(['GET'])
@@ -928,10 +982,14 @@ def section_edit(request):
     if not sections or section_index >= len(sections):
         return JsonResponse({'error': 'Section not found'}, status=404)
     sec = sections[section_index]
+    # `section_title` is a key no section has ever had — the field is
+    # `section_name`. Every call through this endpoint wrote None over the
+    # section's name.
     chk = obj.update_specific_section_of_the_draft(
-        session_id, sec.get('section_id'), sec.get('section_title'), new_content
+        session_id, sec.get('section_id'), sec.get('section_name'), new_content
     )
     if chk.get('mssg'):
+        cache.delete(draft_cache_key(session_id))
         return JsonResponse({'message': 'Section updated'})
     return JsonResponse({'error': 'Failed to update section'}, status=500)
 
@@ -982,7 +1040,7 @@ def refine_section(request):
     # invalidate the cached sections response so the next get_draft_sections read
     # picks up the fresh conversation_history instead of serving a stale cached
     # payload that predates this exchange (cache never includes conversation_history).
-    cache.delete(f"draft_sections:{session_id}")
+    cache.delete(draft_cache_key(session_id))
     ai_update_count = obj.update_ai_suggested_content_count(session_id)
     wallet_credits_charged = 0
     message_key = ''

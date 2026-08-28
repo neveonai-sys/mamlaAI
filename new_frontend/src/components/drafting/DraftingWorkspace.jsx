@@ -126,6 +126,118 @@ function EditorToolbar() {
   );
 }
 
+// ─── Advocate's Notes ────────────────────────────────────────────────────────
+// The assumptions the drafter made and the legal or drafting issues it spotted.
+//
+// This panel is what the benchmark's reviewers found missing: three of the four
+// prompts expressly asked the model to "state any assumptions made" and
+// "identify any legal or drafting issues", and it produced neither, because
+// nothing in the pipeline had anywhere to put them.
+//
+// Rendered OUTSIDE the drag-and-drop list on purpose. These are notes to the
+// instructing advocate, not part of the document to be served or filed — they
+// must never be reorderable with the sections, and they must never reach the
+// DOCX/PDF export, which iterates `sections` alone.
+const NOTE_SEVERITY_STYLES = {
+  high: 'bg-red-50 text-red-700 border-red-200',
+  medium: 'bg-amber-50 text-amber-700 border-amber-200',
+  low: 'bg-slate-50 text-slate-600 border-slate-200',
+};
+
+function AdvocateNotesCard({ assumptions, notes, open, onToggle }) {
+  const assumptionList = Array.isArray(assumptions) ? assumptions : [];
+  const noteList = Array.isArray(notes) ? notes : [];
+  const total = assumptionList.length + noteList.length;
+  if (total === 0) return null;
+
+  return (
+    <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50/60 print:hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="material-symbols-outlined text-amber-600 text-xl">gavel</span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-amber-900">Advocate&rsquo;s Notes</span>
+            <span className="block text-xs text-amber-700">
+              {assumptionList.length} assumption{assumptionList.length === 1 ? '' : 's'}
+              {' · '}
+              {noteList.length} issue{noteList.length === 1 ? '' : 's'} spotted
+              {' · '}not part of the document
+            </span>
+          </span>
+        </span>
+        <span className="material-symbols-outlined text-amber-700">
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+
+      {open && (
+        <div className="space-y-5 border-t border-amber-200 px-5 py-4">
+          {assumptionList.length > 0 && (
+            <div>
+              <h4 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                Assumptions made
+              </h4>
+              <ol className="space-y-2">
+                {assumptionList.map((a, i) => (
+                  <li key={i} className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm">
+                    <p className="font-medium text-slate-800">{a?.assumption}</p>
+                    {a?.why && <p className="mt-1 text-xs text-slate-500">{a.why}</p>}
+                    {a?.confirm_with_client && (
+                      <span className="mt-2 inline-block rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                        Confirm with client
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {noteList.length > 0 && (
+            <div>
+              <h4 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                Issues spotted
+              </h4>
+              <ol className="space-y-2">
+                {noteList.map((n, i) => (
+                  <li key={i} className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-slate-800">{n?.issue}</p>
+                      {n?.severity && (
+                        <span
+                          className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                            NOTE_SEVERITY_STYLES[String(n.severity).toLowerCase()] ||
+                            NOTE_SEVERITY_STYLES.low
+                          }`}
+                        >
+                          {n.severity}
+                        </span>
+                      )}
+                    </div>
+                    {n?.recommendation && (
+                      <p className="mt-1 text-xs text-slate-500">{n.recommendation}</p>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          <p className="text-[11px] italic text-amber-700">
+            These notes are for the instructing advocate. They are excluded from every
+            download and export, and are not served or filed with the document.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ─── Left sidebar with doc outline ───────────────────────────────────────────
 function DraftSidebar({ sections, activeSectionIdx, onSelectSection }) {
   return (
@@ -501,6 +613,15 @@ export default function DraftingWorkspace() {
   // Full AI conversation log for this draft (all sections), persisted server-side
   // in `conversation_history` — restored on load so users can see past AI-assisted changes.
   const [conversationHistory, setConversationHistory] = useState([]);
+  // Advocate's Notes — assumptions the drafter made and legal/drafting issues it
+  // spotted. Advisory only: deliberately held outside `sections` so they can
+  // never be dragged into the document, exported, or reverted with it.
+  const [draftAssumptions, setDraftAssumptions] = useState([]);
+  const [draftNotes, setDraftNotes] = useState([]);
+  const [advocateNotesOpen, setAdvocateNotesOpen] = useState(false);
+  // 'completed' | 'generating' | 'failed' — a draft that failed used to be
+  // indistinguishable from one still generating, so the spinner never stopped.
+  const [draftStatus, setDraftStatus] = useState('completed');
   const [aiLoading, setAiLoading] = useState(false);
   const [draftTitle, setDraftTitle] = useState(() => buildTimestampedDraftName());
   const [saveStatus, setSaveStatus] = useState(''); // 'saving' | 'saved' | 'error'
@@ -751,19 +872,79 @@ export default function DraftingWorkspace() {
     }
   }
 
+  // Apply a get_draft_sections payload. Every fetch site goes through this so
+  // the advisories and the status cannot be picked up by some call paths and
+  // silently dropped by others.
+  function applyDraftPayload(data) {
+    const nextSections = data?.draft_sections ?? [];
+    setSections(nextSections);
+    setAiSuggestionCount(data?.ai_suggested_update_count ?? 0);
+    setDraftAssumptions(Array.isArray(data?.assumptions) ? data.assumptions : []);
+    setDraftNotes(Array.isArray(data?.drafting_notes) ? data.drafting_notes : []);
+    setDraftStatus(data?.status ?? 'completed');
+    return nextSections;
+  }
+
   async function refreshDraftSections(targetSessionId = sessionId) {
     if (!targetSessionId) return null;
     const response = await apiClient.get('aidrafts/get_draft_sections', {
       params: { session_id: targetSessionId },
     });
-    const nextSections = response.data?.draft_sections ?? [];
-    setSections(nextSections);
-    setAiSuggestionCount(response.data?.ai_suggested_update_count ?? 0);
+    const nextSections = applyDraftPayload(response.data);
     setConversationHistory(withConversationIds(response.data?.conversation_history));
     setAppliedSuggestionIds(new Set());
     setSuggestionQuota(null);
     return nextSections;
   }
+
+  // ── Poll while a draft is generating on a worker ──
+  //
+  // With DRAFT_ASYNC_ENABLED off the backend generates inside the request and
+  // this never fires: the first payload already reads 'completed'. With it on,
+  // `initial_request` returns immediately with 'generating' and the sections
+  // arrive here instead of behind a multi-minute blocking overlay.
+  //
+  // Bounded deliberately. A worker that has died leaves the session on
+  // 'generating' forever, and a spinner that never resolves is the exact defect
+  // Phase 2 removed from the failure path — so after POLL_LIMIT_MS we stop and
+  // show the same retry card a failed draft gets.
+  useEffect(() => {
+    if (!sessionId || draftStatus !== 'generating') return undefined;
+
+    const POLL_INTERVAL_MS = 3000;
+    const POLL_LIMIT_MS = 6 * 60 * 1000;   // generation measured at 44-177s
+    const startedAt = Date.now();
+    let cancelled = false;
+    let timer;
+
+    async function poll() {
+      if (cancelled) return;
+      try {
+        const response = await apiClient.get('aidrafts/get_draft_sections', {
+          params: { session_id: sessionId },
+        });
+        if (cancelled) return;
+        const status = response.data?.status;
+        if (status === 'completed' || status === 'failed') {
+          applyDraftPayload(response.data);
+          setConversationHistory(withConversationIds(response.data?.conversation_history));
+          return;                            // terminal — stop polling
+        }
+      } catch {
+        // A transient error mid-generation is not a failed draft. Keep polling
+        // until the time limit; the limit is what ends a hopeless wait.
+      }
+      if (cancelled) return;
+      if (Date.now() - startedAt > POLL_LIMIT_MS) {
+        setDraftStatus('failed');
+        return;
+      }
+      timer = setTimeout(poll, POLL_INTERVAL_MS);
+    }
+
+    timer = setTimeout(poll, POLL_INTERVAL_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [sessionId, draftStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchDraftFor(targetSessionId = sessionId) {
     if (!targetSessionId) return;
@@ -916,8 +1097,7 @@ export default function DraftingWorkspace() {
   useEffect(() => {
     if (id) {
       apiClient.get('aidrafts/get_draft_sections', { params: { session_id: id } }).then((r) => {
-        setSections(r.data?.draft_sections ?? []);
-        setAiSuggestionCount(r.data?.ai_suggested_update_count ?? 0);
+        applyDraftPayload(r.data);
         setConversationHistory(withConversationIds(r.data?.conversation_history));
         setAppliedSuggestionIds(new Set());
         // NOTE: get_draft_sections never returns a `title` field — the real display
@@ -1016,11 +1196,18 @@ export default function DraftingWorkspace() {
       const newSessionId = res.data?.session_id || res.data?.id;
       if (!newSessionId) throw new Error('No session ID returned');
 
-      // Fetch the sections
-      const sectRes = await apiClient.get('aidrafts/get_draft_sections', { params: { session_id: newSessionId } });
-      setSections(sectRes.data?.draft_sections ?? []);
-      setAiSuggestionCount(sectRes.data?.ai_suggested_update_count ?? 0);
-      setConversationHistory(withConversationIds(sectRes.data?.conversation_history));
+      // With async generation on, the session comes back as 'generating' with no
+      // sections yet — take that status straight from the create response and
+      // let the polling effect pick it up, rather than issuing a fetch that
+      // races the enqueue and can only report the same thing.
+      if (res.data?.status === 'generating') {
+        applyDraftPayload({ draft_sections: [], status: 'generating' });
+        setConversationHistory([]);
+      } else {
+        const sectRes = await apiClient.get('aidrafts/get_draft_sections', { params: { session_id: newSessionId } });
+        applyDraftPayload(sectRes.data);
+        setConversationHistory(withConversationIds(sectRes.data?.conversation_history));
+      }
       setAppliedSuggestionIds(new Set());
       setSessionId(newSessionId);
       setDraftTitle(resolveDraftTitle(res.data?.draft_name, res.data?.title));
@@ -1110,8 +1297,7 @@ export default function DraftingWorkspace() {
       const newSId = res.data?.session_id || res.data?.id;
       if (!newSId) throw new Error('No session ID returned');
       const sectRes = await apiClient.get('aidrafts/get_draft_sections', { params: { session_id: newSId } });
-      setSections(sectRes.data?.draft_sections ?? []);
-      setAiSuggestionCount(sectRes.data?.ai_suggested_update_count ?? 0);
+      applyDraftPayload(sectRes.data);
       setConversationHistory(withConversationIds(sectRes.data?.conversation_history));
       setAppliedSuggestionIds(new Set());
       setSessionId(newSId);
@@ -1498,9 +1684,9 @@ export default function DraftingWorkspace() {
                 {docCategories.length > 0 && (
                   <div>
                     <label className="block text-sm font-semibold mb-3 text-slate-700">
-                      Document Category
+                      Document Type
                     </label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-2">
                       <button
                         type="button"
                         onClick={() => setSelectedDocType('')}
@@ -1512,19 +1698,30 @@ export default function DraftingWorkspace() {
                       >
                         Auto-detect
                       </button>
-                      {docCategories.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setSelectedDocType(cat)}
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
-                            selectedDocType === cat
-                              ? 'bg-primary text-ivory border-primary'
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-primary/50'
-                          }`}
-                        >
-                          {cat}
-                        </button>
+                    </div>
+                    <div className="space-y-2">
+                      {docCategories.map(({ category, types }) => (
+                        <div key={category}>
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                            {category}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {types.map((docType) => (
+                              <button
+                                key={docType.value}
+                                type="button"
+                                onClick={() => setSelectedDocType(docType.value)}
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
+                                  selectedDocType === docType.value
+                                    ? 'bg-primary text-ivory border-primary'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-primary/50'
+                                }`}
+                              >
+                                {docType.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -2169,13 +2366,53 @@ export default function DraftingWorkspace() {
                     )}
                   </Droppable>
                 </DragDropContext>
+              ) : draftStatus === 'failed' ? (
+                // Previously this branch did not exist: a draft that failed to
+                // generate showed the same spinner as one still running, forever.
+                <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+                  <span className="material-symbols-outlined text-4xl text-amber-500">
+                    error_outline
+                  </span>
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    This draft could not be generated.
+                  </p>
+                  <p className="mt-1 max-w-md text-sm text-slate-500">
+                    Nothing has been saved over your instructions. Try generating again,
+                    or start a new draft with more detail about the document you need.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => refreshDraftSections().catch(() => {})}
+                    className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-ivory hover:opacity-90"
+                  >
+                    Check again
+                  </button>
+                </div>
               ) : (
-                <div className="flex items-center justify-center h-64">
+                // Generation runs 44-177s on a worker, so this is a wait the
+                // user needs narrated — a bare spinner for three minutes reads
+                // as a hang.
+                <div className="flex flex-col items-center justify-center h-64 text-center px-6">
                   <span className="material-symbols-outlined text-primary text-4xl animate-spin">
                     progress_activity
                   </span>
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    Drafting your document…
+                  </p>
+                  <p className="mt-1 max-w-md text-sm text-slate-500">
+                    A full instrument takes a minute or two to draft properly. You can
+                    leave this page — the draft is saved to your drafts list and will be
+                    here when you come back.
+                  </p>
                 </div>
               )}
+
+              <AdvocateNotesCard
+                assumptions={draftAssumptions}
+                notes={draftNotes}
+                open={advocateNotesOpen}
+                onToggle={() => setAdvocateNotesOpen((v) => !v)}
+              />
             </div>
           </div>
         </main>

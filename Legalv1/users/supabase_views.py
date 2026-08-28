@@ -12,6 +12,7 @@ from users.routes.session_manager import SessionManager
 from rest_framework.decorators import api_view
 from users.supabase_admin import admin_update_password
 from users.routes.usermetadata import Handleusermetadata
+from ai_draft.drafting import playbooks
 from core.email_templates import EmailTemplates
 from core.entitlements import get_entitlement_summary, _wallet_tx_collection
 
@@ -636,9 +637,14 @@ def filter_cases_clients_with_details(request):
     response = {
         'caseIds_without_client': cases_without_client,
         'clientIds_without_case': clients_without_case,
-        'case_client_map': case_client_map_with_details
+        'case_client_map': case_client_map_with_details,
+        # The drafting workspace's document-type picker gates on this key
+        # (DraftingWorkspace.jsx:1426) and has therefore never rendered — the
+        # backend has never returned it. It is what lets a user state the
+        # document type explicitly instead of relying on classification.
+        'document_categories': playbooks.ui_categories(),
     }
-    
+
     return JsonResponse(response)
 
 @api_view(['POST'])

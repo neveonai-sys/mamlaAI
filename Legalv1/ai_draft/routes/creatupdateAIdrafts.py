@@ -2,6 +2,17 @@ from bson import ObjectId
 from core.llm_client import chat_complete
 from talkdoc.tasks import _extract_image_text
 from ai_draft.citation_grounding import build_grounding_block
+from ai_draft.drafting.classify import DraftContext, classify
+from ai_draft.drafting.prompt_builder import (
+    build_draft_system_prompt,
+    build_location_string,
+    target_max_tokens,
+)
+from ai_draft.drafting.draft_validator import (
+    build_correction_message,
+    parse_draft_payload,
+    validate,
+)
 from users.routes.encryption import encrypt_field, decrypt_field
 
 import os
@@ -16,6 +27,77 @@ import json
 import traceback
 import logging
 logger = logging.getLogger('django')
+
+
+#: Output schema for drafting calls. The advisory object gives assumptions and
+#: drafting notes somewhere to live — defect #4 is unsatisfiable in the legacy
+#: bare array, and Phase 1 showed the model responding to that absence by
+#: writing them as prose above the JSON, which lost the entire draft.
+#: `parse_draft_payload` accepts both shapes, so this is safe to flip either way.
+DRAFT_SCHEMA = 'advisory'
+
+#: One correction turn, never more. Worst case is two calls per generation.
+MAX_CORRECTION_TURNS = 1
+
+#: Rank a DraftResult so a correction turn that came back worse is discarded.
+#: Ordering: usable beats fatal; fewer errors beats more; then more sections.
+def _result_rank(result):
+    if result is None:
+        return (-1, 0, 0)
+    if result.fatal:
+        return (0, 0, 0)
+    return (1, -len(result.errors), len(result.sections))
+
+
+#: Cache key for the draft read path.
+#:
+#: Versioned, and owned here rather than repeated as an f-string at each of the
+#: seven call sites that read or invalidate it. The `v2` payload is the whole
+#: response — sections, status, history and advisories — because the `v1` shape
+#: cached sections alone and reconstructed the rest with hard-coded values,
+#: which made a still-generating draft read back as completed.
+def draft_cache_key(session_id) -> str:
+    return f'draft_payload:v2:{session_id}'
+
+
+#: Free-text keys inside an advisory record. Everything else in the record
+#: (severity, confirm_with_client) is an enum or a bool and carries no client
+#: facts, so it stays queryable in plaintext.
+_ADVISORY_TEXT_KEYS = ('assumption', 'why', 'issue', 'recommendation')
+
+
+def _encrypt_advisories(items):
+    """
+    Fernet-wrap the free text of assumptions / drafting notes.
+
+    A parallel of `_encrypt_sections` rather than a reuse of it: advisories have
+    a different shape, and running them through the section helper would make
+    them look like sections to anything that later iterates the collection.
+    """
+    out = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        rec = dict(item)
+        for key in _ADVISORY_TEXT_KEYS:
+            if isinstance(rec.get(key), str) and rec[key]:
+                rec[key] = encrypt_field(rec[key])
+        out.append(rec)
+    return out
+
+
+def _decrypt_advisories(items):
+    """Inverse of `_encrypt_advisories` — safe on already-plaintext data."""
+    out = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        rec = dict(item)
+        for key in _ADVISORY_TEXT_KEYS:
+            if isinstance(rec.get(key), str) and rec[key]:
+                rec[key] = decrypt_field(rec[key])
+        out.append(rec)
+    return out
 
 
 def _encrypt_sections(sections):
@@ -78,11 +160,25 @@ class CreateupdatefetchAIdrafts:
             logger.error(f" error at ---- get_total_drafts_count ---> {traceback.format_exc()}")
             return 0
 
-    def start_new_session(self, user_query, draft_for, location={}, language='English'):
+    def start_new_session(self, user_query, draft_for, location={}, language='English',
+                          *, document_type=None):
         """Create session and generate draft synchronously (legacy method - use async version)"""
         try:
             logger.info(f"[start_session] Received user_query: {user_query}")
             time_now = datetime.datetime.now(datetime.timezone.utc)
+
+            # Classify once, here, and persist it. Every later operation on this
+            # session — refine, section edit, validation — reads the stored
+            # context rather than re-deriving it, so a refine cannot end up on a
+            # different playbook than the draft it is revising.
+            #
+            # `draft_for` is NOT passed as a type hint: it is case/client
+            # association, and `normalize_type_hint` refuses that shape anyway.
+            ctx = classify(user_query, document_type)
+            logger.info(
+                "[start_session] classified as %s (branch=%s, via %s)",
+                ctx.doc_type, ctx.branch, ctx.source,
+            )
 
             # Create a new session
             session = {
@@ -92,6 +188,7 @@ class CreateupdatefetchAIdrafts:
                 'ai_suggested_update_count': 0,
                 'location': location,
                 'language': language,
+                'draft_context': ctx.to_dict(),
                 'draft_sections': [],
                 'conversation_history': [],
                 'created_on': time_now,
@@ -99,18 +196,24 @@ class CreateupdatefetchAIdrafts:
                 'status': 'generating'
             }
             session_id = self.get_mongo_client_db().insert_one(session).inserted_id
-            self.generate_draft(session_id, user_query, location, language)
+            self.generate_draft(session_id, user_query, location, language, ctx=ctx)
             logger.info(f"[start_session] New session created with session_id: {session_id}")
             return session_id
         except Exception as err:
             logger.error(f" error at ---- start_new_session ---> {traceback.format_exc()}")
             return ''
 
-    def start_new_session_without_ai(self, user_query, draft_for, location={}, language='English'):
+    def start_new_session_without_ai(self, user_query, draft_for, location={}, language='English',
+                                     *, document_type=None):
         """Create session WITHOUT generating draft (for async processing)"""
         try:
             logger.info(f"[start_session_async] Received user_query: {user_query}")
             time_now = datetime.datetime.now(datetime.timezone.utc)
+
+            # Classify here too, so the Celery worker inherits the same context
+            # rather than re-classifying and possibly disagreeing with the
+            # session the user is already looking at.
+            ctx = classify(user_query, document_type)
 
             session = {
                 'user_id': self.user_id,
@@ -119,6 +222,7 @@ class CreateupdatefetchAIdrafts:
                 'ai_suggested_update_count': 0,
                 'location': location,
                 'language': language,
+                'draft_context': ctx.to_dict(),
                 'draft_sections': [],
                 'conversation_history': [],
                 'created_on': time_now,
@@ -154,6 +258,54 @@ class CreateupdatefetchAIdrafts:
             'saved_at': now,
             'last_updated_on': now,
         }
+
+    def backfill_initial_saved_draft(self, session_id):
+        """
+        Copy the session's generated sections into its first saved_draft.
+
+        Async generation creates the saved_draft row up front, while the
+        sections are still empty, so the draft appears in the user's list the
+        moment they ask for it. Once the worker finishes, that snapshot has to
+        catch up — otherwise opening the draft from the sidebar (which reads the
+        saved snapshot, not the live session) shows an empty document even
+        though generation succeeded.
+
+        Only the FIRST saved_draft is touched, and only while it is still empty:
+        a user who has since saved their own revision must never have it
+        overwritten by the generator.
+        """
+        try:
+            session = self.get_mongo_client_db().find_one(
+                {'_id': ObjectId(session_id)},
+                {'saved_drafts': 1, 'draft_sections': 1},
+            )
+            if not session:
+                return False
+
+            saved = session.get('saved_drafts') or []
+            if not saved or saved[0].get('sections'):
+                return False        # nothing to backfill, or already populated
+
+            sections = session.get('draft_sections') or []
+            if not sections:
+                return False
+
+            now = datetime.datetime.now(datetime.timezone.utc)
+            # `draft_sections` is already encrypted at rest and saved_drafts
+            # uses the same shape, so this is a copy, not a re-encryption.
+            self.get_mongo_client_db().update_one(
+                {'_id': ObjectId(session_id),
+                 'saved_drafts.draft_id': saved[0].get('draft_id')},
+                {'$set': {'saved_drafts.$.sections': sections,
+                          'saved_drafts.$.saved_at': now,
+                          'last_updated_on': now}},
+            )
+            return True
+        except Exception:
+            # A failed backfill must not fail the draft: the session itself has
+            # the sections, and the workspace reads those.
+            logger.error(f"[backfill_initial_saved_draft] {traceback.format_exc()}")
+            return False
 
 
     # def update_location_for_draft_creation(self, session_id, state, district):
@@ -213,115 +365,204 @@ class CreateupdatefetchAIdrafts:
             return None
 
 
-    def generate_draft(self, session_id, user_query, location, language):
+    def generate_draft(self, session_id, user_query, location, language, *, ctx=None):
         logger.info(f"[generate_draft] Generating draft for session_id: {session_id} ----location >>> {location}")
-        location_string = ''
-        if len(location):
-            if 'court' in location and 'district' in location and 'state' in location:
-                location_string =  f"""for court "{location.get('court')}" in the district "{location.get('district')}" of state "{location.get('state')}" """
-            elif 'district' in location and 'state' in location:
-                location_string =  f"""in the district "{location.get('district')}" of state "{location.get('state')}" """
-            elif 'state' in location:
-                location_string =  f"""for the state "{location.get('state')}" """
 
-        # Construct prompt
-        prompt = f"""
-You are a legal expert specializing in drafting legal documents as per Indian legal standards and the Indian constitution.
-Use the current 2023 codes where criminal law/procedure/evidence apply — Bharatiya Nyaya Sanhita 2023 (BNS, replaced IPC), Bharatiya Nagarik Suraksha Sanhita 2023 (BNSS, replaced CrPC), and Bharatiya Sakshya Adhiniyam 2023 (BSA, replaced the Evidence Act) — giving the old-code equivalent in parentheses on first mention. Never assert a section number, statute, or case citation you are unsure of; name the provision and mark the exact section "to be confirmed" rather than guessing.
-
-A user has requested: "{user_query}" {location_string}.
-
-Please generate a comprehensive draft **in {language}**, adhering to all relevant laws and regulations specific to this location.
-
-**Formatting Instructions:**
-
-- Output the draft in **JSON** format.
-- The JSON should be an array of sections.
-- Each section should be an object with two properties:
-  - `"section_name"`: The name of the section.
-  - `"content"`: The content of the section, including placeholders where specific user information is required (like names, dates, addresses) in ALL CAPS (e.g., `[YOUR FULL NAME]`, `[DATE OF BIRTH]`).
-- Each section content should be at least 70-80 words where possible, comprehensive and accurate to Indian law.
-- Return ONLY the JSON array. Do not include any explanatory text, markdown code fences, or commentary before or after the JSON.
-
-Example:
-
-[
-{{
-    "section_name": "TITLE OF THE SUIT",
-    "content": "Content of section I..."
-}},
-{{
-    "section_name": "PRELIMINARY STATEMENT",
-    "content": "Content of section II..."
-}}
-]"""
-
-        logger.info(f"[generate_draft] Prompt sent to LLM: {prompt}")
-
-        try:
-            draft_content = chat_complete(
-                messages=[{'role': 'user', 'content': prompt}],
-                app_scenario='ai_draft:generate',
-                temperature=0.3,  # Low temp → reliable JSON structure
-                max_tokens=4000,
+        # Classify inline when the caller did not, so no entry point can bypass
+        # the playbook by forgetting to pass a context.
+        if ctx is None:
+            ctx = classify(user_query)
+            logger.info(
+                "[generate_draft] no context supplied; classified as %s (branch=%s)",
+                ctx.doc_type, ctx.branch,
             )
-            logger.info(f"[generate_draft] Received draft_content from LLM: {draft_content}")
 
-        except Exception as e:
-            logger.error(f"[generate_draft] Error while calling ChatGPT API: {e}")
-            return
+        playbook = ctx.playbook
+        system_prompt = build_draft_system_prompt(
+            ctx,
+            language=language,
+            location=location,
+            # Notices have no precedent anywhere in draftdocs/, so their worked
+            # example is hand-authored on the playbook. Retrieval from the
+            # corpus lands in Phase 4 and will feed this same argument.
+            exemplar=playbook.inline_exemplar,
+            schema=DRAFT_SCHEMA,
+        )
+        max_tokens = target_max_tokens(ctx)
 
-        # Parse draft into sections
-        draft_sections = self.parse_draft_into_sections(draft_content)
-
-        logger.info(f"[generate_draft] Parsed draft_sections: {draft_sections}")
-
-        # Update session with draft sections
-        encrypted_sections = _encrypt_sections(draft_sections)
-        self.get_mongo_client_db().update_one(
-            {'_id': ObjectId(session_id)},
-            {'$set': {'draft_sections': encrypted_sections,
-                    'original_draft': encrypted_sections}}
+        # The prompt is static per document type; logging it on every generation
+        # buried the actual user facts in noise and leaked them at INFO.
+        logger.info(
+            "[generate_draft] doc_type=%s branch=%s max_tokens=%d prompt_chars=%d",
+            ctx.doc_type, ctx.branch, max_tokens, len(system_prompt),
         )
 
-        logger.info(f"[generate_draft] Session {session_id} updated with draft_sections.")
+        messages = [
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': f'Draft the document. The instructions are:\n\n{user_query}'},
+        ]
 
+        result = self._generate_and_validate(
+            messages, ctx, user_query=user_query, max_tokens=max_tokens,
+            session_id=session_id,
+        )
+
+        if result is None or result.fatal:
+            # Previously this wrote an empty `draft_sections` and never touched
+            # `status`, so the workspace polled a session that would never
+            # complete. Recording the failure is what kills the perpetual
+            # spinner — it does not need Celery.
+            self._write_draft_result(session_id, None, ctx, status='failed')
+            return
+
+        self._write_draft_result(session_id, result, ctx, status='completed')
+
+    def _generate_and_validate(self, messages, ctx, *, user_query, max_tokens,
+                               session_id=None, scenario='ai_draft:generate'):
+        """
+        Call the model, parse with the repair ladder, validate, and spend at most
+        one correction turn on the errors found.
+
+        Returns the best `DraftResult` obtained, or None if every attempt failed
+        to produce a usable document. The correction turn is only worth taking
+        for deterministic errors — a statute the branch forbids, a missing
+        mandatory section, an express instruction dropped without a word.
+        Warnings are logged and shipped.
+        """
+        conversation = list(messages)
+        best = None
+
+        for attempt in range(MAX_CORRECTION_TURNS + 1):
+            try:
+                raw, meta = chat_complete(
+                    messages=conversation,
+                    app_scenario=scenario,
+                    temperature=0.3,  # Low temp → reliable JSON structure
+                    max_tokens=max_tokens,
+                    return_usage=True,
+                )
+            except Exception:
+                logger.error("[generate_draft] LLM call failed on attempt %d: %s",
+                             attempt + 1, traceback.format_exc())
+                return best
+
+            finish_reason = (meta or {}).get('finish_reason')
+            result = parse_draft_payload(raw)
+            if not result.fatal:
+                validate(result, ctx, user_query=user_query, finish_reason=finish_reason)
+
+            logger.info(
+                "[generate_draft] session=%s attempt=%d doc_type=%s finish_reason=%s %s",
+                session_id, attempt + 1, ctx.doc_type, finish_reason, result.summary(),
+            )
+
+            # Keep the better of the two attempts. A correction turn can come
+            # back worse than what it was correcting, and shipping the worse one
+            # because it happened to be last would be a regression the user sees.
+            if best is None or _result_rank(result) > _result_rank(best):
+                best = result
+
+            if result.fatal:
+                if attempt >= MAX_CORRECTION_TURNS:
+                    break
+                conversation = conversation + [
+                    {'role': 'assistant', 'content': (str(raw) or '')[:2000]},
+                    {'role': 'user', 'content': (
+                        'That response could not be parsed. Return ONLY the JSON described '
+                        'in the output format — no prose before it, no commentary after it, '
+                        'no markdown fences.'
+                    )},
+                ]
+                continue
+
+            if not result.errors or attempt >= MAX_CORRECTION_TURNS:
+                break
+
+            conversation = conversation + [
+                {'role': 'assistant', 'content': (str(raw) or '')[:12000]},
+                {'role': 'user', 'content': build_correction_message(result, ctx)},
+            ]
+
+        return best
+
+    def _write_draft_result(self, session_id, result, ctx, *, status):
+        """
+        Persist sections, advisories and validation metadata in one write.
+
+        `draft_sections` / `original_draft` keep their existing shape and
+        encryption exactly. Advisories go into NEW siblings so they can never be
+        mistaken for draft sections — they cannot reach the DOCX/PDF export
+        paths, section reordering, or revert, all of which iterate
+        `draft_sections` alone.
+        """
+        now = datetime.datetime.now(datetime.timezone.utc)
+        update = {'status': status, 'last_updated_on': now}
+
+        if result is None:
+            update['draft_sections'] = []
+            update['original_draft'] = []
+            update['validation'] = {
+                'checked_on': now, 'fatal': True, 'findings': [],
+                'doc_type': ctx.doc_type, 'branch': ctx.branch,
+            }
+        else:
+            self._stamp_section_ids(result.sections)
+            encrypted = _encrypt_sections(result.sections)
+            update['draft_sections'] = encrypted
+            update['original_draft'] = encrypted
+            update['draft_assumptions'] = _encrypt_advisories(result.assumptions)
+            update['draft_notes'] = _encrypt_advisories(result.drafting_notes)
+            update['validation'] = {
+                'checked_on': now,
+                'fatal': False,
+                'repaired': result.repaired,
+                'schema': result.schema,
+                'doc_type': ctx.doc_type,
+                'branch': ctx.branch,
+                # Findings are quality metadata, not client content: codes and
+                # severities only. The `message` field quotes offending draft
+                # text, so it stays out of Mongo in plaintext.
+                'findings': [
+                    {'code': f.code, 'severity': f.severity, 'section_name': f.section_name}
+                    for f in result.findings
+                ],
+            }
+
+        self.get_mongo_client_db().update_one(
+            {'_id': ObjectId(session_id)}, {'$set': update}
+        )
+        logger.info("[generate_draft] Session %s written with status=%s", session_id, status)
+
+
+    def _stamp_section_ids(self, sections):
+        """Give every section the id the storage and edit paths key on."""
+        for section in sections or []:
+            section['section_id'] = str(ObjectId())
+        return sections
 
     def parse_draft_into_sections(self, draft_content):
-        logger.info("[parse_draft_into_sections] Parsing draft content into sections.")
+        """
+        Legacy entry point, now a wrapper over `parse_draft_payload`.
 
-        # Remove Markdown code block syntax if present
-        if draft_content.startswith("```") and draft_content.endswith("```"):
-            # Remove the first line (```json) and the last line (```)
-            draft_content = '\n'.join(draft_content.split('\n')[1:-1])
+        Kept because several callers (the file-upload generators, `tasks.py`, and
+        tests) want just the sections and nothing else. The repair ladder,
+        schema coercion and section cleaning all live in `draft_validator` so
+        there is exactly one parser in the product — the four-way prompt drift
+        this codebase already suffered is not a mistake worth repeating for
+        parsing.
 
-        # Check if draft_content is non-empty
-        if not draft_content.strip():
-            logger.error("[parse_draft_into_sections] draft_content is empty.")
+        Advisories returned by the advisory schema are discarded here by design:
+        a caller that wants them uses `parse_draft_payload` directly.
+        """
+        result = parse_draft_payload(draft_content)
+        if result.fatal:
+            logger.error("[parse_draft_into_sections] unparseable: %s",
+                         '; '.join(f.message for f in result.findings))
             return []
-
-        # Try to parse the JSON
-        try:
-            logger.info("[parse_draft_into_sections] draft_content to be parsed: %s", draft_content)  # Corrected logging
-            sections = json.loads(draft_content)  # Attempt JSON parsing
-
-            # Validate each section in the parsed JSON
-            for section in sections:
-                if not isinstance(section, dict) or 'section_name' not in section or 'content' not in section:
-                    logger.error("[parse_draft_into_sections] Invalid section format.")
-                    return []
-                section['section_id'] = str(ObjectId())  # Add unique ID to each section
-
-            logger.info("[parse_draft_into_sections] Successfully parsed sections.")
-            return sections
-
-        except json.JSONDecodeError as e:
-            logger.error("[parse_draft_into_sections] JSONDecodeError: %s", str(e))
-            logger.error("[parse_draft_into_sections] draft_content received: %s", draft_content)
-            return []
-        except Exception as e:
-            logger.error(f"[parse_draft_into_sections] Exception: {traceback.format_exc()}")
-            return []
+        if result.repaired:
+            logger.warning("[parse_draft_into_sections] recovered via %s (%d sections)",
+                           result.repaired, len(result.sections))
+        return self._stamp_section_ids(result.sections)
 
     def update_specific_section_of_the_draft(self, session_id, section_id, section_name, content):
         try:
@@ -570,8 +811,17 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
 
             draft_sections = _decrypt_sections(session.get('draft_sections', []))
             final_count = session.get('ai_suggested_update_count', 0)
-            status = session.get('status', 'completed')
             conversation_history = session.get('conversation_history', [])
+
+            # A session with no sections and no recorded status is one that
+            # failed before Phase 2 started writing `status` — the perpetual
+            # spinner. Report it as failed so the workspace can offer a retry
+            # instead of polling forever.
+            status = session.get('status')
+            if not status:
+                status = 'completed' if draft_sections else 'failed'
+            elif status == 'generating' and draft_sections:
+                status = 'completed'
 
             logger.info(f"[get_draft_sections] Retrieved {len(draft_sections)} sections for session {session_id}. Status: {status}")
             return {
@@ -579,10 +829,14 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
                 'ai_suggested_update_count': final_count,
                 'status': status,
                 'conversation_history': conversation_history,
+                # Advisories travel beside the sections, never inside them.
+                'assumptions': _decrypt_advisories(session.get('draft_assumptions', [])),
+                'drafting_notes': _decrypt_advisories(session.get('draft_notes', [])),
             }
         except Exception as e:
             logger.error(f"[retrieve_sections_of_draft]  ============>>>>>>: {traceback.format_exc()}")
-            return {'mssg': False, 'ai_suggested_update_count': 0, 'status': 'error', 'conversation_history': []}
+            return {'mssg': False, 'ai_suggested_update_count': 0, 'status': 'error',
+                    'conversation_history': [], 'assumptions': [], 'drafting_notes': []}
 
     def retrieve_single_section_from_session(self, session_id, section_id):
         try:
@@ -1008,46 +1262,43 @@ Return ONLY the updated section content. Do not include any headings, labels, pr
             logger.error(f"Exception in extract_text_from_file: {traceback.format_exc()}")
             return None
 
-    def generate_draft_sections_from_template(self, file_text, draft_type):
+    def generate_draft_sections_from_template(self, file_text, draft_type, *, ctx=None):
         """
-        Use OpenAI to process the file text and generate draft sections.
+        Generate draft sections from an existing template or an uploaded file.
+
+        The template text is the SOURCE, not the format authority: it goes in the
+        source block, while the playbook skeleton and the statute policy still
+        govern. Several corpus forms predate the 2023 codes, so a template that
+        cites the CrPC must not license the draft to do the same.
         """
-        # Create the prompt
-        prompt = f"""
-You are a legal expert specializing in drafting legal documents as per Indian legal standards and the Indian constitution.
-Use the current 2023 codes where criminal law/procedure/evidence apply — Bharatiya Nyaya Sanhita 2023 (BNS, replaced IPC), Bharatiya Nagarik Suraksha Sanhita 2023 (BNSS, replaced CrPC), and Bharatiya Sakshya Adhiniyam 2023 (BSA, replaced the Evidence Act) — giving the old-code equivalent in parentheses on first mention. Never assert a section number, statute, or case citation you are unsure of; name the provision and mark the exact section "to be confirmed" rather than guessing.
+        if ctx is None:
+            # `draft_type` is a genuine type label on this path (the template
+            # picker's folder name), unlike `draft_for` elsewhere.
+            ctx = classify(str(draft_type or ''), draft_type)
+            if ctx.is_generic and file_text:
+                ctx = classify(str(file_text)[:2000], draft_type)
 
-A user has requested: "{draft_type}" and to use this template text {file_text} only to generate the draft and follow the instructions below.
-
-**Formatting Instructions:**
-
-- Output the draft in **JSON** format.
-- The JSON should be an array of sections.
-- Each section should be an object with two properties:
-  - `"section_name"`: The name of the section.
-  - `"content"`: The content of the section, including placeholders where specific user information is required (like names, dates, addresses) in ALL CAPS (e.g., `[YOUR FULL NAME]`, `[DATE OF BIRTH]`).
-- Return ONLY the JSON array. Do not include any explanatory text, markdown code fences, or commentary before or after the JSON.
-
-Example:
-
-[
-    {{
-        "section_name": "TITLE OF THE SUIT",
-        "content": "Content of section I..."
-    }},
-    {{
-        "section_name": "PRELIMINARY STATEMENT",
-        "content": "Content of section II..."
-    }}
-]
-        """
+        system_prompt = build_draft_system_prompt(
+            ctx,
+            source_text=str(file_text or '')[:20000],
+        )
+        logger.info(
+            "[generate_from_template] doc_type=%s branch=%s draft_type=%r",
+            ctx.doc_type, ctx.branch, draft_type,
+        )
 
         try:
             generated_text = chat_complete(
-                messages=[{'role': 'user', 'content': prompt}],
+                messages=[
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': (
+                        f'Draft a {ctx.playbook.label} based on the source material above, '
+                        'adapting its structure to the mandatory skeleton.'
+                    )},
+                ],
                 app_scenario='ai_draft:generate_from_tpl',
                 temperature=0.3,
-                max_tokens=4000,
+                max_tokens=target_max_tokens(ctx),
             ).strip()
 
             # Parse the generated text into draft sections
@@ -1059,58 +1310,43 @@ Example:
             logger.error(f"Exception in generate_draft_sections_from_template: {traceback.format_exc()}")
             return None
 
-    def generate_draft_sections_with_gpt(self, file_text, language='English', user_description=None):
+    def generate_draft_sections_with_gpt(self, file_text, language='English', user_description=None,
+                                         *, ctx=None):
         """
-        Use OpenAI to generate draft sections from the case document text.
+        Generate draft sections from a case document.
+
+        Classification prefers the user's own description of what they want, and
+        only falls back to sniffing the document itself — a case file describes
+        the matter, not necessarily the instrument the user is asking for.
         """
-        description_block = f"""
-The user also provided the following instructions/context for this draft:
+        if ctx is None:
+            ctx = classify(str(user_description or ''))
+            if ctx.is_generic and file_text:
+                ctx = classify(str(file_text)[:2000])
 
-{user_description}
-""" if user_description else ""
+        instruction = 'Draft the document from the case material above.'
+        if user_description:
+            instruction += f'\n\nThe user\'s instructions:\n\n{user_description}'
 
-        # Create the prompt
-        prompt = f"""
-You are a legal expert specializing in drafting legal documents as per Indian legal standards and the Indian constitution.
-Use the current 2023 codes where criminal law/procedure/evidence apply — Bharatiya Nyaya Sanhita 2023 (BNS, replaced IPC), Bharatiya Nagarik Suraksha Sanhita 2023 (BNSS, replaced CrPC), and Bharatiya Sakshya Adhiniyam 2023 (BSA, replaced the Evidence Act) — giving the old-code equivalent in parentheses on first mention. Never assert a section number, statute, or case citation you are unsure of; name the provision and mark the exact section "to be confirmed" rather than guessing.
-
-Analyze the following case document and generate a legal draft accordingly **in {language}**.
-{description_block}
-
-**Formatting Instructions:**
-
-- Output the draft in **JSON** format.
-- The JSON should be an array of sections.
-- Each section should be an object with two properties:
-  - `"section_name"`: The name of the section.
-  - `"content"`: The content of the section, including placeholders where specific user information is required (like names, dates, addresses) in ALL CAPS (e.g., `[YOUR FULL NAME]`, `[DATE OF BIRTH]`). Beside each placeholder, fill in the value if it can be found in the case document provided.
-- Each section content should be at least 70-80 words where possible, comprehensive and accurate to Indian law.
-- Return ONLY the JSON array. Do not include any explanatory text, markdown code fences, or commentary before or after the JSON.
-
-Example:
-
-[
-    {{
-        "section_name": "TITLE OF THE SUIT",
-        "content": "Content of section I..."
-    }},
-    {{
-        "section_name": "PRELIMINARY STATEMENT",
-        "content": "Content of section II..."
-    }}
-]
-
-Here is the case document:
-
-{file_text}
-        """
+        system_prompt = build_draft_system_prompt(
+            ctx,
+            language=language,
+            source_text=str(file_text or '')[:20000],
+        )
+        logger.info(
+            "[generate_from_case] doc_type=%s branch=%s has_description=%s",
+            ctx.doc_type, ctx.branch, bool(user_description),
+        )
 
         try:
             generated_text = chat_complete(
-                messages=[{'role': 'user', 'content': prompt}],
+                messages=[
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': instruction},
+                ],
                 app_scenario='ai_draft:generate_from_case',
                 temperature=0.3,
-                max_tokens=4000,
+                max_tokens=target_max_tokens(ctx),
             ).strip()
 
             # Parse the generated text into draft sections

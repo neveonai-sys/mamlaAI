@@ -29,6 +29,7 @@ const CLIENT_NAV = [
   { label: 'Dashboard',          path: '/dashboard',      icon: 'dashboard' },
   { label: 'My Case',            path: '/my-case',        icon: 'folder_open' },
   { label: 'Calendar & Events',  path: '/calendar',       icon: 'calendar_month' },
+  { label: 'eCourts',            path: '/ecourts',        icon: 'search' },
   // { label: 'Sessions',           path: '/sessions',       icon: 'forum' },
   { label: 'Feedback',           path: '/feedback',       icon: 'rate_review' },
 ];

@@ -1,0 +1,92 @@
+id: 002_construction_recovery_notice
+
+# Reviewer findings this fixture encodes:
+#   - "This demand is made in accordance with the provisions of the Bharatiya
+#     Nyaya Sanhita 2023 (BNS) and the Bharatiya Nagarik Suraksha Sanhita 2023
+#     (BNSS)" in a purely contractual recovery claim. Called "the most serious
+#     flaw" and "a fundamental misunderstanding of the applicable legal framework"
+#   - arbitration invoked but made conditional on payment; a s.21 invocation
+#     should communicate an unconditional intention to commence arbitration
+#   - form-like headings ("TITLE OF THE NOTICE", "SENDER'S DETAILS")
+#   - "Defendant" used at notice stage, before any suit exists
+#   - cost of the notice not claimed
+
+prompt: |
+  Act as an experienced litigation lawyer. Draft a legal notice on behalf of
+  my client, ABC Infrastructure Pvt. Ltd., against XYZ Developers LLP.
+
+  Facts:
+  - Parties entered into a construction contract on 15 February 2026 worth Rs 2.8 crore.
+  - Client completed approximately 90% of the work.
+  - Rs 70 lakh remains unpaid despite certification by the project engineer.
+  - Defendant has started engaging another contractor without terminating the agreement.
+  - Contract contains an arbitration clause and provides interest at 12% per annum
+    on delayed payments.
+  - Multiple reminders were sent through email but received no response.
+
+  Draft a detailed legal notice including:
+  - chronology of facts;
+  - breach of contract;
+  - claim for outstanding dues, contractual interest, and damages;
+  - preservation of evidence;
+  - invocation of the arbitration clause;
+  - reservation of all legal rights and remedies;
+  - a professional advocate's format suitable for issuance.
+
+expect:
+  doc_type: legal_notice.demand
+  branch: commercial
+
+  must_contain:
+    - "That "
+    - ["NOW THEREFORE", "call upon you"]
+    - ["TAKE NOTICE", "constrained to initiate"]
+    - ["Yours faithfully", "Yours truly"]
+    - "Advocate"
+    - "arbitration"
+
+  must_contain_section_names:
+    - "RECITALS"
+    - "BREACH"
+    - "PRESERVATION OF EVIDENCE"
+    - "ARBITRATION"
+    - "NOW THEREFORE"
+    - "TAKE NOTICE"
+
+  must_not_contain:
+    - "TITLE OF THE NOTICE"
+    - "SENDER'S DETAILS"
+    - "CLOSING STATEMENT"
+    # A noticee is not yet a defendant; no suit exists at notice stage.
+    - "the Defendant"
+
+  # Defect #1, second occurrence. A contractual money claim is commercial.
+  forbid_penal_statutes: true
+
+  # The prompt asked for these in terms, and the reviewers scored both products
+  # on them. "Costs of notice: R1 not claimed / R2 claims cost of legal notice."
+  must_contain_clauses:
+    - ["cost of this notice", "cost of this legal notice", "costs of this notice",
+       "cost of issuing this notice"]
+    - ["preserve all", "preservation of", "do not destroy", "spoliation"]
+    - ["reserves all", "reserves its rights", "without prejudice to"]
+
+  # State each literal AS THE PROMPT EXPRESSES IT, with its unit. Writing the
+  # bare digits "70" and "2.8" made this check fire on a fully compliant notice:
+  # a bare "70" normalises to the key `70|`, while the draft's correct
+  # "Rs. 70,00,000/- (Rupees Seventy Lakh only)" normalises to `7000000|`.
+  # With the unit present, both sides fold to the same amount.
+  literals_from_prompt:
+    - "Rs 70 lakh"
+    - "12%"
+    - "Rs 2.8 crore"
+
+  min_sections: 8
+  require_assumptions: true
+  require_drafting_notes: true
+
+notes: |
+  The reviewers' verdict was "R2 wins, but neither is litigation-ready". The
+  arbitration formulation is the remaining gap in both products: invocation
+  must not be conditional on payment. That is a playbook `pitfalls` entry, and
+  it is judged by score_judge rather than asserted here.
