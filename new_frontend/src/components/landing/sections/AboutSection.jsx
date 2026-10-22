@@ -68,9 +68,9 @@ export default function AboutSection() {
               </div>
               <h4 className="text-xl font-bold text-ink">{m.name}</h4>
               <p className="mb-3 font-medium text-primary">{m.role}</p>
-              <span className="mb-4 inline-block rounded-lg bg-primary/10 px-3 py-1 text-[11px] font-bold text-primary">
+              {/* <span className="mb-4 inline-block rounded-lg bg-primary/10 px-3 py-1 text-[11px] font-bold text-primary">
                 🎓 {m.college}
-              </span>
+              </span> */}
               <p className="mb-5 text-[13px] leading-7 text-graphite">{m.bio}</p>
               <a href={m.linkedin} className="text-primary transition-colors hover:text-primary-dark" aria-label={`${m.name} on LinkedIn`}>
                 <LinkedInIcon />
