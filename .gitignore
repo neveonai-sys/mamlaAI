@@ -18,7 +18,7 @@ new_frontend/android/app/build
 new_frontend/android/build
 new_frontend/android/.gradle
 
-draftdocs/*
+# draftdocs/*
 draftdocs_v2/*
 Legalv1/temp_audio/*
 advocate_list/*
